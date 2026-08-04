@@ -1,0 +1,723 @@
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
+import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage } from "@/lib/pdf";
+import { COMPANY } from "@/lib/company";
+import { z } from "zod";
+
+export const Route = createFileRoute("/_authenticated/dashboard")({
+  beforeLoad: ({ context }) => {
+    const ctx = context as { isIntern?: boolean; isAdmin?: boolean };
+    if (ctx.isAdmin) {
+      throw redirect({ to: "/admin" });
+    }
+  },
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [internship, setInternship] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [newPassword, setNewPassword] = useState("");
+  const [showForcePw, setShowForcePw] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
+
+  // Profile editing states
+  const [saving, setSaving] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  async function load() {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const [{ data: p }, { data: i }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", u.user.id).single(),
+      supabase.from("internships").select("*, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+    ]);
+    setProfile(p);
+    setPhoto(p?.avatar_url ?? null);
+    setInternship(i);
+    if (i?.id) {
+      const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", i.id).order("task_no");
+      setSubmissions(s ?? []);
+    }
+    setLoading(false);
+  }
+
+  function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
+    const r = new FileReader();
+    r.onload = () => setPhoto(typeof r.result === "string" ? r.result : null);
+    r.readAsDataURL(file);
+  }
+
+  const profileSchema = z.object({
+    full_name: z.string().trim().min(2).max(100),
+    phone: z.string().trim().max(30).optional().or(z.literal("")),
+    college: z.string().trim().max(150).optional().or(z.literal("")),
+    department: z.string().trim().max(100).optional().or(z.literal("")),
+    year: z.string().trim().max(40).optional().or(z.literal("")),
+    github_url: z.string().trim().url().max(300).optional().or(z.literal("")),
+    linkedin_url: z.string().trim().url().max(300).optional().or(z.literal("")),
+  });
+
+  async function handleSaveProfile(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const parsed = profileSchema.safeParse(Object.fromEntries(fd));
+    if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    setSaving(true);
+    const payload: any = Object.fromEntries(Object.entries(parsed.data).map(([k, v]) => [k, v === "" ? null : v]));
+    payload.avatar_url = photo;
+    const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Profile updated");
+    load();
+  }
+
+  async function handleForceChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    setPwBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setPwBusy(false);
+      return toast.error(error.message);
+    }
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", profile.id);
+    setPwBusy(false);
+    if (profileError) return toast.error(profileError.message);
+    toast.success("Password changed successfully!");
+    setProfile({ ...profile, must_change_password: false });
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  if (!internship) return (
+    <div className="container mx-auto max-w-xl py-20 text-center">
+      <h1 className="text-2xl font-bold mb-2">No internship found</h1>
+      <p className="text-muted-foreground mb-6">Please register again to select your domain.</p>
+      <Button asChild><Link to="/auth">Go to registration</Link></Button>
+    </div>
+  );
+
+  const durationTasksCount = internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5;
+  const tasks = getTasksForSlug(internship.domain?.slug).slice(0, durationTasksCount);
+  const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
+  const isApproved = internship.status === "active" || internship.status === "completed";
+  const task1Approved = submissions.some((s) => s.task_no === 1 && s.status === "approved");
+
+  return (
+    <div className="container mx-auto px-4 py-10 space-y-8">
+      {/* Welcome & Overview Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6 border-border/40">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
+          <p className="text-muted-foreground">{COMPANY.name} Internship Portal</p>
+        </div>
+      </div>
+
+      {/* Prominent Offer Letter Banner */}
+      {internship.status === "active" && internship.offer_letter_code && (
+        <Card className="p-6 border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col md:flex-row items-center justify-between gap-6 shadow-elegant">
+          <div className="space-y-1">
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" /> Download Your Official Offer Letter
+            </h3>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              Your enrollment is approved! Download your offer letter to complete Task 1 (LinkedIn post announcement).
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              toast.promise(
+                downloadOfferLetterFromStorage(profile.id, internship.internship_code),
+                {
+                  loading: "Downloading offer letter...",
+                  success: "Downloaded successfully!",
+                  error: "Failed to download offer letter."
+                }
+              );
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-elegant px-6"
+          >
+            Download Offer Letter
+          </Button>
+        </Card>
+      )}
+
+      {/* Modern SaaS Sub-Navigation Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full h-auto p-1 bg-muted rounded-lg">
+          <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm">Dashboard</TabsTrigger>
+          <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm">My Tasks</TabsTrigger>
+          <TabsTrigger value="projects" className="py-2 text-xs md:text-sm">Projects</TabsTrigger>
+          <TabsTrigger value="offer" className="py-2 text-xs md:text-sm">Offer Letter</TabsTrigger>
+          <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm">ID Card</TabsTrigger>
+          <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm">Certificate</TabsTrigger>
+          <TabsTrigger value="profile" className="py-2 text-xs md:text-sm">Profile</TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: Dashboard */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+            <Stat label="Domain" value={internship.domain?.name ?? "—"} />
+            <Stat label="Duration" value={internship.duration || "1 Month"} />
+            <Stat label="Internship ID" value={internship.internship_code} mono />
+            <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"}>{internship.status}</Badge>} />
+            <Stat label="Progress" value={`${internship.progress_percent}%`} />
+          </div>
+
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Progress</h2>
+              <div className="text-sm text-muted-foreground space-x-4">
+                <span>{submissions.filter(s=>s.status==='approved').length} / {durationTasksCount} tasks approved</span>
+                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - submissions.filter(s=>s.status==='approved').length)} tasks remaining</span>
+              </div>
+            </div>
+            <Progress value={internship.progress_percent} />
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="p-6 space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2"><IdCard className="h-5 w-5 text-primary" /> Internship ID Card Preview</h3>
+              <div className="flex justify-center bg-muted/30 p-4 rounded-lg">
+                <div className="w-[180px] h-[280px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[8px]">
+                  <div className="bg-primary text-primary-foreground p-3 text-center">
+                    <div className="font-bold text-[10px]">{COMPANY.name}</div>
+                    <div className="text-[5px] opacity-80">{COMPANY.tagline}</div>
+                    <div className="font-semibold mt-1">INTERN ID CARD</div>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
+                    {photo ? (
+                      <img src={photo} alt="Student" className="w-16 h-18 rounded object-cover border" />
+                    ) : (
+                      <div className="w-16 h-18 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
+                    )}
+                    <div className="text-center">
+                      <div className="font-bold text-[9px] truncate max-w-[150px]">{profile?.full_name}</div>
+                      <div className="text-muted-foreground text-[6px] mt-0.5">{internship.domain?.name}</div>
+                    </div>
+                    <div className="w-full text-left space-y-1 pt-2 border-t text-[6px]">
+                      <div className="flex justify-between"><span>ID:</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
+                      <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[100px]">{profile?.email}</span></div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 h-1" />
+                </div>
+              </div>
+              <Button onClick={() => setActiveTab("idcard")} variant="outline" className="w-full">Manage ID Card</Button>
+            </Card>
+
+            <Card className="p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary" /> Certificate of Completion</h3>
+                <p className="text-sm text-muted-foreground">
+                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are reviewed and approved by the admin.
+                </p>
+              </div>
+              <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-6">View Certificate Status</Button>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Tab 2: Tasks */}
+        <TabsContent value="tasks">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Internship Tasks ({internship.domain?.name})</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              You must submit Task 1 (LinkedIn Offer Letter Announcement) first and get it approved by the admin to unlock the remaining tasks.
+            </p>
+            <div className="space-y-4">
+              {tasks.map((t) => (
+                <TaskRow
+                  key={t.no}
+                  task={t}
+                  submission={submissionByNo.get(t.no)}
+                  internshipId={internship.id}
+                  locked={t.no > 1 && !task1Approved}
+                  onUpdated={load}
+                />
+              ))}
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 4: Offer Letter */}
+        <TabsContent value="offer">
+          <Card className="p-6 max-w-xl mx-auto space-y-6">
+            <div className="flex items-center justify-between border-b pb-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2"><FileText className="h-5 w-5 text-blue-600" /> Offer Letter Details</h2>
+              <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Approved</Badge>
+            </div>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Offer ID Code:</span>
+                <span className="font-mono font-semibold">{internship.offer_letter_code ?? "Pending"}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Internship ID:</span>
+                <span className="font-mono font-semibold">{internship.internship_code}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Udyam Registration:</span>
+                <span className="font-semibold">{COMPANY.udyam}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Issue Status:</span>
+                <span className="text-emerald-600 font-semibold">Approved & Signed</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                disabled={!internship.offer_letter_code}
+                onClick={() => {
+                  toast.promise(
+                    downloadOfferLetterFromStorage(profile.id, internship.internship_code),
+                    {
+                      loading: "Downloading offer letter PDF...",
+                      success: "Downloaded successfully!",
+                      error: "Failed to download offer letter PDF."
+                    }
+                  );
+                }}
+                className="flex-1 bg-gradient-primary text-primary-foreground"
+              >
+                Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={!internship.offer_letter_code}
+                onClick={() => {
+                  toast.promise(
+                    viewOfferLetterFromStorage(profile.id),
+                    {
+                      loading: "Opening offer letter preview...",
+                      success: "Opened!",
+                      error: "Failed to open offer letter preview."
+                    }
+                  );
+                }}
+              >
+                View Offer Letter
+              </Button>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 3: Projects */}
+        <TabsContent value="projects">
+          <Card className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold">Projects</h2>
+            {(() => {
+              const [projs, setProjs] = useState<any[]>([]);
+              const [mySubs, setMySubs] = useState<any[]>([]);
+              const [loadingProj, setLoadingProj] = useState(true);
+              useEffect(() => {
+                if (!internship) return;
+                (async () => {
+                  const [{ data: p }, { data: ps }] = await Promise.all([
+                    (supabase as any).from("projects").select("*, project_domains(domain_id)").eq("active", true).order("created_at", { ascending: false }),
+                    (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id),
+                  ]);
+                  const domainProjects = (p ?? []).filter((proj: any) =>
+                    proj.project_domains?.some((pd: any) => pd.domain_id === internship.domain_id)
+                  );
+                  setProjs(domainProjects);
+                  setMySubs(ps ?? []);
+                  setLoadingProj(false);
+                })();
+              }, [internship]);
+              if (loadingProj) return <Loader2 className="h-5 w-5 animate-spin" />;
+              if (projs.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No projects assigned to your domain yet.</p>;
+              return (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {projs.map((proj) => {
+                    const sub = mySubs.find((s: any) => s.project_id === proj.id);
+                    return (
+                      <Card key={proj.id} className="p-4 border space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold">{proj.title}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">{proj.description || "No description"}</p>
+                          </div>
+                          <Badge variant={proj.difficulty === "Beginner" ? "secondary" : proj.difficulty === "Advanced" ? "destructive" : "default"}>{proj.difficulty}</Badge>
+                        </div>
+                        {proj.deadline && <p className="text-xs text-muted-foreground">Deadline: {new Date(proj.deadline).toLocaleDateString()}</p>}
+                        {sub ? (
+                          <div className="p-2 bg-accent rounded text-sm">
+                            <div className="flex items-center gap-2">
+                              <span>Status:</span>
+                              <Badge variant={sub.status === "approved" ? "default" : sub.status === "rejected" ? "destructive" : "secondary"}>{sub.status}</Badge>
+                            </div>
+                            {sub.feedback && <p className="text-xs mt-1">Feedback: {sub.feedback}</p>}
+                          </div>
+                        ) : (
+                          <ProjectSubmitForm projectId={proj.id} studentId={internship.student_id} onSubmitted={() => {
+                            (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id).then(({ data }: any) => setMySubs(data ?? []));
+                          }} />
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </Card>
+        </TabsContent>
+
+        {/* Tab 5: ID Card */}
+        <TabsContent value="idcard">
+          <Card className="p-6 max-w-sm mx-auto space-y-6 text-center shadow-elegant">
+            <h2 className="text-xl font-semibold flex items-center justify-center gap-2"><IdCard className="h-5 w-5 text-primary" /> Digital ID Card</h2>
+
+            {internship.status === "pending" || internship.status === "rejected" ? (
+              <div className="py-8">
+                <p className="text-amber-600 font-medium">Your ID Card will be available after your application is approved.</p>
+                <p className="text-sm text-muted-foreground mt-2">Current status: <Badge variant={internship.status === "pending" ? "secondary" : "destructive"}>{internship.status}</Badge></p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-center">
+                  <div className="w-[200px] h-[310px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[9px] border-primary/20">
+                    <div className="bg-primary text-primary-foreground p-3 text-center">
+                      <div className="font-bold text-[11px]">{COMPANY.name}</div>
+                      <div className="text-[6px] opacity-80">{COMPANY.tagline}</div>
+                      <div className="font-semibold mt-1">INTERN ID CARD</div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-3">
+                      {photo ? (
+                        <img src={photo} alt="Student" className="w-18 h-20 rounded object-cover border shadow-sm" />
+                      ) : (
+                        <div className="w-18 h-20 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
+                      )}
+                      <div className="text-center">
+                        <div className="font-bold text-[10px] truncate max-w-[170px]">{profile?.full_name}</div>
+                        <div className="text-muted-foreground text-[7px] mt-0.5">{internship.domain?.name}</div>
+                      </div>
+                      <div className="w-full text-left space-y-1.5 pt-3 border-t text-[7px]">
+                        <div className="flex justify-between"><span>ID:</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
+                        <div className="flex justify-between"><span>Duration:</span><span>{internship.duration || "1 Month"}</span></div>
+                        <div className="flex justify-between"><span>Issue:</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                        <div className="flex justify-between"><span>Valid:</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                        <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[100px]">{profile?.email}</span></div>
+                      </div>
+                      <div className="text-[6px] text-muted-foreground pt-1">
+                        Founder & CEO: {COMPANY.founder}
+                      </div>
+                    </div>
+                    <div className="absolute right-2 bottom-6 opacity-30">
+                      <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center text-[4px] font-bold text-primary">{COMPANY.name[0]}{COMPANY.name.split(" ")[1]?.[0] ?? ""}</div>
+                    </div>
+                    <div className="bg-slate-900 h-1.5" />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => downloadIdCard({
+                    fullName: profile?.full_name ?? "Intern",
+                    internshipCode: internship.internship_code,
+                    domain: internship.domain?.name ?? "",
+                    photoDataUrl: profile?.avatar_url,
+                    email: profile?.email,
+                    duration: internship.duration,
+                  })}
+                  className="w-full bg-gradient-primary text-primary-foreground"
+                >
+                  Download PDF ID Card
+                </Button>
+              </>
+            )}
+          </Card>
+        </TabsContent>
+
+        {/* Tab 6: Certificate */}
+        <TabsContent value="certificate">
+          <Card className="p-6 max-w-xl mx-auto space-y-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary" /> Certificate of Completion</h2>
+            
+            <p className="text-sm text-muted-foreground">
+              Your certificate will unlock automatically once all required tasks ({durationTasksCount}) are submitted and approved by the admin.
+            </p>
+
+            <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span>Verification Status:</span>
+                {internship.certificate_code ? (
+                  <Badge className="bg-emerald-600">Issued</Badge>
+                ) : (
+                  <Badge variant="outline">Locked ({submissions.filter(s=>s.status==='approved').length} / {durationTasksCount} Tasks Approved)</Badge>
+                )}
+              </div>
+              {internship.certificate_code && (
+                <div className="flex justify-between">
+                  <span>Certificate ID:</span>
+                  <span className="font-mono font-semibold">{internship.certificate_code}</span>
+                </div>
+              )}
+            </div>
+
+            <Button
+              disabled={!internship.certificate_code}
+              onClick={() => downloadCertificate({
+                fullName: profile?.full_name ?? "Intern",
+                domain: internship.domain?.name ?? "",
+                internshipCode: internship.internship_code,
+                certificateCode: internship.certificate_code,
+                issuedAt: internship.certificate_issued_at,
+                duration: internship.duration,
+              })}
+              className="w-full bg-gradient-primary text-primary-foreground"
+            >
+              {internship.certificate_code ? "Download Certificate PDF" : "Locked"}
+            </Button>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 7: Profile */}
+        <TabsContent value="profile">
+          <Card className="p-6 max-w-xl mx-auto space-y-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Edit My Profile</h2>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div className="flex items-center gap-4">
+                {photo ? <img src={photo} alt="me" className="h-20 w-20 rounded-full object-cover border" /> : <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">No photo</div>}
+                <div>
+                  <Label>Student photo (max 600KB)</Label>
+                  <Input type="file" accept="image/*" onChange={onPhoto} />
+                </div>
+              </div>
+              <div><Label>Email (Cannot be modified)</Label><Input value={profile?.email ?? ""} disabled /></div>
+              <div><Label htmlFor="full_name">Full name</Label><Input id="full_name" name="full_name" defaultValue={profile?.full_name ?? ""} required /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label htmlFor="phone">Phone</Label><Input id="phone" name="phone" defaultValue={profile?.phone ?? ""} /></div>
+                <div><Label htmlFor="year">Year</Label><Input id="year" name="year" defaultValue={profile?.year ?? ""} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label htmlFor="college">College</Label><Input id="college" name="college" defaultValue={profile?.college ?? ""} /></div>
+                <div><Label htmlFor="department">Department</Label><Input id="department" name="department" defaultValue={profile?.department ?? ""} /></div>
+              </div>
+              <div><Label htmlFor="github_url">GitHub Profile Link</Label><Input id="github_url" name="github_url" type="url" defaultValue={profile?.github_url ?? ""} placeholder="https://github.com/username" /></div>
+              <div><Label htmlFor="linkedin_url">LinkedIn Profile Link</Label><Input id="linkedin_url" name="linkedin_url" type="url" defaultValue={profile?.linkedin_url ?? ""} /></div>
+              <Button type="submit" disabled={saving} className="bg-gradient-primary text-primary-foreground">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Profile Details"}</Button>
+            </form>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={!!profile?.must_change_password}>
+        <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Change Password Required</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleForceChangePassword} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You are currently logged in with your default password (your phone number). Please set a secure password to access your YR NOVATECH dashboard.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="force-pw">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="force-pw"
+                  type={showForcePw ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  required
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowForcePw(!showForcePw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showForcePw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <Button type="submit" disabled={pwBusy} className="w-full bg-gradient-primary text-primary-foreground">
+              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Password & Continue"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+    </div>
+  );
+}
+
+function Stat({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
+  return (
+    <Card className="p-5">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`text-lg font-semibold mt-1 ${mono ? "font-mono" : ""}`}>{value}</div>
+    </Card>
+  );
+}
+
+function DownloadCard({ icon: Icon, title, desc, available, onClick }: any) {
+  return (
+    <Card className="p-5 flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center"><Icon className="h-5 w-5 text-primary-foreground" /></div>
+        <div>
+          <div className="font-semibold">{title}</div>
+          <div className="text-xs text-muted-foreground">{desc}</div>
+        </div>
+      </div>
+      <Button disabled={!available} onClick={onClick} variant={available ? "default" : "outline"} className={available ? "bg-gradient-primary text-primary-foreground" : ""}>
+        {available ? "Download PDF" : "Locked"}
+      </Button>
+    </Card>
+  );
+}
+
+function ProjectSubmitForm({ projectId, studentId, onSubmitted }: { projectId: string; studentId: string; onSubmitted: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [fileUrl, setFileUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [notes, setNotes] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await (supabase as any).from("project_submissions").insert({
+      project_id: projectId,
+      student_id: studentId,
+      file_url: fileUrl || null,
+      github_url: githubUrl || null,
+      notes: notes || null,
+      status: "pending",
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Project submitted for review");
+      setOpen(false);
+      onSubmitted();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="w-full">Submit Project</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Submit Project</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>File URL</Label>
+            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://drive.google.com/..." />
+          </div>
+          <div>
+            <Label>GitHub URL</Label>
+            <Input value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/..." />
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+          <Button type="submit" disabled={busy} className="w-full">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}</Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: TaskDef; submission: any; internshipId: string; locked: boolean; onUpdated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const status = submission?.status as string | undefined;
+  const canSubmit = !locked && (!submission || status === "rejected" || status === "resubmit");
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const payload: any = {
+      internship_id: internshipId,
+      task_no: task.no,
+      github_url: (fd.get("github") as string) || null,
+      project_url: (fd.get("project") as string) || null,
+      drive_url: (fd.get("drive") as string) || null,
+      notes: (fd.get("notes") as string) || null,
+      status: "pending",
+      feedback: null,
+      submitted_at: new Date().toISOString(),
+    };
+    setBusy(true);
+    const { error } = submission
+      ? await supabase.from("submissions").update(payload).eq("id", submission.id)
+      : await supabase.from("submissions").insert(payload);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Submitted for review");
+    setOpen(false);
+    onUpdated();
+  }
+
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs text-muted-foreground">Task {task.no}</span>
+            <h3 className="font-semibold">{task.title}</h3>
+            {task.no === 1 && <Linkedin className="h-3.5 w-3.5 text-blue-600" />}
+            {status && <Badge variant={status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"}>{status}</Badge>}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+          {submission?.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Reviewer:</b> {submission.feedback}</p>}
+          {submission && (
+            <div className="flex gap-3 mt-2 text-xs">
+              {submission.github_url && <a href={submission.github_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
+              {submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
+              {submission.drive_url && <a href={submission.drive_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
+            </div>
+          )}
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" disabled={!canSubmit} variant={canSubmit ? "default" : "outline"}>
+              <Upload className="h-3.5 w-3.5 mr-1"/>{submission ? "Resubmit" : "Submit"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Task {task.no}: {task.title}</DialogTitle></DialogHeader>
+            <form onSubmit={submit} className="space-y-3">
+              {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
+              {task.requires.project && <div><Label>{task.requires.linkedin ? "LinkedIn Post URL" : "Project URL"}</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
+              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}
+              <div><Label>Notes (optional)</Label><Textarea name="notes" rows={3} defaultValue={submission?.notes ?? ""} /></div>
+              <Button type="submit" disabled={busy} className="w-full bg-gradient-primary text-primary-foreground">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Submit for review"}</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
