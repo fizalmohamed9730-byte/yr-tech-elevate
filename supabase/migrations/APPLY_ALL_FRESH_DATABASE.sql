@@ -553,6 +553,47 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- ------------------------- 15b. Enquiries & Announcements -------------------------
+CREATE TABLE IF NOT EXISTS public.enquiries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text NOT NULL,
+  message text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  read_at timestamptz,
+  status text NOT NULL DEFAULT 'new' CHECK (status IN ('new','read','archived'))
+);
+GRANT SELECT ON public.enquiries TO authenticated;
+GRANT ALL ON public.enquiries TO service_role;
+ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can submit an enquiry" ON public.enquiries;
+CREATE POLICY "Anyone can submit an enquiry" ON public.enquiries
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Admins view enquiries" ON public.enquiries;
+CREATE POLICY "Admins view enquiries" ON public.enquiries
+  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins manage enquiries" ON public.enquiries;
+CREATE POLICY "Admins manage enquiries" ON public.enquiries
+  FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE TABLE IF NOT EXISTS public.announcements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  body text NOT NULL DEFAULT '',
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.announcements TO authenticated;
+GRANT ALL ON public.announcements TO service_role;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Auth users view announcements" ON public.announcements;
+CREATE POLICY "Auth users view announcements" ON public.announcements
+  FOR SELECT TO authenticated USING (active = true);
+DROP POLICY IF EXISTS "Admins manage announcements" ON public.announcements;
+CREATE POLICY "Admins manage announcements" ON public.announcements
+  FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+
 -- ------------------------- 16. Admin bootstrap RPC -------------------------
 CREATE OR REPLACE FUNCTION public.promote_to_admin(p_email text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$

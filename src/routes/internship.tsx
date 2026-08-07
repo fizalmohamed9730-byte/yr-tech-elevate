@@ -2,15 +2,28 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Button } from "@/components/ui/button";
-import { UserPlus, FileText, Linkedin, Code, Github, ClipboardCheck, Award, ArrowRight } from "lucide-react";
+import {
+  UserPlus,
+  FileText,
+  Linkedin,
+  Code,
+  Github,
+  ClipboardCheck,
+  Award,
+  ArrowRight,
+} from "lucide-react";
 
 export const Route = createFileRoute("/internship")({
   head: () => ({
     meta: [
       { title: "Project-Based Internship Program | YR NOVATECH" },
-      { name: "description", content: "Join YR NOVATECH's project-based internship in Full Stack, UI/UX, C++, Python, and Cyber Security. Earn verifiable certificates." },
+      {
+        name: "description",
+        content:
+          "Join YR NOVATECH's project-based internship in Full Stack, UI/UX, C++, Python, Cyber Security, and AI. Earn verifiable certificates.",
+      },
       { property: "og:title", content: "YR NOVATECH Internship Program" },
-      { property: "og:description", content: "Hands-on internships across five tech domains." },
+      { property: "og:description", content: "Hands-on internships across six tech domains." },
     ],
   }),
   component: Internship,
@@ -22,6 +35,7 @@ const domains = [
   { title: "C++ Programming", desc: "DSA, OOP, competitive problem solving." },
   { title: "Python Programming", desc: "Scripting, automation, backend with FastAPI." },
   { title: "Cyber Security", desc: "Ethical hacking, web security, CTF challenges." },
+  { title: "Artificial Intelligence", desc: "LLMs, RAG, computer vision, ML pipelines." },
 ];
 
 const workflow = [
@@ -44,8 +58,14 @@ function Internship() {
           description="A structured, mentor-guided journey from registration to verifiable certificate."
         />
         <div className="text-center">
-          <Button asChild size="lg" className="bg-gradient-primary text-primary-foreground shadow-elegant">
-            <Link to="/apply">Apply Now <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          <Button
+            asChild
+            size="lg"
+            className="bg-gradient-primary text-primary-foreground shadow-elegant"
+          >
+            <Link to="/apply">
+              Apply Now <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </Section>
@@ -54,7 +74,10 @@ function Internship() {
         <h3 className="text-2xl font-bold mb-6 text-center">Choose your domain</h3>
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {domains.map((d) => (
-            <Card key={d.title} className="p-6 hover:shadow-elegant hover:-translate-y-1 transition-all">
+            <Card
+              key={d.title}
+              className="p-6 hover:shadow-elegant hover:-translate-y-1 transition-all"
+            >
               <h4 className="font-semibold mb-2">{d.title}</h4>
               <p className="text-sm text-muted-foreground">{d.desc}</p>
             </Card>
@@ -68,7 +91,10 @@ function Internship() {
           <div className="absolute left-6 top-2 bottom-2 w-px bg-border md:left-1/2" />
           <div className="space-y-6">
             {workflow.map((w, i) => (
-              <div key={w.title} className={`relative flex gap-4 md:gap-8 items-start ${i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}>
+              <div
+                key={w.title}
+                className={`relative flex gap-4 md:gap-8 items-start ${i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
+              >
                 <div className="md:w-1/2 md:text-right flex md:justify-end">
                   <div className="ml-16 md:ml-0 md:mr-8">
                     <h4 className="font-semibold">{w.title}</h4>

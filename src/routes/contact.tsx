@@ -10,6 +10,7 @@ import { Mail, User, Building } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { COMPANY } from "@/lib/company";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -33,7 +34,7 @@ function Contact() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [loading, setLoading] = useState(false);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
@@ -41,11 +42,25 @@ function Contact() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      toast.success("Message sent! We'll get back within 24 hours.");
-      setForm({ name: "", email: "", message: "" });
+    try {
+      const { error } = await supabase.from("enquiries").insert({
+        name: parsed.data.name,
+        email: parsed.data.email,
+        message: parsed.data.message,
+        status: "new",
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Message sent! We'll get back within 24 hours.");
+        setForm({ name: "", email: "", message: "" });
+      }
+    } catch (err: any) {
+      toast.error("Unable to send your message. Please try again.");
+      console.error("[contact] submit error:", err);
+    } finally {
       setLoading(false);
-    }, 700);
+    }
   };
 
   return (

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X } from "lucide-react";
+import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone } from "lucide-react";
 import { getTasksForSlug } from "@/lib/tasks";
 import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -37,19 +37,23 @@ function AdminPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [projectSubmissions, setProjectSubmissions] = useState<any[]>([]);
   const [domains, setDomains] = useState<any[]>([]);
+  const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDomain, setFilterDomain] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterDuration, setFilterDuration] = useState("all");
 
   async function reload() {
-    const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }] = await Promise.all([
+    const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }, { data: enq }, { data: ann }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false }),
       supabase.from("submissions").select("*, internship:internships(internship_code, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email))").order("submitted_at", { ascending: false }),
       (supabase as any).from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false }),
       (supabase as any).from("project_submissions").select("*, project:projects(title), student:profiles(full_name,email)").order("submitted_at", { ascending: false }),
       supabase.from("domains").select("*").eq("active", true),
+      supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
+      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
     ]);
     setProfiles(p ?? []);
     setInternships(i ?? []);
@@ -57,6 +61,8 @@ function AdminPage() {
     setProjects(proj ?? []);
     setProjectSubmissions(ps ?? []);
     setDomains(d ?? []);
+    setEnquiries(enq ?? []);
+    setAnnouncements(ann ?? []);
   }
 
   useEffect(() => {
@@ -199,6 +205,13 @@ function AdminPage() {
     reload();
   }
 
+  async function updateProject(id: string, fields: any) {
+    const { error } = await (supabase as any).from("projects").update(fields).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Project updated");
+    reload();
+  }
+
   async function reviewProjectSubmission(id: string, status: "approved" | "rejected", feedback: string) {
     const { error } = await (supabase as any).from("project_submissions").update({
       status, feedback: feedback || null, reviewed_at: new Date().toISOString(),
@@ -206,6 +219,67 @@ function AdminPage() {
     if (error) return toast.error(error.message);
     toast.success("Submission " + status);
     reload();
+  }
+
+  async function handleAnnouncementSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const title = (fd.get("title") as string)?.trim();
+    const body = (fd.get("body") as string)?.trim() || "";
+    if (!title) return toast.error("Title is required");
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("announcements").insert({
+      title,
+      body,
+      created_by: u.user?.id ?? null,
+      active: true,
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Announcement published");
+    (e.currentTarget as HTMLFormElement).reset();
+    reload();
+  }
+
+  async function deleteAnnouncement(id: string) {
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Announcement deleted");
+    reload();
+  }
+
+  async function updateEnquiryStatus(id: string, status: string) {
+    const { error } = await supabase.from("enquiries").update({
+      status, read_at: status === "read" ? new Date().toISOString() : null,
+    }).eq("id", id);
+    if (error) return toast.error(error.message);
+    reload();
+  }
+
+  function exportStudentsCSV() {
+    const rows = enrichedStudents.map((s) => ({
+      name: s.full_name ?? "",
+      email: s.email ?? "",
+      phone: s.phone ?? "",
+      college: s.college ?? "",
+      department: s.department ?? "",
+      year: s.year ?? "",
+      internship_id: s.internship?.internship_code ?? "",
+      domain: s.internship?.domain?.name ?? "",
+      duration: s.internship?.duration ?? "",
+      status: s.internship?.status ?? "no-app",
+      registered: s.created_at ? new Date(s.created_at).toISOString() : "",
+      linkedin: s.linkedin_url ?? "",
+      github: s.github_url ?? "",
+    }));
+    const cols = ["name","email","phone","college","department","year","internship_id","domain","duration","status","registered","linkedin","github"];
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc((r as any)[c])).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `YR-NOVATECH-students-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   if (checking) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
@@ -243,6 +317,8 @@ function AdminPage() {
           <TabsTrigger value="project-subs">P.Subs ({pendingProjectSubs.length})</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="certificates">Certs</TabsTrigger>
+          <TabsTrigger value="enquiries">Enquiries ({enquiries.filter((e) => e.status === "new").length})</TabsTrigger>
+          <TabsTrigger value="announcements">Announce ({announcements.length})</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -584,6 +660,7 @@ function AdminPage() {
                     <span>{proj.active ? "Active" : "Inactive"}</span>
                   </div>
                   <div className="flex gap-2 pt-1">
+                    <EditProjectDialog project={proj} domains={domains} onSaved={reload} />
                     <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => deleteProject(proj.id)}>
                       <Trash2 className="h-3 w-3 mr-1" /> Delete
                     </Button>
@@ -699,7 +776,91 @@ function AdminPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 8: Analytics */}
+        {/* Tab 8: Enquiries */}
+        <TabsContent value="enquiries">
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><MailPlus className="h-5 w-5 text-blue-600" /> Enquiries</h3>
+              <Button size="sm" variant="outline" onClick={() => {
+                const csv = ["name,email,message,created_at,status"].concat(
+                  enquiries.map(e => `"${(e.name||"").replace(/"/g,'""')}","${(e.email||"").replace(/"/g,'""')}","${(e.message||"").replace(/"/g,'""')}","${e.created_at}","${e.status}"`)
+                ).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `YR-NOVATECH-enquiries-${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}>
+                <Download className="h-4 w-4 mr-1" /> Export CSV
+              </Button>
+            </div>
+            {enquiries.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No enquiries yet</p>}
+            {enquiries.map((enq) => (
+              <div key={enq.id} className={`border rounded-lg p-4 ${enq.status === "new" ? "bg-accent/40" : "bg-card"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{enq.name}</span>
+                      <Badge variant={enq.status === "new" ? "default" : enq.status === "read" ? "secondary" : "outline"}>{enq.status}</Badge>
+                    </div>
+                    <a href={`mailto:${enq.email}`} className="text-primary underline text-xs">{enq.email}</a>
+                    <p className="text-sm mt-2 whitespace-pre-wrap">{enq.message}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{new Date(enq.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    {enq.status !== "read" && (
+                      <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => updateEnquiryStatus(enq.id, "read")}>
+                        Mark Read
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => updateEnquiryStatus(enq.id, "archived")}>
+                      Archive
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </TabsContent>
+
+        {/* Tab 9: Announcements */}
+        <TabsContent value="announcements">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="p-6 space-y-4 h-fit">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Megaphone className="h-5 w-5 text-blue-600" /> New Announcement</h3>
+              <form onSubmit={handleAnnouncementSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="ann-title">Title</Label>
+                  <Input id="ann-title" name="title" placeholder="Important update..." required />
+                </div>
+                <div>
+                  <Label htmlFor="ann-body">Message</Label>
+                  <Textarea id="ann-body" name="body" rows={4} placeholder="Details for students..." />
+                </div>
+                <Button type="submit" className="w-full bg-gradient-primary text-primary-foreground">Publish</Button>
+              </form>
+            </Card>
+            <Card className="p-6 space-y-4">
+              <h3 className="text-lg font-semibold">Posted Announcements</h3>
+              {announcements.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No announcements yet</p>}
+              {announcements.map((a) => (
+                <div key={a.id} className="border rounded-lg p-4 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h5 className="font-semibold">{a.title}</h5>
+                    {a.body && <p className="text-sm text-muted-foreground mt-1">{a.body}</p>}
+                    <p className="text-xs text-muted-foreground mt-2">{new Date(a.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs text-destructive" onClick={() => deleteAnnouncement(a.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Tab 10: Analytics */}
         <TabsContent value="analytics">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Card className="p-6 space-y-2">
@@ -771,6 +932,79 @@ function ReviewDialog({ onReview }: { onReview: (s: "approved" | "rejected" | "r
             <Button onClick={() => go("rejected")} variant="destructive" className="flex-1">Reject</Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function EditProjectDialog({ project, domains, onSaved }: { project: any; domains: any[]; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(project.title ?? "");
+  const [description, setDescription] = useState(project.description ?? "");
+  const [difficulty, setDifficulty] = useState(project.difficulty ?? "Intermediate");
+  const [deadline, setDeadline] = useState(project.deadline?.slice(0, 10) ?? "");
+  const [fileUrl, setFileUrl] = useState(project.file_url ?? "");
+  const [selectedDomains, setSelectedDomains] = useState<string[]>(
+    (project.project_domains ?? []).map((pd: any) => pd.domain_id)
+  );
+  const [saving, setSaving] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return toast.error("Title is required");
+    if (selectedDomains.length === 0) return toast.error("Select at least one domain");
+    setSaving(true);
+    const supabase2 = supabase as any;
+    const { error } = await supabase2.from("projects").update({
+      title: title.trim(), description, difficulty, deadline: deadline || null, file_url: fileUrl || null,
+    }).eq("id", project.id);
+    if (error) { toast.error(error.message); setSaving(false); return; }
+    await supabase2.from("project_domains").delete().eq("project_id", project.id);
+    const { error: de } = await supabase2.from("project_domains").insert(
+      selectedDomains.map((did) => ({ project_id: project.id, domain_id: did }))
+    );
+    if (de) toast.error("Project updated but domains failed: " + de.message);
+    else { toast.success("Project updated"); setOpen(false); onSaved(); }
+    setSaving(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs"><Edit3 className="h-3 w-3 mr-1" /> Edit</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Edit Project</DialogTitle></DialogHeader>
+        <form onSubmit={save} className="space-y-4">
+          <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
+          <div><Label>Description</Label><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+          <div>
+            <Label>Difficulty</Label>
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </select>
+          </div>
+          <div><Label>Deadline (optional)</Label><Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} /></div>
+          <div><Label>File URL (optional)</Label><Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://example.com/project-file.pdf" /></div>
+          <div>
+            <Label>Domains</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {domains.map((d) => (
+                <label key={d.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" className="rounded" checked={selectedDomains.includes(d.id)}
+                    onChange={(e) => setSelectedDomains(prev => e.target.checked ? [...prev, d.id] : prev.filter(x => x !== d.id))} />
+                  {d.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <Button type="submit" disabled={saving} className="w-full bg-gradient-primary text-primary-foreground">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}Save Changes
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );

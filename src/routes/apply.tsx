@@ -126,7 +126,7 @@ function ApplyPage() {
       return toast.error("Account creation failed. Please try again.");
     }
 
-    if (signUpData.user.identities?.length === 0) {
+    if (signUpData.user?.identities?.length === 0) {
       setLoading(false);
       return toast.error("An account with this email already exists. Try signing in instead.");
     }
