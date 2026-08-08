@@ -44,6 +44,7 @@ function ApplyPage() {
   const [domains, setDomains] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [domainsError, setDomainsError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -51,8 +52,15 @@ function ApplyPage() {
       .select("id,name,slug")
       .eq("active", true)
       .order("name")
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[apply] domains load error:", error);
+          setDomainsError("Domains could not be loaded. Try again shortly.");
+          setDomains([]);
+          return;
+        }
         setDomains(data ?? []);
+        setDomainsError(null);
       });
   }, []);
 
@@ -337,6 +345,11 @@ function ApplyPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="app-domain">Domain (Cannot be changed later)</Label>
+              {domainsError ? (
+                <p className="text-sm text-destructive">{domainsError}</p>
+              ) : domains.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Loading domains...</p>
+              ) : null}
               <select
                 id="app-domain"
                 name="domainId"

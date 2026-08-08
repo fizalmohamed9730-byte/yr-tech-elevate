@@ -77,6 +77,7 @@ function AuthPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [domainsError, setDomainsError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -84,8 +85,15 @@ function AuthPage() {
       .select("id,name,slug")
       .eq("active", true)
       .order("name")
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[auth] domains load error:", error);
+          setDomainsError("Domains could not be loaded. Try again shortly.");
+          setDomains([]);
+          return;
+        }
         setDomains(data ?? []);
+        setDomainsError(null);
       });
   }, []);
 
@@ -541,6 +549,11 @@ function AuthPage() {
                   </div>
                   <div>
                     <Label htmlFor="su-domain">Domain (locked after registration)</Label>
+                    {domainsError ? (
+                      <p className="text-sm text-destructive mt-1">{domainsError}</p>
+                    ) : domains.length === 0 ? (
+                      <p className="text-sm text-muted-foreground mt-1">Loading domains...</p>
+                    ) : null}
                     <select
                       id="su-domain"
                       name="domainId"

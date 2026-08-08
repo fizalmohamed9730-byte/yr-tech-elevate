@@ -467,11 +467,16 @@ ALTER TABLE public.internships ALTER COLUMN internship_code DROP DEFAULT;
 ALTER TABLE public.internships ALTER COLUMN internship_code SET NOT NULL;
 
 -- ------------------------- 14. Auto-confirm emails -------------------------
+-- NOTE: On modern Supabase, auth.users.confirmed_at is a GENERATED ALWAYS column
+-- (derived from email_confirmed_at / phone_confirmed_at). It can ONLY be set to
+-- DEFAULT and must NEVER be written directly, or error 428C9 is raised.
+-- We therefore set ONLY email_confirmed_at; confirmed_at is derived automatically.
 CREATE OR REPLACE FUNCTION public.auto_confirm_student_emails()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  NEW.email_confirmed_at := COALESCE(NEW.email_confirmed_at, now());
-  NEW.confirmed_at := COALESCE(NEW.confirmed_at, now());
+  IF NEW.email_confirmed_at IS NULL THEN
+    NEW.email_confirmed_at := now();
+  END IF;
   RETURN NEW;
 END $$;
 
@@ -481,8 +486,7 @@ CREATE TRIGGER tr_auto_confirm_emails
   FOR EACH ROW EXECUTE FUNCTION public.auto_confirm_student_emails();
 
 UPDATE auth.users
-SET email_confirmed_at = COALESCE(email_confirmed_at, now()),
-    confirmed_at = COALESCE(confirmed_at, now())
+SET email_confirmed_at = COALESCE(email_confirmed_at, now())
 WHERE email_confirmed_at IS NULL;
 
 -- ------------------------- 15. handle_new_user (NO hardcoded emails) -------------------------
