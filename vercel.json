@@ -6,7 +6,6 @@
   "framework": null,
   "functions": {
     "api/ssr.mjs": {
-      "runtime": "nodejs20.x",
       "memory": 1024,
       "maxDuration": 30
     }
