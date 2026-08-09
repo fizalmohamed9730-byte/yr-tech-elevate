@@ -334,60 +334,7 @@ function Dashboard() {
         <TabsContent value="projects">
           <Card className="p-6 space-y-6">
             <h2 className="text-xl font-semibold">Projects</h2>
-            {(() => {
-              const [projs, setProjs] = useState<any[]>([]);
-              const [mySubs, setMySubs] = useState<any[]>([]);
-              const [loadingProj, setLoadingProj] = useState(true);
-              useEffect(() => {
-                if (!internship) return;
-                (async () => {
-                  const [{ data: p }, { data: ps }] = await Promise.all([
-                    (supabase as any).from("projects").select("*, project_domains(domain_id)").eq("active", true).order("created_at", { ascending: false }),
-                    (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id),
-                  ]);
-                  const domainProjects = (p ?? []).filter((proj: any) =>
-                    proj.project_domains?.some((pd: any) => pd.domain_id === internship.domain_id)
-                  );
-                  setProjs(domainProjects);
-                  setMySubs(ps ?? []);
-                  setLoadingProj(false);
-                })();
-              }, [internship]);
-              if (loadingProj) return <Loader2 className="h-5 w-5 animate-spin" />;
-              if (projs.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No projects assigned to your domain yet.</p>;
-              return (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {projs.map((proj) => {
-                    const sub = mySubs.find((s: any) => s.project_id === proj.id);
-                    return (
-                      <Card key={proj.id} className="p-4 border space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold">{proj.title}</h3>
-                            <p className="text-xs text-muted-foreground mt-1">{proj.description || "No description"}</p>
-                          </div>
-                          <Badge variant={proj.difficulty === "Beginner" ? "secondary" : proj.difficulty === "Advanced" ? "destructive" : "default"}>{proj.difficulty}</Badge>
-                        </div>
-                        {proj.deadline && <p className="text-xs text-muted-foreground">Deadline: {new Date(proj.deadline).toLocaleDateString()}</p>}
-                        {sub ? (
-                          <div className="p-2 bg-accent rounded text-sm">
-                            <div className="flex items-center gap-2">
-                              <span>Status:</span>
-                              <Badge variant={sub.status === "approved" ? "default" : sub.status === "rejected" ? "destructive" : "secondary"}>{sub.status}</Badge>
-                            </div>
-                            {sub.feedback && <p className="text-xs mt-1">Feedback: {sub.feedback}</p>}
-                          </div>
-                        ) : (
-                          <ProjectSubmitForm projectId={proj.id} studentId={internship.student_id} onSubmitted={() => {
-                            (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id).then(({ data }: any) => setMySubs(data ?? []));
-                          }} />
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+            <ProjectsPanel internship={internship} />
           </Card>
         </TabsContent>
 
@@ -562,6 +509,63 @@ function Dashboard() {
         </DialogContent>
       </Dialog>
 
+    </div>
+  );
+}
+
+function ProjectsPanel({ internship }: { internship: any }) {
+  const [projs, setProjs] = useState<any[]>([]);
+  const [mySubs, setMySubs] = useState<any[]>([]);
+  const [loadingProj, setLoadingProj] = useState(true);
+
+  useEffect(() => {
+    if (!internship) return;
+    (async () => {
+      const [{ data: p }, { data: ps }] = await Promise.all([
+        (supabase as any).from("projects").select("*, project_domains(domain_id)").eq("active", true).order("created_at", { ascending: false }),
+        (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id),
+      ]);
+      const domainProjects = (p ?? []).filter((proj: any) =>
+        proj.project_domains?.some((pd: any) => pd.domain_id === internship.domain_id)
+      );
+      setProjs(domainProjects);
+      setMySubs(ps ?? []);
+      setLoadingProj(false);
+    })();
+  }, [internship]);
+
+  if (loadingProj) return <Loader2 className="h-5 w-5 animate-spin" />;
+  if (projs.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No projects assigned to your domain yet.</p>;
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {projs.map((proj) => {
+        const sub = mySubs.find((s: any) => s.project_id === proj.id);
+        return (
+          <Card key={proj.id} className="p-4 border space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold">{proj.title}</h3>
+                <p className="text-xs text-muted-foreground mt-1">{proj.description || "No description"}</p>
+              </div>
+              <Badge variant={proj.difficulty === "Beginner" ? "secondary" : proj.difficulty === "Advanced" ? "destructive" : "default"}>{proj.difficulty}</Badge>
+            </div>
+            {proj.deadline && <p className="text-xs text-muted-foreground">Deadline: {new Date(proj.deadline).toLocaleDateString()}</p>}
+            {sub ? (
+              <div className="p-2 bg-accent rounded text-sm">
+                <div className="flex items-center gap-2">
+                  <span>Status:</span>
+                  <Badge variant={sub.status === "approved" ? "default" : sub.status === "rejected" ? "destructive" : "secondary"}>{sub.status}</Badge>
+                </div>
+                {sub.feedback && <p className="text-xs mt-1">Feedback: {sub.feedback}</p>}
+              </div>
+            ) : (
+              <ProjectSubmitForm projectId={proj.id} studentId={internship.student_id} onSubmitted={() => {
+                (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id).then(({ data }: any) => setMySubs(data ?? []));
+              }} />
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
