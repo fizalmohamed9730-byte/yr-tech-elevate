@@ -97,6 +97,9 @@ function ApplyPage() {
     });
 
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    if (!domains.some((d) => d.id === parsed.data.domainId)) {
+      return toast.error("Please select a valid domain.");
+    }
     if (parsed.data.password !== parsed.data.confirmPassword) {
       return toast.error("Passwords do not match.");
     }
@@ -164,16 +167,26 @@ function ApplyPage() {
         })
         .maybeSingle();
 
-      const { data: internship } = await (supabase as any)
+      let { data: internship } = await (supabase as any)
         .from("internships")
-        .upsert({
-          student_id: userId,
-          domain_id: parsed.data.domainId,
-          duration: parsed.data.duration,
-          status: "pending",
-        })
         .select("id")
+        .eq("student_id", userId)
         .maybeSingle();
+
+      if (!internship?.id) {
+        internship = (
+          await (supabase as any)
+            .from("internships")
+            .insert({
+              student_id: userId,
+              domain_id: parsed.data.domainId,
+              duration: parsed.data.duration,
+              status: "pending",
+            })
+            .select("id")
+            .single()
+        ).data;
+      }
 
       if (internship?.id) {
         await (supabase as any)

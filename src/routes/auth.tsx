@@ -52,12 +52,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 async function getUserRole(userId: string): Promise<"admin" | "intern" | "student" | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_roles")
     .select("role")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return (data?.role ?? null) as "admin" | "intern" | "student" | null;
+    .eq("user_id", userId);
+  if (error) return null;
+  const roles = (data ?? []).map((r) => r.role);
+  if (roles.includes("admin")) return "admin";
+  if (roles.includes("intern") || roles.includes("student")) return "intern";
+  return null;
 }
 
 function AuthPage() {
@@ -237,6 +240,9 @@ function AuthPage() {
     const fd = new FormData(e.currentTarget);
     const parsed = signUpSchema.safeParse(Object.fromEntries(fd));
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    if (!domains.some((d) => d.id === parsed.data.domainId)) {
+      return toast.error("Please select a valid domain.");
+    }
 
     if (parsed.data.password !== parsed.data.confirmPassword) {
       return toast.error("Passwords do not match.");
