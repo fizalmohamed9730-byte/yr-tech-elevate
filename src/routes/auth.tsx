@@ -137,9 +137,15 @@ function AuthPage() {
     const role = await getUserRole(userId);
     if (role === "admin") {
       navigate({ to: "/admin" });
-    } else {
-      navigate({ to: "/dashboard" });
+      return;
     }
+    if (role === "intern") {
+      navigate({ to: "/dashboard" });
+      return;
+    }
+    // No valid role -> authorization error (stay on /auth, do not silently redirect)
+    toast.error("Access denied. Your account is not assigned a valid role.");
+    await supabase.auth.signOut().catch(() => {});
   }
 
   async function handleResendConfirmation() {
