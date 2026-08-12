@@ -51,6 +51,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+function isNetworkError(err: any): boolean {
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request") ||
+    msg.includes("load failed") ||
+    msg.includes("connection") ||
+    msg.includes("socket") ||
+    msg.includes("temporarily unavailable") ||
+    msg.includes("timed out") ||
+    err?.code === "NETWORK_ERROR"
+  );
+}
+
 async function getUserRole(userId: string): Promise<"admin" | "intern" | "student" | null> {
   const { data, error } = await supabase
     .from("user_roles")
@@ -218,7 +233,11 @@ function AuthPage() {
 
       if (error) {
         console.error("[auth] signIn error:", error);
-        return toast.error(error.message || "Invalid email or password.");
+        return toast.error(
+          isNetworkError(error)
+            ? "Unable to reach the server. Check your internet connection and try again."
+            : error.message || "Invalid email or password.",
+        );
       }
 
       toast.success("Welcome back!");
@@ -232,6 +251,8 @@ function AuthPage() {
       console.error("[auth] signIn exception:", err);
       if (err?.message === "timeout") {
         toast.error("Unable to connect to server. Check your internet connection.");
+      } else if (isNetworkError(err)) {
+        toast.error("Unable to reach the server. Check your internet connection and try again.");
       } else {
         toast.error("Invalid email or password.");
       }

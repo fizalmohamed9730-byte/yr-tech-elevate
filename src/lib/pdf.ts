@@ -1,8 +1,9 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { COMPANY } from "./company";
-import logoUrl from "@/assets/yr-tech-logo.png";
-import sealUrl from "@/assets/company-seal.jpg";
+import logoUrl from "@/assets/company-logo.png";
+import sealUrl from "@/assets/company-seal.png";
+import signatureUrl from "@/assets/signature.jpeg";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to preload images safely in the browser
@@ -74,10 +75,11 @@ export async function generateOfferLetterPDF(data: {
 }): Promise<jsPDF> {
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   
-  // Preload logo and seal images
-  const [logo, seal] = await Promise.all([
+  // Preload logo, seal, and signature images
+  const [logo, seal, signature] = await Promise.all([
     loadImage(logoUrl),
-    loadImage(sealUrl)
+    loadImage(sealUrl),
+    loadImage(signatureUrl)
   ]);
 
   // --- Outer Border (Premium HR styling) ---
@@ -200,10 +202,22 @@ export async function generateOfferLetterPDF(data: {
   doc.text("For YR NOVATECH,", 16, footerY);
 
   // Founder Signature
-  doc.setFont("times", "italic");
-  doc.setFontSize(18);
-  doc.setTextColor(37, 99, 235);
-  doc.text("S. Fizal Mohamed", 16, footerY + 14);
+  if (signature) {
+    try {
+      doc.addImage(signature, "JPEG", 16, footerY + 2, 34, 12);
+    } catch (err) {
+      console.error("Failed to load signature on offer letter", err);
+      doc.setFont("times", "italic");
+      doc.setFontSize(18);
+      doc.setTextColor(37, 99, 235);
+      doc.text("S. Fizal Mohamed", 16, footerY + 14);
+    }
+  } else {
+    doc.setFont("times", "italic");
+    doc.setFontSize(18);
+    doc.setTextColor(37, 99, 235);
+    doc.text("S. Fizal Mohamed", 16, footerY + 14);
+  }
 
   // Perfectly straight horizontal line directly below signature
   doc.setDrawColor(37, 99, 235);
@@ -224,7 +238,7 @@ export async function generateOfferLetterPDF(data: {
   if (seal) {
     try {
       // 142 is x-position (aligned to the right side of the signature section)
-      doc.addImage(seal, "JPEG", 142, sealY - 18, 36, 36);
+      doc.addImage(seal, "PNG", 142, sealY - 18, 36, 36);
     } catch (err) {
       console.error("Failed to render seal image, falling back to vector", err);
       drawVectorSeal(doc, sealY);
@@ -256,6 +270,25 @@ export async function uploadOfferLetterToStorage(data: {
     console.error("Failed to upload offer letter to storage:", error);
     throw error;
   }
+}
+
+export async function ensureOfferLetterStored(data: {
+  studentId: string;
+  fullName: string;
+  domain: string;
+  domainSlug?: string | null;
+  internshipCode: string;
+  offerCode: string;
+  startedAt?: string | null;
+  duration?: string | null;
+}) {
+  const filePath = `${data.studentId}/offer-letter.pdf`;
+  const { data: existing, error: listError } = await supabase.storage
+    .from("offer-letters")
+    .list(data.studentId, { limit: 1, search: "offer-letter.pdf" });
+  const alreadyExists = !listError && Array.isArray(existing) && existing.some((f) => f.name === "offer-letter.pdf");
+  if (alreadyExists) return;
+  await uploadOfferLetterToStorage(data);
 }
 
 export async function downloadOfferLetter(data: {
@@ -505,7 +538,7 @@ export async function downloadIdCard(data: {
   const sealY = 113;
   if (seal) {
     try {
-      doc.addImage(seal, "JPEG", sealX, sealY - 9, 18, 18);
+      doc.addImage(seal, "PNG", sealX, sealY - 9, 18, 18);
     } catch {
       drawVectorIdCardSeal(doc, sealX + 9, sealY);
     }

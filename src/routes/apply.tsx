@@ -128,7 +128,17 @@ function ApplyPage() {
 
     if (signUpError) {
       setLoading(false);
-      return toast.error(signUpError.message);
+      const msg = String(signUpError.message ?? "").toLowerCase();
+      const isNet =
+        msg.includes("failed to fetch") ||
+        msg.includes("network") ||
+        msg.includes("connection") ||
+        msg.includes("load failed");
+      return toast.error(
+        isNet
+          ? "Unable to reach the server. Check your internet connection and try again."
+          : signUpError.message,
+      );
     }
 
     const user = signUpData.user;
@@ -169,7 +179,7 @@ function ApplyPage() {
 
       let { data: internship } = await (supabase as any)
         .from("internships")
-        .select("id")
+        .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
         .eq("student_id", userId)
         .maybeSingle();
 
@@ -181,9 +191,9 @@ function ApplyPage() {
               student_id: userId,
               domain_id: parsed.data.domainId,
               duration: parsed.data.duration,
-              status: "pending",
+              status: "active",
             })
-            .select("id")
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
             .single()
         ).data;
       }
@@ -197,6 +207,36 @@ function ApplyPage() {
             selected_domain: parsed.data.domainId,
           })
           .eq("id", userId);
+
+        // Generate & store the offer letter immediately after registration
+        if (!internship.offer_letter_code) {
+          const code = "YRN-OL-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+          internship.offer_letter_code = code;
+        }
+        if (!internship.internship_code) {
+          const d = await (supabase as any)
+            .from("internships")
+            .select("internship_code, offer_letter_code, started_at, duration, domain:domains(name,slug)")
+            .eq("id", internship.id)
+            .maybeSingle();
+          internship = { ...internship, ...(d?.data ?? d) };
+        }
+        try {
+          const { ensureOfferLetterStored } = await import("@/lib/pdf");
+          await ensureOfferLetterStored({
+            studentId: userId,
+            fullName: parsed.data.fullName,
+            domain: internship.domain?.name ?? "",
+            domainSlug: internship.domain?.slug,
+            internshipCode: internship.internship_code,
+            offerCode: internship.offer_letter_code,
+            startedAt: internship.started_at,
+            duration: internship.duration,
+          });
+        } catch (err: any) {
+          console.error("[apply] offer letter generation failed:", err);
+          toast.error("Account created, but the offer letter could not be generated yet.");
+        }
       }
 
       // 4. Upload resume if provided

@@ -17,6 +17,8 @@ import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downlo
 import { COMPANY } from "@/lib/company";
 import { z } from "zod";
 
+let dashboardOferCheckInFlight = false;
+
 export const Route = createFileRoute("/_authenticated/dashboard")({
   beforeLoad: ({ context }) => {
     const ctx = context as { isIntern?: boolean; isAdmin?: boolean };
@@ -51,6 +53,24 @@ function Dashboard() {
     setProfile(p);
     setPhoto(p?.avatar_url ?? null);
     setInternship(i);
+    if (i?.offer_letter_code && !dashboardOferCheckInFlight) {
+      dashboardOferCheckInFlight = true;
+      try {
+        const { ensureOfferLetterStored } = await import("@/lib/pdf");
+        await ensureOfferLetterStored({
+          studentId: u.user.id,
+          fullName: p?.full_name ?? "Intern",
+          domain: i.domain?.name ?? "",
+          domainSlug: i.domain?.slug,
+          internshipCode: i.internship_code,
+          offerCode: i.offer_letter_code,
+          startedAt: i.started_at,
+          duration: i.duration,
+        });
+      } catch (err: any) {
+        console.warn("[dashboard] ensure offer letter:", err?.message);
+      }
+    }
     if (i?.id) {
       const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", i.id).order("task_no");
       setSubmissions(s ?? []);
