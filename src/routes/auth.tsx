@@ -67,14 +67,30 @@ function isNetworkError(err: any): boolean {
 }
 
 async function getUserRole(userId: string): Promise<"admin" | "intern" | "student" | null> {
-  const { data, error } = await supabase
-    .from("user_roles")
+  // Try user_roles first, with one retry for transient network/RLS hiccups.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    if (!error && data) {
+      const roles = data.map((r: any) => r.role);
+      if (roles.includes("admin")) return "admin";
+      if (roles.includes("intern") || roles.includes("student")) return "intern";
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 300));
+  }
+
+  // Fallback: profiles.role covers accounts missing a user_roles row
+  // (e.g. created before the role trigger existed).
+  const { data: profile } = await supabase
+    .from("profiles")
     .select("role")
-    .eq("user_id", userId);
-  if (error) return null;
-  const roles = (data ?? []).map((r) => r.role);
-  if (roles.includes("admin")) return "admin";
-  if (roles.includes("intern") || roles.includes("student")) return "intern";
+    .eq("id", userId)
+    .maybeSingle();
+  const profRole = (profile as any)?.role as string | undefined;
+  if (profRole === "admin") return "admin";
+  if (profRole === "intern" || profRole === "student") return "intern";
   return null;
 }
 
