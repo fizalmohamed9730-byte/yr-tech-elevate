@@ -106,6 +106,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           domain_id: string
+          duration: string | null
           id: string
           internship_code: string
           offer_issued_at: string | null
@@ -123,6 +124,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           domain_id: string
+          duration?: string | null
           id?: string
           internship_code?: string
           offer_issued_at?: string | null
@@ -140,6 +142,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           domain_id?: string
+          duration?: string | null
           id?: string
           internship_code?: string
           offer_issued_at?: string | null
