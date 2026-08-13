@@ -165,4 +165,13 @@ SET offer_letter_code = 'YRN-OL-' || upper(substring(gen_random_uuid()::text, 1,
     started_at = COALESCE(started_at, now())
 WHERE status = 'active' AND offer_letter_code IS NULL;
 
+-- Legacy internships created as 'pending' before auto-activation was
+-- introduced (e.g. by older handle_new_user versions) get activated and
+-- receive their offer code here, so existing users can download their offer
+-- letter without needing admin approval.
+UPDATE public.internships
+SET status = 'active',
+    started_at = COALESCE(started_at, now())
+WHERE status = 'pending' AND offer_letter_code IS NULL;
+
 COMMIT;

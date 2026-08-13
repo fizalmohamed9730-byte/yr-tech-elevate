@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
-import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage } from "@/lib/pdf";
+import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage, downloadOfferLetterAnywhere } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
 import { z } from "zod";
 
@@ -52,30 +52,56 @@ function Dashboard() {
     ]);
     setProfile(p);
     setPhoto(p?.avatar_url ?? null);
-    setInternship(i);
-    if (i?.offer_letter_code && !dashboardOferCheckInFlight) {
+
+    let internship = i;
+    // Legacy users (registered before the offer-letter migration) have a
+    // "pending" internship with no offer code, so they can't download their
+    // offer letter. Auto-activate on load — the DB trigger issues the code.
+    if (internship?.id && !internship.offer_letter_code) {
+      try {
+        const { data: upd } = await (supabase as any)
+          .from("internships")
+          .update({
+            status: "active",
+            started_at: internship.started_at ?? new Date().toISOString(),
+          })
+          .eq("id", internship.id)
+          .select("*, domain:domains(name,slug)")
+          .maybeSingle();
+        if (upd) internship = upd;
+      } catch (err: any) {
+        console.warn("[dashboard] auto-activate internship:", err?.message);
+      }
+    }
+    setInternship(internship);
+    setLoading(false);
+
+    if (internship?.id) {
+      const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", internship.id).order("task_no");
+      setSubmissions(s ?? []);
+    }
+
+    // Ensure a stored offer letter PDF exists (background — never block first
+    // paint). Downloads always succeed via downloadOfferLetterAnywhere even if
+    // storage is empty, so this is purely a convenience for View/preview.
+    if (internship?.offer_letter_code && !dashboardOferCheckInFlight) {
       dashboardOferCheckInFlight = true;
       try {
         const { ensureOfferLetterStored } = await import("@/lib/pdf");
         await ensureOfferLetterStored({
           studentId: u.user.id,
           fullName: p?.full_name ?? "Intern",
-          domain: i.domain?.name ?? "",
-          domainSlug: i.domain?.slug,
-          internshipCode: i.internship_code,
-          offerCode: i.offer_letter_code,
-          startedAt: i.started_at,
-          duration: i.duration,
+          domain: internship.domain?.name ?? "",
+          domainSlug: internship.domain?.slug,
+          internshipCode: internship.internship_code,
+          offerCode: internship.offer_letter_code,
+          startedAt: internship.started_at,
+          duration: internship.duration,
         });
       } catch (err: any) {
         console.warn("[dashboard] ensure offer letter:", err?.message);
       }
     }
-    if (i?.id) {
-      const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", i.id).order("task_no");
-      setSubmissions(s ?? []);
-    }
-    setLoading(false);
   }
 
   function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -159,7 +185,7 @@ function Dashboard() {
       </div>
 
       {/* Prominent Offer Letter Banner */}
-      {internship.status === "active" && internship.offer_letter_code && (
+      {(internship.status === "active" || internship.status === "completed") && internship.offer_letter_code && (
         <Card className="p-6 border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col md:flex-row items-center justify-between gap-6 shadow-elegant">
           <div className="space-y-1">
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
@@ -172,7 +198,16 @@ function Dashboard() {
           <Button
             onClick={() => {
               toast.promise(
-                downloadOfferLetterFromStorage(profile.id, internship.internship_code),
+                downloadOfferLetterAnywhere({
+                  studentId: profile.id,
+                  fullName: profile?.full_name ?? "Intern",
+                  domain: internship.domain?.name ?? "",
+                  domainSlug: internship.domain?.slug,
+                  internshipCode: internship.internship_code,
+                  offerCode: internship.offer_letter_code,
+                  startedAt: internship.started_at,
+                  duration: internship.duration,
+                }),
                 {
                   loading: "Downloading offer letter...",
                   success: "Downloaded successfully!",
@@ -314,10 +349,18 @@ function Dashboard() {
 
             <div className="flex gap-3 pt-2">
               <Button
-                disabled={!internship.offer_letter_code}
                 onClick={() => {
                   toast.promise(
-                    downloadOfferLetterFromStorage(profile.id, internship.internship_code),
+                    downloadOfferLetterAnywhere({
+                      studentId: profile.id,
+                      fullName: profile?.full_name ?? "Intern",
+                      domain: internship.domain?.name ?? "",
+                      domainSlug: internship.domain?.slug,
+                      internshipCode: internship.internship_code,
+                      offerCode: internship.offer_letter_code,
+                      startedAt: internship.started_at,
+                      duration: internship.duration,
+                    }),
                     {
                       loading: "Downloading offer letter PDF...",
                       success: "Downloaded successfully!",
@@ -332,7 +375,6 @@ function Dashboard() {
               <Button
                 variant="outline"
                 className="flex-1"
-                disabled={!internship.offer_letter_code}
                 onClick={() => {
                   toast.promise(
                     viewOfferLetterFromStorage(profile.id),

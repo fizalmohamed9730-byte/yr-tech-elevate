@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone } from "lucide-react";
 import { getTasksForSlug } from "@/lib/tasks";
-import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage, downloadIdCard } from "@/lib/pdf";
+import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterAnywhere, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -725,7 +725,16 @@ function AdminPage() {
                       <TableCell className="font-mono text-xs">{i.offer_letter_code ?? "—"}</TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
                         <Button size="sm" variant="outline" onClick={() => viewOfferLetterFromStorage(i.student_id)}>View</Button>
-                        <Button size="sm" onClick={() => downloadOfferLetterFromStorage(i.student_id, i.internship_code)}>Download</Button>
+                        <Button size="sm" onClick={() => downloadOfferLetterAnywhere({
+                          studentId: i.student_id,
+                          fullName: i.student?.full_name ?? "Intern",
+                          domain: i.domain?.name ?? "",
+                          domainSlug: i.domain?.slug,
+                          internshipCode: i.internship_code,
+                          offerCode: i.offer_letter_code,
+                          startedAt: i.started_at,
+                          duration: i.duration,
+                        })}>Download</Button>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -66,34 +66,6 @@ function isNetworkError(err: any): boolean {
   );
 }
 
-async function getUserRole(userId: string): Promise<"admin" | "intern" | "student" | null> {
-  // Try user_roles first, with one retry for transient network/RLS hiccups.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    if (!error && data) {
-      const roles = data.map((r: any) => r.role);
-      if (roles.includes("admin")) return "admin";
-      if (roles.includes("intern") || roles.includes("student")) return "intern";
-    }
-    if (attempt === 0) await new Promise((r) => setTimeout(r, 300));
-  }
-
-  // Fallback: profiles.role covers accounts missing a user_roles row
-  // (e.g. created before the role trigger existed).
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-  const profRole = (profile as any)?.role as string | undefined;
-  if (profRole === "admin") return "admin";
-  if (profRole === "intern" || profRole === "student") return "intern";
-  return null;
-}
-
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -164,19 +136,14 @@ function AuthPage() {
     reader.readAsDataURL(file);
   }
 
-  async function handleRedirect(userId: string) {
-    const role = await getUserRole(userId);
-    if (role === "admin") {
-      navigate({ to: "/admin" });
-      return;
-    }
-    if (role === "intern") {
-      navigate({ to: "/dashboard" });
-      return;
-    }
-    // No valid role -> authorization error (stay on /auth, do not silently redirect)
-    toast.error("Access denied. Your account is not assigned a valid role.");
-    await supabase.auth.signOut().catch(() => {});
+  async function handleRedirect(_userId: string) {
+    // Navigate to /dashboard immediately — the _authenticated route guard
+    // resolves the role (with user_roles → profiles fallback) and redirects
+    // admins to /admin and unprivileged accounts back to /auth. Doing role
+    // resolution here blocks the redirect on extra network round-trips and,
+    // on a transient query error, left users stuck on /auth after a
+    // successful sign-in.
+    navigate({ to: "/dashboard" });
   }
 
   async function handleResendConfirmation() {

@@ -286,8 +286,10 @@ export async function ensureOfferLetterStored(data: {
   const { data: existing, error: listError } = await supabase.storage
     .from("offer-letters")
     .list(data.studentId, { limit: 1, search: "offer-letter.pdf" });
-  const alreadyExists = !listError && Array.isArray(existing) && existing.some((f) => f.name === "offer-letter.pdf");
-  if (alreadyExists) return;
+  const stored = !listError && Array.isArray(existing) ? existing.find((f) => f.name === "offer-letter.pdf") : undefined;
+  // Regenerate if missing or if the stored file is empty/corrupt (e.g. a
+  // stale upload), so the Download/View buttons always have a real PDF.
+  if (stored && (stored.metadata?.size ?? 0) >= 500) return;
   await uploadOfferLetterToStorage(data);
 }
 
@@ -311,6 +313,9 @@ export async function downloadOfferLetterFromStorage(studentId: string, internsh
   if (error || !data) {
     throw new Error(error?.message || "Failed to download offer letter from storage");
   }
+  if (data.size < 500) {
+    throw new Error("Stored offer letter is empty or corrupt");
+  }
   const url = window.URL.createObjectURL(data);
   const a = document.createElement("a");
   a.href = url;
@@ -319,6 +324,30 @@ export async function downloadOfferLetterFromStorage(studentId: string, internsh
   a.click();
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
+}
+
+// Always-successful downloader: tries the stored PDF first, and if it is
+// missing (e.g. legacy users registered before the offer-letter migration, or a
+// transient storage error) falls back to generating the PDF in-browser. This
+// guarantees the intern can download their offer letter unlimited times no
+// matter what state storage is in.
+export async function downloadOfferLetterAnywhere(data: {
+  studentId: string;
+  fullName: string;
+  domain: string;
+  domainSlug?: string | null;
+  internshipCode: string;
+  offerCode: string | null | undefined;
+  startedAt?: string | null;
+  duration?: string | null;
+}) {
+  const payload = { ...data, offerCode: data.offerCode ?? `YRN-OL-${data.internshipCode}` };
+  try {
+    await downloadOfferLetterFromStorage(data.studentId, data.internshipCode);
+  } catch (err) {
+    console.warn("[pdf] stored offer letter missing, generating in browser:", err);
+    await downloadOfferLetter(payload);
+  }
 }
 
 export async function viewOfferLetterFromStorage(studentId: string) {
