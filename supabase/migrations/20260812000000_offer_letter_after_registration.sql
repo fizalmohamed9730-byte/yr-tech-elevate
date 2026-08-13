@@ -24,6 +24,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', false)
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('submissions', 'submissions', false)
+ON CONFLICT (id) DO NOTHING;
+
 -- ---------------------------------------------------------------------------
 -- 2. Storage RLS for offer-letters
 -- ---------------------------------------------------------------------------
@@ -55,10 +59,31 @@ CREATE POLICY "Interns update own offer letter storage" ON storage.objects
 -- ---------------------------------------------------------------------------
 -- 3. Issue offer letter code on INSERT as well as on UPDATE to 'active'
 -- ---------------------------------------------------------------------------
+-- Ensure the backing function exists (idempotent; APPLY_ALL defines it too).
+CREATE OR REPLACE FUNCTION public.issue_offer_letter()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.status = 'active' AND NEW.offer_letter_code IS NULL THEN
+    NEW.offer_letter_code := 'YRN-OL-' || upper(substring(gen_random_uuid()::text, 1, 8));
+    NEW.offer_issued_at := now();
+    IF NEW.started_at IS NULL THEN NEW.started_at := now(); END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
 DROP TRIGGER IF EXISTS internships_issue_offer ON public.internships;
 CREATE TRIGGER internships_issue_offer
   BEFORE INSERT OR UPDATE ON public.internships
   FOR EACH ROW EXECUTE FUNCTION public.issue_offer_letter();
+
+-- Students may update their own internship (status auto-activation + offer
+-- code persistence from the client-side apply flow). This only lets the
+-- student touch their own row.
+DROP POLICY IF EXISTS "Students update own internship" ON public.internships;
+CREATE POLICY "Students update own internship" ON public.internships
+  FOR UPDATE TO authenticated
+  USING (student_id = auth.uid())
+  WITH CHECK (student_id = auth.uid());
 
 -- ---------------------------------------------------------------------------
 -- 4. Auto-activate new interns so the offer letter is generated at

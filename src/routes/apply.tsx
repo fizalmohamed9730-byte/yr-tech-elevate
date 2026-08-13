@@ -196,6 +196,21 @@ function ApplyPage() {
             .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
             .single()
         ).data;
+      } else if (internship.status === "pending") {
+        // The DB signup trigger may have created the internship as "pending"
+        // before this client-side flow ran. Auto-approve it to match the
+        // "active" path above so the offer letter is issued immediately.
+        internship = (
+          await (supabase as any)
+            .from("internships")
+            .update({
+              status: "active",
+              started_at: new Date().toISOString(),
+            })
+            .eq("id", internship.id)
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
+            .single()
+        ).data;
       }
 
       if (internship?.id) {
@@ -212,6 +227,10 @@ function ApplyPage() {
         if (!internship.offer_letter_code) {
           const code = "YRN-OL-" + Math.random().toString(36).slice(2, 10).toUpperCase();
           internship.offer_letter_code = code;
+          await (supabase as any)
+            .from("internships")
+            .update({ offer_letter_code: code, offer_issued_at: new Date().toISOString(), started_at: new Date().toISOString() })
+            .eq("id", internship.id);
         }
         if (!internship.internship_code) {
           const d = await (supabase as any)
