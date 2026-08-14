@@ -122,10 +122,11 @@ function About() {
           />
         </Reveal>
 
-        <div className="grid gap-8 md:grid-cols-2 max-w-5xl mx-auto">
+        <div className="grid gap-8 max-w-5xl mx-auto">
           {/* Founder & CEO */}
           <Reveal>
             <Card className="group overflow-hidden rounded-2xl border border-border bg-card shadow-elegant hover:-translate-y-1 transition-transform duration-300 h-full">
+              <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
               <div className="relative overflow-hidden">
                 <div className="absolute -inset-4 bg-gradient-primary opacity-15 blur-2xl rounded-3xl" />
                 <img
@@ -156,12 +157,14 @@ function About() {
                   that matter.
                 </p>
               </div>
+              </div>
             </Card>
           </Reveal>
 
           {/* Co-Founder & COO */}
           <Reveal delay={120}>
             <Card className="group overflow-hidden rounded-2xl border border-border bg-card shadow-elegant hover:-translate-y-1 transition-transform duration-300 h-full">
+              <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
               <div className="relative overflow-hidden">
                 <div className="absolute -inset-4 bg-gradient-primary opacity-15 blur-2xl rounded-3xl" />
                 <img
@@ -228,6 +231,7 @@ function About() {
                     ))}
                   </div>
                 </div>
+              </div>
               </div>
             </Card>
           </Reveal>
