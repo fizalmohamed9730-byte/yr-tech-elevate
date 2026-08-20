@@ -127,7 +127,12 @@ export async function generateOfferLetterPDF(data: {
   doc.text("INTERNSHIP OFFER LETTER", 105, 48, { align: "center" });
 
   // --- 3. METADATA FIELDS ---
-  const today = data.startedAt ? new Date(data.startedAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const startDate = data.startedAt ? new Date(data.startedAt) : new Date();
+  const today = startDate.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const durationMonths = parseInt((data.duration ?? "1 Month").match(/\d+/)?.[0] ?? "1", 10) || 1;
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + durationMonths);
+  const endDateText = endDate.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(70);
@@ -175,24 +180,26 @@ export async function generateOfferLetterPDF(data: {
   // --- 5. INTERNSHIP DETAILS BOX ---
   const boxY = bodyY + 10;
   doc.setFillColor(245, 247, 250);
-  doc.rect(16, boxY, 178, 28, "F");
+  doc.rect(16, boxY, 178, 34, "F");
   doc.setDrawColor(220, 225, 230);
   doc.setLineWidth(0.3);
-  doc.rect(16, boxY, 178, 28, "D");
+  doc.rect(16, boxY, 178, 34, "D");
 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(37, 99, 235);
   doc.text("• Internship ID:", 22, boxY + 7);
   doc.text("• Domain:", 22, boxY + 13);
   doc.text("• Start Date:", 22, boxY + 19);
-  doc.text("• Duration:", 22, boxY + 25);
+  doc.text("• End Date:", 22, boxY + 25);
+  doc.text("• Duration:", 22, boxY + 31);
 
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 23, 42);
   doc.text(data.internshipCode, 60, boxY + 7);
   doc.text(`${data.domain} – Remote Based Internship (${data.duration || '1 Month'})`, 60, boxY + 13);
   doc.text(today, 60, boxY + 19);
-  doc.text(data.duration || "1 Month", 60, boxY + 25);
+  doc.text(endDateText, 60, boxY + 25);
+  doc.text(data.duration || "1 Month", 60, boxY + 31);
 
   // --- 6. SIGNATURE & SEAL SECTION ---
   const footerY = boxY + 45;
