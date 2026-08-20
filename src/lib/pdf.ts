@@ -113,7 +113,7 @@ export async function generateOfferLetterPDF(data: {
   doc.setFontSize(7.5);
   doc.text(`UDYAM-TN-17-0077694`, 192, 21, { align: "right" });
   doc.text(`Email: ${COMPANY.email}`, 192, 25, { align: "right" });
-  doc.text(`Web: www.yrnovatech.com`, 192, 29, { align: "right" });
+  doc.text(`Web: www.yrnovatech.online`, 192, 29, { align: "right" });
 
   // Divider Line
   doc.setDrawColor(37, 99, 235);
