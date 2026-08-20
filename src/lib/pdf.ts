@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { COMPANY } from "./company";
 import logoUrl from "@/assets/company-logo.png";
 import sealUrl from "@/assets/company-seal.png";
-import signatureUrl from "@/assets/signature.jpeg";
+import signatureUrl from "@/assets/fizal-mohamed-signature-transparent.png";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to preload images safely in the browser
@@ -204,7 +204,10 @@ export async function generateOfferLetterPDF(data: {
   // Founder Signature
   if (signature) {
     try {
-      doc.addImage(signature, "JPEG", 16, footerY + 2, 34, 12);
+      // Transparent PNG, aspect ratio preserved (445x285 => ~1.56:1)
+      const sigH = 12;
+      const sigW = sigH * (signature.naturalWidth / signature.naturalHeight);
+      doc.addImage(signature, "PNG", 16, footerY + 2, sigW, sigH);
     } catch (err) {
       console.error("Failed to load signature on offer letter", err);
       doc.setFont("times", "italic");
