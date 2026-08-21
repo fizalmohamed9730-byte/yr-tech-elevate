@@ -25,8 +25,18 @@ interface Project {
   difficulty: string;
   active: boolean;
   deadline: string | null;
+  image_url: string | null;
   project_domains?: { domain: { name: string } | null }[];
 }
+
+const GRADIENTS = [
+  "from-blue-600 to-cyan-500",
+  "from-purple-600 to-pink-500",
+  "from-emerald-600 to-teal-500",
+  "from-orange-500 to-red-500",
+  "from-indigo-600 to-blue-500",
+  "from-rose-500 to-orange-400",
+];
 
 function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -59,28 +69,60 @@ function Projects() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((p, i) => (
-            <Card key={p.id} className="overflow-hidden hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up" style={{ animationDelay: `${i * 0.05}s` }}>
-              <div className="h-40 bg-gradient-hero relative">
-                <div className="absolute top-3 right-3">
-                  <Badge variant="secondary">{p.difficulty}</Badge>
-                </div>
-                <div className="absolute bottom-4 left-4 text-white text-2xl font-bold opacity-90">{p.title.split(" ")[0]}</div>
-              </div>
-              <div className="p-5">
-                <h3 className="font-semibold mb-2">{p.title}</h3>
-                <p className="text-sm text-muted-foreground mb-3">{p.description || "No description"}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {p.project_domains?.map((pd, j) => (
-                    <span key={j} className="text-xs px-2 py-1 rounded-md bg-accent text-accent-foreground">
-                      {pd.domain?.name ?? "Domain"}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </Card>
+            <ProjectCard key={p.id} project={p} index={i} />
           ))}
         </div>
       )}
     </Section>
+  );
+}
+
+function ProjectCard({ project, index }: { project: Project; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const desc = project.description || "No description";
+  const isLong = desc.length > 150;
+  const gradient = GRADIENTS[index % GRADIENTS.length];
+
+  return (
+    <Card className="overflow-hidden hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up" style={{ animationDelay: `${index * 0.05}s` }}>
+      <div className="h-48 bg-gradient-to-br relative overflow-hidden">
+        {project.image_url ? (
+          <img
+            src={project.image_url}
+            alt={project.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className={`h-full w-full bg-gradient-to-br ${gradient}`} />
+        )}
+        <div className="absolute top-3 right-3">
+          <Badge variant="secondary">{project.difficulty}</Badge>
+        </div>
+        <div className="absolute bottom-4 left-4 text-white text-2xl font-bold opacity-90 drop-shadow-lg">
+          {project.title.split(" ")[0]}
+        </div>
+      </div>
+      <div className="p-5">
+        <h3 className="font-semibold mb-2">{project.title}</h3>
+        <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line">
+          {isLong && !expanded ? desc.slice(0, 150) + "..." : desc}
+        </p>
+        {isLong && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs text-primary hover:underline mb-3"
+          >
+            {expanded ? "Show less" : "Read more"}
+          </button>
+        )}
+        <div className="flex flex-wrap gap-1.5">
+          {project.project_domains?.map((pd, j) => (
+            <span key={j} className="text-xs px-2 py-1 rounded-md bg-accent text-accent-foreground">
+              {pd.domain?.name ?? "Domain"}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
