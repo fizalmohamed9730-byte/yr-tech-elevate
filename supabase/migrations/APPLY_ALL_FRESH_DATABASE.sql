@@ -598,7 +598,37 @@ DROP POLICY IF EXISTS "Admins manage announcements" ON public.announcements;
 CREATE POLICY "Admins manage announcements" ON public.announcements
   FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
--- ------------------------- 16. Admin bootstrap RPC -------------------------
+-- ------------------------- 17. Feedback table -------------------------
+CREATE TABLE IF NOT EXISTS public.feedback (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  message text NOT NULL CHECK (char_length(message) >= 10),
+  created_at timestamptz DEFAULT now() NOT NULL
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.feedback TO authenticated;
+GRANT ALL ON public.feedback TO service_role;
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Students insert own feedback" ON public.feedback;
+CREATE POLICY "Students insert own feedback" ON public.feedback
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Students view own feedback" ON public.feedback;
+CREATE POLICY "Students view own feedback" ON public.feedback
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Students update own feedback" ON public.feedback;
+CREATE POLICY "Students update own feedback" ON public.feedback
+  FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Students delete own feedback" ON public.feedback;
+CREATE POLICY "Students delete own feedback" ON public.feedback
+  FOR DELETE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins view all feedback" ON public.feedback;
+CREATE POLICY "Admins view all feedback" ON public.feedback
+  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admins manage all feedback" ON public.feedback;
+CREATE POLICY "Admins manage all feedback" ON public.feedback
+  FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+
+-- ------------------------- 18. Admin bootstrap RPC -------------------------
 CREATE OR REPLACE FUNCTION public.promote_to_admin(p_email text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_uid uuid;

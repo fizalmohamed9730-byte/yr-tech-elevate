@@ -10,7 +10,6 @@ import {
   Award,
   Users,
   CheckCircle2,
-  Star,
   Sparkles,
   Smartphone,
   Layers,
@@ -87,24 +86,6 @@ const whyUs = [
   { icon: Users, title: "Project-Based", desc: "Real work, not theory — ship a portfolio." },
   { icon: CheckCircle2, title: "Verified Certificates", desc: "QR-code verifiable on completion." },
   { icon: Rocket, title: "Career Ready", desc: "GitHub, LinkedIn, and interview support." },
-];
-
-const testimonials = [
-  {
-    name: "Aarav S.",
-    role: "Full Stack Intern",
-    text: "The mentor feedback was incredible. I shipped two real projects in 8 weeks.",
-  },
-  {
-    name: "Priya M.",
-    role: "UI/UX Intern",
-    text: "Best learning experience — the team genuinely cares about your growth.",
-  },
-  {
-    name: "Rohan K.",
-    role: "Python Intern",
-    text: "Got my first job offer thanks to the portfolio I built at YR NOVATECH.",
-  },
 ];
 
 function Index() {
@@ -250,27 +231,6 @@ function Index() {
               <h3 className="font-semibold mb-2">{w.title}</h3>
               <p className="text-sm text-muted-foreground">{w.desc}</p>
             </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* TESTIMONIALS */}
-      <Section>
-        <SectionHeading eyebrow="Testimonials" title="What our interns say" />
-        <div className="grid gap-6 md:grid-cols-3">
-          {testimonials.map((t) => (
-            <Card key={t.name} className="p-6">
-              <div className="flex gap-1 mb-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-primary text-primary" />
-                ))}
-              </div>
-              <p className="text-sm mb-4 text-foreground/90">"{t.text}"</p>
-              <div>
-                <div className="font-semibold text-sm">{t.name}</div>
-                <div className="text-xs text-muted-foreground">{t.role}</div>
-              </div>
-            </Card>
           ))}
         </div>
       </Section>

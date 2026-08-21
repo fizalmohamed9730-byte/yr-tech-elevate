@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone } from "lucide-react";
+import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone, MessageSquare, Star } from "lucide-react";
 import { getTasksForSlug } from "@/lib/tasks";
 import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterAnywhere, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -39,13 +39,14 @@ function AdminPage() {
   const [domains, setDomains] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDomain, setFilterDomain] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterDuration, setFilterDuration] = useState("all");
 
   async function reload() {
-    const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }, { data: enq }, { data: ann }] = await Promise.all([
+    const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }, { data: enq }, { data: ann }, { data: fb }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false }),
       supabase.from("submissions").select("*, internship:internships(internship_code, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email))").order("submitted_at", { ascending: false }),
@@ -54,6 +55,7 @@ function AdminPage() {
       supabase.from("domains").select("*").eq("active", true),
       supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
       supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+      supabase.from("feedback").select("*, student:profiles(full_name,email)").order("created_at", { ascending: false }),
     ]);
     setProfiles(p ?? []);
     setInternships(i ?? []);
@@ -63,6 +65,7 @@ function AdminPage() {
     setDomains(d ?? []);
     setEnquiries(enq ?? []);
     setAnnouncements(ann ?? []);
+    setFeedbackList(fb ?? []);
   }
 
   useEffect(() => {
@@ -319,6 +322,7 @@ function AdminPage() {
           <TabsTrigger value="certificates">Certs</TabsTrigger>
           <TabsTrigger value="enquiries">Enquiries ({enquiries.filter((e) => e.status === "new").length})</TabsTrigger>
           <TabsTrigger value="announcements">Announce ({announcements.length})</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback ({feedbackList.length})</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -869,7 +873,33 @@ function AdminPage() {
           </div>
         </TabsContent>
 
-        {/* Tab 10: Analytics */}
+        {/* Tab 10: Feedback */}
+        <TabsContent value="feedback">
+          <Card className="p-6 space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" /> Student Feedback</h3>
+            {feedbackList.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">No feedback submitted yet.</p>
+            )}
+            {feedbackList.map((fb) => (
+              <div key={fb.id} className="p-4 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < fb.rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <p className="text-sm">{fb.message}</p>
+                <div className="text-xs text-muted-foreground">
+                  {fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "—"})
+                </div>
+              </div>
+            ))}
+          </Card>
+        </TabsContent>
+
+        {/* Tab 11: Analytics */}
         <TabsContent value="analytics">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Card className="p-6 space-y-2">

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star } from "lucide-react";
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage, downloadOfferLetterAnywhere } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -224,7 +224,7 @@ function Dashboard() {
 
       {/* Modern SaaS Sub-Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full h-auto p-1 bg-muted rounded-lg">
+        <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full h-auto p-1 bg-muted rounded-lg">
           <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm">Dashboard</TabsTrigger>
           <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm">My Tasks</TabsTrigger>
           <TabsTrigger value="projects" className="py-2 text-xs md:text-sm">Projects</TabsTrigger>
@@ -232,6 +232,7 @@ function Dashboard() {
           <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm">ID Card</TabsTrigger>
           <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm">Certificate</TabsTrigger>
           <TabsTrigger value="profile" className="py-2 text-xs md:text-sm">Profile</TabsTrigger>
+          <TabsTrigger value="feedback" className="py-2 text-xs md:text-sm">Feedback</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Dashboard */}
@@ -536,6 +537,11 @@ function Dashboard() {
             </form>
           </Card>
         </TabsContent>
+
+        {/* Tab 8: Feedback */}
+        <TabsContent value="feedback">
+          <FeedbackPanel profile={profile} />
+        </TabsContent>
       </Tabs>
 
       <Dialog open={!!profile?.must_change_password}>
@@ -572,6 +578,115 @@ function Dashboard() {
       </Dialog>
 
     </div>
+  );
+}
+
+function FeedbackPanel({ profile }: { profile: any }) {
+  const [rating, setRating] = useState(0);
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [existingFeedback, setExistingFeedback] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("feedback")
+        .select("*")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+      setExistingFeedback(data ?? []);
+    })();
+  }, [profile?.id]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (rating === 0) return toast.error("Please select a rating.");
+    if (message.trim().length < 10) return toast.error("Feedback must be at least 10 characters.");
+    setSubmitting(true);
+    const { error } = await supabase.from("feedback").insert({
+      user_id: profile.id,
+      rating,
+      message: message.trim(),
+    });
+    setSubmitting(false);
+    if (error) return toast.error(error.message);
+    toast.success("Feedback submitted! Thank you.");
+    setSubmitted(true);
+    setMessage("");
+    setRating(0);
+    const { data } = await supabase
+      .from("feedback")
+      .select("*")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+    setExistingFeedback(data ?? []);
+  }
+
+  return (
+    <Card className="p-6 max-w-xl mx-auto space-y-6">
+      <h2 className="text-xl font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" /> Submit Feedback</h2>
+      <p className="text-sm text-muted-foreground">Share your experience about the internship program.</p>
+
+      {submitted && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          Thank you for your feedback!
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label>Rating</Label>
+          <div className="flex gap-1 mt-1">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setRating(s)}
+                className="focus:outline-none"
+              >
+                <Star
+                  className={`h-6 w-6 ${s <= rating ? "fill-primary text-primary" : "text-muted-foreground"}`}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="feedback-msg">Your Feedback</Label>
+          <Textarea
+            id="feedback-msg"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            required
+            placeholder="Tell us about your experience..."
+            minLength={10}
+          />
+        </div>
+        <Button type="submit" disabled={submitting} className="bg-gradient-primary text-primary-foreground">
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Feedback"}
+        </Button>
+      </form>
+
+      {existingFeedback.length > 0 && (
+        <div className="space-y-3 pt-4 border-t">
+          <h3 className="font-semibold text-sm">Your Previous Feedback</h3>
+          {existingFeedback.map((fb) => (
+            <div key={fb.id} className="p-3 rounded-lg border bg-muted/30 space-y-1">
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`h-3 w-3 ${i < fb.rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                ))}
+              </div>
+              <p className="text-sm text-foreground/90">{fb.message}</p>
+              <p className="text-xs text-muted-foreground">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
