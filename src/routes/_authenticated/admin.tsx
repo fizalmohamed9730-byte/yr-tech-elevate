@@ -49,7 +49,7 @@ function AdminPage() {
     const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }, { data: enq }, { data: ann }, { data: fb }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false }),
-      supabase.from("submissions").select("*, internship:internships(internship_code, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email))").order("submitted_at", { ascending: false }),
+      (supabase as any).from("submissions").select("*, internship:internships(internship_code, student_id, domain:domains(name,slug))").order("submitted_at", { ascending: false }),
       (supabase as any).from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false }),
       (supabase as any).from("project_submissions").select("*, project:projects(title), student:profiles(full_name,email)").order("submitted_at", { ascending: false }),
       supabase.from("domains").select("*").eq("active", true),
@@ -59,13 +59,31 @@ function AdminPage() {
     ]);
     setProfiles(p ?? []);
     setInternships(i ?? []);
-    setSubmissions(s ?? []);
     setProjects(proj ?? []);
     setProjectSubmissions(ps ?? []);
     setDomains(d ?? []);
     setEnquiries(enq ?? []);
     setAnnouncements(ann ?? []);
     setFeedbackList(fb ?? []);
+    const rawSubs = (s ?? []) as any[];
+    const studentMap = new Map<string, { full_name: string | null; email: string | null }>();
+    for (const int of (i ?? []) as any[]) {
+      if (int.student_id && int.student) {
+        studentMap.set(int.student_id, { full_name: int.student.full_name, email: int.student.email });
+      }
+    }
+    const enrichedSubs = rawSubs.map((sub) => {
+      const sid = sub.internship?.student_id;
+      const student = sid ? studentMap.get(sid) : null;
+      return {
+        ...sub,
+        internship: {
+          ...sub.internship,
+          student: student ?? sub.internship?.student ?? null,
+        },
+      };
+    });
+    setSubmissions(enrichedSubs);
   }
 
   useEffect(() => {

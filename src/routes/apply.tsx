@@ -47,21 +47,40 @@ function ApplyPage() {
   const [domainsError, setDomainsError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("domains")
-      .select("id,name,slug")
-      .eq("active", true)
-      .order("name")
-      .then(({ data, error }) => {
+    let cancelled = false;
+    let attempt = 0;
+    const maxAttempts = 3;
+
+    async function loadDomains() {
+      while (attempt < maxAttempts && !cancelled) {
+        attempt++;
+        const { data, error } = await supabase
+          .from("domains")
+          .select("id,name,slug")
+          .eq("active", true)
+          .order("name");
+
+        if (cancelled) return;
+
         if (error) {
-          console.error("[apply] domains load error:", error);
+          console.error(`[apply] domains load error (attempt ${attempt}/${maxAttempts}):`, error);
+          if (attempt < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 1000 * attempt));
+            continue;
+          }
           setDomainsError("Domains could not be loaded. Try again shortly.");
           setDomains([]);
           return;
         }
+
         setDomains(data ?? []);
         setDomainsError(null);
-      });
+        return;
+      }
+    }
+
+    loadDomains();
+    return () => { cancelled = true; };
   }, []);
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
