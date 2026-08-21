@@ -134,6 +134,14 @@ function ApplyPage() {
         msg.includes("network") ||
         msg.includes("connection") ||
         msg.includes("load failed");
+      if (
+        signUpError.code === "user_already_exists" ||
+        msg.includes("already registered") ||
+        msg.includes("already been registered") ||
+        msg.includes("already exists")
+      ) {
+        return toast.error("An account with this email already exists. Try signing in instead.");
+      }
       return toast.error(
         isNet
           ? "Unable to reach the server. Check your internet connection and try again."

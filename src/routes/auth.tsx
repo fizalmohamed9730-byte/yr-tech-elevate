@@ -286,6 +286,15 @@ function AuthPage() {
       if (error) {
         console.error("[auth] signUp error:", error);
         setLoading(false);
+        const msg = String(error.message ?? "").toLowerCase();
+        if (
+          error.code === "user_already_exists" ||
+          msg.includes("already registered") ||
+          msg.includes("already been registered") ||
+          msg.includes("already exists")
+        ) {
+          return toast.error("An account with this email already exists. Try signing in instead.");
+        }
         return toast.error(error.message);
       }
 
