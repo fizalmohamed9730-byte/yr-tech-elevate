@@ -20,7 +20,7 @@ export function Header() {
   const { isAuthenticated, isAdmin, signOut } = useAuth();
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="container mx-auto flex h-20 md:h-24 items-center justify-between px-4">
         <Logo />
         <nav className="hidden md:flex items-center gap-1">
           {links.map((l) => (
