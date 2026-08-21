@@ -126,6 +126,31 @@ function AdminPage() {
     return list;
   }, [profiles, internships, searchTerm, filterDomain, filterStatus, filterDuration]);
 
+  async function issueCertificate(internshipId: string) {
+    const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("internships").update({
+      certificate_code: code,
+      certificate_issued_at: now,
+    }).eq("id", internshipId);
+    if (error) return toast.error(error.message);
+    toast.success("Certificate issued: " + code);
+    reload();
+  }
+
+  async function removeStudent(studentId: string) {
+    if (!confirm("Permanently delete this student and all their data?")) return;
+    const { data: interns } = await supabase.from("internships").select("id").eq("student_id", studentId);
+    for (const i of (interns ?? [])) {
+      await supabase.from("submissions").delete().eq("internship_id", i.id);
+    }
+    await supabase.from("internships").delete().eq("student_id", studentId);
+    const { error } = await supabase.from("profiles").delete().eq("id", studentId);
+    if (error) return toast.error(error.message);
+    toast.success("Student removed");
+    reload();
+  }
+
   async function updateStatus(id: string, status: string) {
     const patch: any = { status };
     if (status === "completed") { patch.completed_at = new Date().toISOString(); patch.progress_percent = 100; }
@@ -479,6 +504,7 @@ function AdminPage() {
                                 }));
                               }} title="Download ID Card">ID Card</Button>
                             )}
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive" onClick={() => removeStudent(s.id)} title="Remove Student"><Trash2 className="h-3 w-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -753,39 +779,84 @@ function AdminPage() {
 
         {/* Tab 7: Certificates */}
         <TabsContent value="certificates">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Verifiable Certificates</h3>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Intern ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Domain</TableHead>
-                    <TableHead>Certificate Code</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {internships.filter(i => i.certificate_code).map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
-                      <TableCell className="font-medium">{i.student?.full_name}</TableCell>
-                      <TableCell>{i.domain?.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{i.certificate_code}</TableCell>
-                      <TableCell>
-                        <Button size="sm" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })}>
-                          Download Certificate
-                        </Button>
-                      </TableCell>
+          <Card className="p-6 space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Issued Certificates</h3>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Intern ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Domain</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Certificate Code</TableHead>
+                      <TableHead>Issued</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                  {internships.filter(i => i.certificate_code).length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No certificates issued yet</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {internships.filter(i => i.certificate_code).map((i) => (
+                      <TableRow key={i.id}>
+                        <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
+                        <TableCell className="font-medium">{i.student?.full_name}</TableCell>
+                        <TableCell>{i.domain?.name}</TableCell>
+                        <TableCell className="text-xs">{i.duration}</TableCell>
+                        <TableCell className="font-mono text-xs">{i.certificate_code}</TableCell>
+                        <TableCell className="text-xs">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "—"}</TableCell>
+                        <TableCell>
+                          <Button size="sm" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })}>
+                            Download
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {internships.filter(i => i.certificate_code).length === 0 && (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No certificates issued yet</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
+
+            {internships.filter(i => (i.status === "completed" || i.status === "active") && !i.certificate_code).length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Pending Certificate Issuance</h3>
+                <p className="text-sm text-muted-foreground mb-3">These interns have completed (or are active) but have no certificate yet.</p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Intern ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Domain</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {internships.filter(i => (i.status === "completed" || i.status === "active") && !i.certificate_code).map((i) => (
+                        <TableRow key={i.id}>
+                          <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
+                          <TableCell className="font-medium">{i.student?.full_name}</TableCell>
+                          <TableCell>{i.domain?.name}</TableCell>
+                          <TableCell className="text-xs">{i.duration}</TableCell>
+                          <TableCell>
+                            <Badge variant={i.status === "completed" ? "outline" : "default"}>{i.status}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button size="sm" onClick={() => issueCertificate(i.id)}>
+                              <Award className="h-3 w-3 mr-1" /> Issue Certificate
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
