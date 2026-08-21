@@ -15,11 +15,18 @@ export function useAuth() {
       setSession(s);
       setUser(s?.user ?? null);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) console.error("[useAuth] getSession error:", error);
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } catch (err) {
+        console.error("[useAuth] getSession exception:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -28,11 +35,19 @@ export function useAuth() {
       setRoles([]);
       return;
     }
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .then(({ data }) => setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role)));
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        if (error) console.error("[useAuth] user_roles query error:", error);
+        setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
+      } catch (err) {
+        console.error("[useAuth] user_roles query exception:", err);
+        setRoles([]);
+      }
+    })();
   }, [user]);
 
   return {

@@ -1,37 +1,70 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
+const ROLE_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("role-query-timeout")), ms),
+    ),
+  ]);
+}
+
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    let user;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) throw redirect({ to: "/auth" });
+      user = data.user;
+    } catch (err: any) {
+      if (err?.name === "Redirect" || err?.isRedirect) throw err;
+      console.error("[_authenticated] getUser failed:", err);
+      throw redirect({ to: "/auth" });
+    }
 
-    // Resolve role from user_roles; fall back to profiles.role as a safety
-    // net for accounts missing a user_roles row or on transient query errors.
-    const rolesQuery = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.user.id);
-    const roles: string[] = rolesQuery.error
-      ? []
-      : (rolesQuery.data ?? []).map((x: any) => x.role);
+    let role: "admin" | "intern" | null = null;
 
-    let role: "admin" | "intern" | null = roles.includes("admin")
-      ? "admin"
-      : roles.includes("intern") || roles.includes("student")
-        ? "intern"
-        : null;
+    try {
+      const rolesQuery = await withTimeout(
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id) as unknown as Promise<any>,
+        ROLE_TIMEOUT_MS,
+      );
+      const roles: string[] = rolesQuery.error
+        ? []
+        : (rolesQuery.data ?? []).map((x: any) => x.role);
+
+      role = roles.includes("admin")
+        ? "admin"
+        : roles.includes("intern") || roles.includes("student")
+          ? "intern"
+          : null;
+    } catch (err: any) {
+      console.error("[_authenticated] user_roles query failed:", err);
+    }
 
     if (!role) {
-      const prof = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      const pr = (prof.data as any)?.role as string | undefined;
-      if (pr === "admin") role = "admin";
-      else if (pr === "intern" || pr === "student") role = "intern";
+      try {
+        const prof = await withTimeout(
+          supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle() as unknown as Promise<any>,
+          ROLE_TIMEOUT_MS,
+        );
+        const pr = (prof.data as any)?.role as string | undefined;
+        if (pr === "admin") role = "admin";
+        else if (pr === "intern" || pr === "student") role = "intern";
+      } catch (err: any) {
+        console.error("[_authenticated] profiles fallback query failed:", err);
+      }
     }
 
     if (!role) {
@@ -39,7 +72,7 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     return {
-      user: data.user,
+      user,
       role,
       isAdmin: role === "admin",
       isIntern: role === "intern",

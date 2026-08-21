@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -84,6 +84,8 @@ function AuthPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
+  const recoveryModeActive = useRef(false);
+  const navigating = useRef(false);
 
   useEffect(() => {
     supabase
@@ -104,17 +106,30 @@ function AuthPage() {
   }, []);
 
   useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" && !recoveryModeActive.current) {
+        recoveryModeActive.current = true;
+        setRecoveryMode(true);
+        toast.success("You can now set a new password.");
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     try {
       const hash = window.location.hash.replace(/^#/, "");
       const params = new URLSearchParams(hash);
       const type = params.get("type") ?? new URLSearchParams(window.location.search).get("type");
       const accessToken = params.get("access_token");
       const refreshToken = params.get("refresh_token");
-      if (type === "recovery" && accessToken && refreshToken) {
+      if (type === "recovery" && accessToken && refreshToken && !recoveryModeActive.current) {
+        recoveryModeActive.current = true;
         supabase.auth
           .setSession({ access_token: accessToken, refresh_token: refreshToken })
           .then(({ error }) => {
             if (error) {
+              recoveryModeActive.current = false;
               toast.error(error.message);
             } else {
               setRecoveryMode(true);
@@ -137,12 +152,22 @@ function AuthPage() {
   }
 
   async function handleRedirect(_userId: string) {
-    // Navigate to /dashboard immediately — the _authenticated route guard
-    // resolves the role (with user_roles → profiles fallback) and redirects
-    // admins to /admin and unprivileged accounts back to /auth. Doing role
-    // resolution here blocks the redirect on extra network round-trips and,
-    // on a transient query error, left users stuck on /auth after a
-    // successful sign-in.
+    if (navigating.current) return;
+    navigating.current = true;
+    // Ensure the session is fully persisted to storage before navigating.
+    // Without this, the _authenticated route guard can call getUser() before
+    // the session is written, causing a redirect loop back to /auth.
+    const { data: sessionCheck } = await supabase.auth.getSession();
+    if (!sessionCheck.session) {
+      console.error("[auth] handleRedirect: no session after signIn, retrying...");
+      await new Promise((r) => setTimeout(r, 200));
+      const { data: retry } = await supabase.auth.getSession();
+      if (!retry.session) {
+        navigating.current = false;
+        toast.error("Session not established. Please try signing in again.");
+        return;
+      }
+    }
     navigate({ to: "/dashboard" });
   }
 
@@ -154,7 +179,7 @@ function AuthPage() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth` },
+        options: { emailRedirectTo: "https://www.yrnovatech.online/auth" },
       });
       if (error) {
         toast.error(error.message);
@@ -174,7 +199,7 @@ function AuthPage() {
     if (!email) return toast.error("Enter your email first.");
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: "https://www.yrnovatech.online/auth",
       });
       if (error) return toast.error(error.message);
       toast.success("Password reset link sent to your email.");
