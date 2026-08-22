@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Reveal } from "@/components/Reveal";
 import { Target, Eye, Rocket, GraduationCap, BadgeCheck, Code2, PenTool, Brain, BarChart3 } from "lucide-react";
-import founder from "@/assets/founder.jpg";
+import founder from "@/assets/founder.png";
 import coFounder from "@/assets/co-founder.jpg";
 
 export const Route = createFileRoute("/about")({
