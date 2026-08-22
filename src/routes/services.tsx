@@ -89,7 +89,7 @@ function Services() {
           {services.map((s, i) => (
             <Card
               key={s.title}
-              className="p-6 hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up"
+              className="p-6 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up"
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center mb-4 shadow-elegant">

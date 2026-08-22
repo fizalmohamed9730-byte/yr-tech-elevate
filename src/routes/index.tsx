@@ -104,7 +104,7 @@ function Index() {
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
         </div>
         <div className="container mx-auto px-4 py-24 md:py-36 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-background/60 backdrop-blur text-xs font-medium mb-6 animate-fade-up">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-card/80 backdrop-blur text-xs font-medium mb-6 animate-fade-up">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             Now open for Summer 2026 internships
           </div>
@@ -151,7 +151,7 @@ function Index() {
             ].map((s) => (
               <div
                 key={s.v}
-                className="rounded-xl border border-border bg-background/60 backdrop-blur px-4 py-3 text-center"
+                className="rounded-xl border border-border bg-card/80 backdrop-blur px-4 py-3 text-center"
               >
                 <div className="text-2xl font-bold text-gradient">{s.k}</div>
                 <div className="text-xs text-muted-foreground mt-1">{s.v}</div>
@@ -172,7 +172,7 @@ function Index() {
           {services.map((s, i) => (
             <Card
               key={s.title}
-              className="p-6 hover:shadow-elegant transition-all hover:-translate-y-1 group animate-fade-up"
+              className="p-6 border border-border hover:shadow-elegant transition-all hover:-translate-y-1 group animate-fade-up"
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center mb-4 shadow-elegant group-hover:scale-110 transition-transform">
@@ -196,7 +196,7 @@ function Index() {
           {domains.map((d) => (
             <span
               key={d}
-              className="px-4 py-2 rounded-full bg-background border border-border text-sm font-medium hover:border-primary transition-colors"
+              className="px-4 py-2 rounded-full bg-card border border-border text-sm font-medium hover:border-primary transition-colors"
             >
               {d}
             </span>

@@ -63,8 +63,14 @@ function Projects() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : projects.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No projects available yet.</p>
+        <div className="text-center py-16">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent mb-4">
+            <span className="text-2xl font-bold text-primary">YR</span>
+          </div>
+          <p className="text-lg font-semibold mb-2">Projects coming soon</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            We're currently curating our portfolio of client work and intern projects. Check back soon.
+          </p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -84,7 +90,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
   const gradient = GRADIENTS[index % GRADIENTS.length];
 
   return (
-    <Card className="overflow-hidden hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up" style={{ animationDelay: `${index * 0.05}s` }}>
+    <Card className="overflow-hidden border border-border hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up" style={{ animationDelay: `${index * 0.05}s` }}>
       <div className="h-48 bg-gradient-to-br relative overflow-hidden">
         {project.image_url ? (
           <img

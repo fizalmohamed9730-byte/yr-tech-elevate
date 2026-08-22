@@ -76,7 +76,7 @@ function Internship() {
           {domains.map((d) => (
             <Card
               key={d.title}
-              className="p-6 hover:shadow-elegant hover:-translate-y-1 transition-all"
+              className="p-6 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all"
             >
               <h4 className="font-semibold mb-2">{d.title}</h4>
               <p className="text-sm text-muted-foreground">{d.desc}</p>

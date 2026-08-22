@@ -67,7 +67,7 @@ function Contact() {
     <Section>
       <SectionHeading eyebrow="Contact" title="Get in Touch" description={`Reach out to ${COMPANY.name} for internship inquiries, partnerships, or collaboration opportunities.`} />
       <div className="grid gap-8 md:grid-cols-5 max-w-5xl mx-auto">
-        <Card className="p-6 md:col-span-3">
+        <Card className="p-6 md:col-span-3 border border-border">
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label htmlFor="name">Name</Label>
@@ -87,21 +87,21 @@ function Contact() {
           </form>
         </Card>
         <div className="md:col-span-2 space-y-4">
-          <Card className="p-5 flex items-start gap-3">
+          <Card className="p-5 flex items-start gap-3 border border-border">
             <Building className="h-5 w-5 text-primary mt-0.5" />
             <div>
               <div className="font-semibold text-sm">Company</div>
               <div className="text-sm text-muted-foreground">{COMPANY.name}</div>
             </div>
           </Card>
-          <Card className="p-5 flex items-start gap-3">
+          <Card className="p-5 flex items-start gap-3 border border-border">
             <User className="h-5 w-5 text-primary mt-0.5" />
             <div>
               <div className="font-semibold text-sm">Founder & CEO</div>
               <div className="text-sm text-muted-foreground">{COMPANY.founder}</div>
             </div>
           </Card>
-          <Card className="p-5 flex items-start gap-3">
+          <Card className="p-5 flex items-start gap-3 border border-border">
             <Mail className="h-5 w-5 text-primary mt-0.5" />
             <div>
               <div className="font-semibold text-sm">Email</div>
