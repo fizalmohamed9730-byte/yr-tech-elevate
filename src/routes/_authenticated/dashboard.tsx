@@ -172,7 +172,12 @@ function Dashboard() {
   const tasks = getTasksForSlug(internship.domain?.slug).slice(0, durationTasksCount);
   const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
   const isApproved = internship.status === "active" || internship.status === "completed";
-  const task1Approved = submissions.some((s) => s.task_no === 1 && s.status === "approved");
+
+  function isTaskUnlocked(taskNo: number): boolean {
+    if (taskNo === 1) return true;
+    const prevSubmission = submissionByNo.get(taskNo - 1);
+    return prevSubmission?.status === "approved";
+  }
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-8">
@@ -192,7 +197,7 @@ function Dashboard() {
               <FileText className="h-5 w-5 text-blue-600" /> Download Your Official Offer Letter
             </h3>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              Your enrollment is approved! Download your offer letter to complete Task 1 (LinkedIn post announcement).
+              Your enrollment is approved! Download your official offer letter below.
             </p>
           </div>
           <Button
@@ -304,7 +309,7 @@ function Dashboard() {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-2">Internship Tasks ({internship.domain?.name})</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              You must submit Task 1 (LinkedIn Offer Letter Announcement) first and get it approved by the admin to unlock the remaining tasks.
+              Complete each task and submit it for admin review. Each task unlocks after the previous task is approved.
             </p>
             <div className="space-y-4">
               {tasks.map((t) => (
@@ -313,7 +318,7 @@ function Dashboard() {
                   task={t}
                   submission={submissionByNo.get(t.no)}
                   internshipId={internship.id}
-                  locked={t.no > 1 && !task1Approved}
+                  locked={!isTaskUnlocked(t.no)}
                   onUpdated={load}
                 />
               ))}
@@ -472,12 +477,12 @@ function Dashboard() {
             <h2 className="text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary" /> Certificate of Completion</h2>
             
             <p className="text-sm text-muted-foreground">
-              Your certificate will unlock automatically once all required tasks ({durationTasksCount}) are submitted and approved by the admin.
+              Your certificate becomes eligible only after all required tasks ({durationTasksCount}) are submitted, approved by the admin, and your internship is marked as completed. The admin will issue your certificate once all requirements are met.
             </p>
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
               <div className="flex justify-between">
-                <span>Verification Status:</span>
+                <span>Certificate Status:</span>
                 {internship.certificate_code ? (
                   <Badge className="bg-emerald-600">Issued</Badge>
                 ) : (
@@ -491,6 +496,12 @@ function Dashboard() {
                 </div>
               )}
             </div>
+
+            {!internship.certificate_code && (
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                Complete and receive approval for all {durationTasksCount} required internship tasks to unlock your certificate.
+              </div>
+            )}
 
             <Button
               disabled={!internship.certificate_code}
@@ -891,7 +902,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: 
             <DialogHeader><DialogTitle>Task {task.no}: {task.title}</DialogTitle></DialogHeader>
             <form onSubmit={submit} className="space-y-3">
               {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
-              {task.requires.project && <div><Label>{task.requires.linkedin ? "LinkedIn Post URL" : "Project URL"}</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
+              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
               {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}
               <div><Label>Notes (optional)</Label><Textarea name="notes" rows={3} defaultValue={submission?.notes ?? ""} /></div>
               <Button type="submit" disabled={busy} className="w-full bg-gradient-primary text-primary-foreground">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Submit for review"}</Button>

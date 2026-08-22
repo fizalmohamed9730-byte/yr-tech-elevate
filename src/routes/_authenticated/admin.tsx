@@ -45,43 +45,48 @@ function AdminPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterDuration, setFilterDuration] = useState("all");
 
-  async function reload() {
-    const [{ data: p }, { data: i }, { data: s }, { data: proj }, { data: ps }, { data: d }, { data: enq }, { data: ann }, { data: fb }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-      supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false }),
-      (supabase as any).from("submissions").select("*, internship:internships(internship_code, student_id, domain:domains(name,slug))").order("submitted_at", { ascending: false }),
-      (supabase as any).from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false }),
-      (supabase as any).from("project_submissions").select("*, project:projects(title), student:profiles(full_name,email)").order("submitted_at", { ascending: false }),
-      supabase.from("domains").select("*").eq("active", true),
-      supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
-      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-      supabase.from("feedback").select("*, student:profiles(full_name,email)").order("created_at", { ascending: false }),
-    ]);
-    setProfiles(p ?? []);
-    setInternships(i ?? []);
-    setProjects(proj ?? []);
-    setProjectSubmissions(ps ?? []);
-    setDomains(d ?? []);
-    setEnquiries(enq ?? []);
-    setAnnouncements(ann ?? []);
-    setFeedbackList(fb ?? []);
-    const rawSubs = (s ?? []) as any[];
-    const studentMap = new Map<string, { full_name: string | null; email: string | null }>();
-    for (const int of (i ?? []) as any[]) {
-      if (int.student_id && int.student) {
-        studentMap.set(int.student_id, { full_name: int.student.full_name, email: int.student.email });
+  async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<T[]> {
+    try {
+      const { data, error } = await builder as any;
+      if (error) {
+        console.error(`[admin] ${label} query error:`, error);
+        return [];
       }
+      return (data ?? []) as T[];
+    } catch (err: any) {
+      console.error(`[admin] ${label} query threw:`, err);
+      return [];
     }
-    const enrichedSubs = rawSubs.map((sub) => {
-      const sid = sub.internship?.student_id;
-      const student = sid ? studentMap.get(sid) : null;
-      return {
-        ...sub,
-        internship: {
-          ...sub.internship,
-          student: student ?? sub.internship?.student ?? null,
-        },
-      };
+  }
+
+  async function reload() {
+    const db = supabase as any;
+    const [p, i, rawSubs, proj, ps, d, enq, ann, fb] = await Promise.all([
+      safeQuery("profiles", supabase.from("profiles").select("*").order("created_at", { ascending: false })),
+      safeQuery("internships", supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false })),
+      safeQuery("submissions", db.from("submissions").select("*").order("submitted_at", { ascending: false })),
+      safeQuery("projects", db.from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
+      safeQuery("project_submissions", db.from("project_submissions").select("*, project:projects(title), student:profiles(full_name,email)").order("submitted_at", { ascending: false })),
+      safeQuery("domains", supabase.from("domains").select("*").eq("active", true)),
+      safeQuery("enquiries", supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
+      safeQuery("announcements", supabase.from("announcements").select("*").order("created_at", { ascending: false })),
+      safeQuery("feedback", supabase.from("feedback").select("*, student:profiles(full_name,email)").order("created_at", { ascending: false })),
+    ]);
+    setProfiles(p);
+    setInternships(i);
+    setProjects(proj);
+    setProjectSubmissions(ps);
+    setDomains(d);
+    setEnquiries(enq);
+    setAnnouncements(ann);
+    setFeedbackList(fb);
+    const internshipMap = new Map<string, any>();
+    for (const int of i) {
+      internshipMap.set(int.id, int);
+    }
+    const enrichedSubs = rawSubs.map((sub: any) => {
+      const internship = internshipMap.get(sub.internship_id) ?? null;
+      return { ...sub, internship };
     });
     setSubmissions(enrichedSubs);
   }
@@ -147,23 +152,27 @@ function AdminPage() {
   async function issueCertificate(internshipId: string) {
     const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
     const now = new Date().toISOString();
-    const { error } = await supabase.from("internships").update({
+    const { error } = await (supabase as any).from("internships").update({
       certificate_code: code,
       certificate_issued_at: now,
     }).eq("id", internshipId);
-    if (error) return toast.error(error.message);
+    if (error) {
+      console.error("[admin] issueCertificate error:", error);
+      return toast.error("Failed to issue certificate: " + error.message);
+    }
     toast.success("Certificate issued: " + code);
     reload();
   }
 
   async function removeStudent(studentId: string) {
     if (!confirm("Permanently delete this student and all their data?")) return;
-    const { data: interns } = await supabase.from("internships").select("id").eq("student_id", studentId);
+    const db = supabase as any;
+    const { data: interns } = await db.from("internships").select("id").eq("student_id", studentId);
     for (const i of (interns ?? [])) {
-      await supabase.from("submissions").delete().eq("internship_id", i.id);
+      await db.from("submissions").delete().eq("internship_id", i.id);
     }
-    await supabase.from("internships").delete().eq("student_id", studentId);
-    const { error } = await supabase.from("profiles").delete().eq("id", studentId);
+    await db.from("internships").delete().eq("student_id", studentId);
+    const { error } = await db.from("profiles").delete().eq("id", studentId);
     if (error) return toast.error(error.message);
     toast.success("Student removed");
     reload();
@@ -172,13 +181,16 @@ function AdminPage() {
   async function updateStatus(id: string, status: string) {
     const patch: any = { status };
     if (status === "completed") { patch.completed_at = new Date().toISOString(); patch.progress_percent = 100; }
-    const { data: updatedData, error } = await supabase
+    const { data: updatedData, error } = await (supabase as any)
       .from("internships")
       .update(patch)
       .eq("id", id)
       .select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email)")
       .single();
-    if (error) return toast.error(error.message);
+    if (error) {
+      console.error("[admin] updateStatus error:", error);
+      return toast.error("Failed to update: " + error.message);
+    }
     if (status === "active") {
       try {
         toast.info("Generating and storing offer letter...");
@@ -204,10 +216,13 @@ function AdminPage() {
   }
 
   async function reviewSubmission(id: string, status: "approved" | "rejected" | "resubmit", feedback: string) {
-    const { error } = await supabase.from("submissions").update({
+    const { error } = await (supabase as any).from("submissions").update({
       status, feedback: feedback || null, reviewed_at: new Date().toISOString(),
     }).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      console.error("[admin] reviewSubmission error:", error);
+      return toast.error("Failed to review: " + error.message);
+    }
     toast.success("Reviewed");
     reload();
   }
@@ -481,26 +496,55 @@ function AdminPage() {
                               </DialogTrigger>
                               <DialogContent className="max-w-lg">
                                 <DialogHeader><DialogTitle>{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
-                                <div className="space-y-3 text-sm">
+                                <div className="space-y-4 text-sm max-h-[70vh] overflow-y-auto">
                                   {s.avatar_url && (
                                     <div className="flex justify-center">
                                       <img src={s.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
                                     </div>
                                   )}
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div><span className="text-muted-foreground">Email:</span> {s.email}</div>
-                                    <div><span className="text-muted-foreground">Phone:</span> {s.phone ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">College:</span> {s.college ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Dept:</span> {s.department ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Year:</span> {s.year ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Domain:</span> {i?.domain?.name ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Duration:</span> {i?.duration ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Internship ID:</span> {i?.internship_code ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Offer Code:</span> {i?.offer_letter_code ?? "—"}</div>
-                                    <div><span className="text-muted-foreground">Certificate Code:</span> {i?.certificate_code ?? "—"}</div>
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Personal Information</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div><span className="text-muted-foreground">Full Name:</span> {s.full_name ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Email:</span> {s.email}</div>
+                                      <div><span className="text-muted-foreground">Phone:</span> {s.phone ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Year:</span> {s.year ?? "—"}</div>
+                                    </div>
                                   </div>
-                                  {s.github_url && <div><span className="text-muted-foreground">GitHub:</span> <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{s.github_url}</a></div>}
-                                  {s.linkedin_url && <div><span className="text-muted-foreground">LinkedIn:</span> <a href={s.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{s.linkedin_url}</a></div>}
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Academic Details</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div><span className="text-muted-foreground">College:</span> {s.college ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Department:</span> {s.department ?? "—"}</div>
+                                    </div>
+                                  </div>
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Internship Details</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div><span className="text-muted-foreground">Internship ID:</span> <span className="font-mono">{i?.internship_code ?? "—"}</span></div>
+                                      <div><span className="text-muted-foreground">Domain:</span> {i?.domain?.name ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Duration:</span> {i?.duration ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Status:</span> {i ? <Badge variant={i.status === "active" ? "default" : i.status === "completed" ? "outline" : "secondary"} className="ml-1">{i.status}</Badge> : "—"}</div>
+                                      <div><span className="text-muted-foreground">Start Date:</span> {i?.started_at ? new Date(i.started_at).toLocaleDateString() : "—"}</div>
+                                      <div><span className="text-muted-foreground">End Date:</span> {i?.completed_at ? new Date(i.completed_at).toLocaleDateString() : "—"}</div>
+                                      <div><span className="text-muted-foreground">Registered:</span> {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</div>
+                                      <div><span className="text-muted-foreground">Progress:</span> {taskApproved} / {taskTotal} tasks approved</div>
+                                    </div>
+                                  </div>
+                                  <div className="border rounded-lg p-3 space-y-2">
+                                    <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Credentials</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div><span className="text-muted-foreground">Offer Letter:</span> {i?.offer_letter_code ? <span className="font-mono">{i.offer_letter_code}</span> : "Not issued"}</div>
+                                      <div><span className="text-muted-foreground">Certificate:</span> {i?.certificate_code ? <span className="font-mono">{i.certificate_code}</span> : "Not issued"}</div>
+                                    </div>
+                                  </div>
+                                  {(s.github_url || s.linkedin_url) && (
+                                    <div className="border rounded-lg p-3 space-y-2">
+                                      <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Links</h4>
+                                      {s.github_url && <div><span className="text-muted-foreground">GitHub:</span> <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{s.github_url}</a></div>}
+                                      {s.linkedin_url && <div><span className="text-muted-foreground">LinkedIn:</span> <a href={s.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{s.linkedin_url}</a></div>}
+                                    </div>
+                                  )}
                                 </div>
                               </DialogContent>
                             </Dialog>
@@ -837,10 +881,10 @@ function AdminPage() {
               </div>
             </div>
 
-            {internships.filter(i => (i.status === "completed" || i.status === "active") && !i.certificate_code).length > 0 && (
+            {internships.filter(i => i.status === "completed" && !i.certificate_code).length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-2">Pending Certificate Issuance</h3>
-                <p className="text-sm text-muted-foreground mb-3">These interns have completed (or are active) but have no certificate yet.</p>
+                <h3 className="text-lg font-semibold mb-2">Eligible for Certificate</h3>
+                <p className="text-sm text-muted-foreground mb-3">These interns have completed all tasks and are eligible for certificate issuance.</p>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -849,27 +893,29 @@ function AdminPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Domain</TableHead>
                         <TableHead>Duration</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Task Progress</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {internships.filter(i => (i.status === "completed" || i.status === "active") && !i.certificate_code).map((i) => (
+                      {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
+                        const approved = submissions.filter(sub => sub.internship_id === i.id && sub.status === "approved").length;
+                        const total = i.duration === "1 Month" ? 3 : i.duration === "2 Months" ? 4 : 5;
+                        return (
                         <TableRow key={i.id}>
                           <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
                           <TableCell className="font-medium">{i.student?.full_name}</TableCell>
                           <TableCell>{i.domain?.name}</TableCell>
                           <TableCell className="text-xs">{i.duration}</TableCell>
-                          <TableCell>
-                            <Badge variant={i.status === "completed" ? "outline" : "default"}>{i.status}</Badge>
-                          </TableCell>
+                          <TableCell className="text-xs">{approved} / {total} approved</TableCell>
                           <TableCell>
                             <Button size="sm" onClick={() => issueCertificate(i.id)}>
                               <Award className="h-3 w-3 mr-1" /> Issue Certificate
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
