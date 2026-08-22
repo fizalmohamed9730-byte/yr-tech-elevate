@@ -380,10 +380,11 @@ export async function downloadCertificate(data: {
 }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   
-  // Preload logo and seal images
-  const [logo, seal] = await Promise.all([
+  // Preload logo, seal, and signature images
+  const [logo, seal, signature] = await Promise.all([
     loadImage(logoUrl),
-    loadImage(sealUrl)
+    loadImage(sealUrl),
+    loadImage(signatureUrl)
   ]);
 
   // border
@@ -445,10 +446,24 @@ export async function downloadCertificate(data: {
   } catch {}
 
   // signature
-  doc.setFont("times", "italic");
-  doc.setFontSize(20);
-  doc.setTextColor(37, 99, 235);
-  doc.text(COMPANY.founder, 60, 165);
+  if (signature) {
+    try {
+      const sigH = 15;
+      const sigW = sigH * (signature.naturalWidth / signature.naturalHeight);
+      doc.addImage(signature, "PNG", 40, 155, sigW, sigH);
+    } catch (err) {
+      console.error("Failed to load signature on certificate", err);
+      doc.setFont("times", "italic");
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text(COMPANY.founder, 60, 165);
+    }
+  } else {
+    doc.setFont("times", "italic");
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235);
+    doc.text(COMPANY.founder, 60, 165);
+  }
   doc.setDrawColor(120);
   doc.line(40, 168, 110, 168);
   doc.setFont("helvetica", "normal");

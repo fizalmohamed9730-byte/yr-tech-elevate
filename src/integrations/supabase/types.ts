@@ -280,6 +280,7 @@ export type Database = {
           github_url: string | null
           id: string
           internship_id: string
+          linkedin_url: string | null
           notes: string | null
           project_url: string | null
           reviewed_at: string | null
@@ -296,6 +297,7 @@ export type Database = {
           github_url?: string | null
           id?: string
           internship_id: string
+          linkedin_url?: string | null
           notes?: string | null
           project_url?: string | null
           reviewed_at?: string | null
@@ -312,6 +314,7 @@ export type Database = {
           github_url?: string | null
           id?: string
           internship_id?: string
+          linkedin_url?: string | null
           notes?: string | null
           project_url?: string | null
           reviewed_at?: string | null

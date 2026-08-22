@@ -320,6 +320,8 @@ function Dashboard() {
                   internshipId={internship.id}
                   locked={!isTaskUnlocked(t.no)}
                   onUpdated={load}
+                  profile={profile}
+                  internship={internship}
                 />
               ))}
             </div>
@@ -841,7 +843,7 @@ function ProjectSubmitForm({ projectId, studentId, onSubmitted }: { projectId: s
   );
 }
 
-function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: TaskDef; submission: any; internshipId: string; locked: boolean; onUpdated: () => void }) {
+function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, internship }: { task: TaskDef; submission: any; internshipId: string; locked: boolean; onUpdated: () => void; profile?: any; internship?: any }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const status = submission?.status as string | undefined;
@@ -856,6 +858,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: 
       github_url: (fd.get("github") as string) || null,
       project_url: (fd.get("project") as string) || null,
       drive_url: (fd.get("drive") as string) || null,
+      linkedin_url: (fd.get("linkedin") as string) || null,
       notes: (fd.get("notes") as string) || null,
       status: "pending",
       feedback: null,
@@ -883,9 +886,34 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: 
             {status && <Badge variant={status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"}>{status}</Badge>}
           </div>
           <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+          {task.no === 1 && task.requires.linkedin && internship?.offer_letter_code && profile && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2 text-xs"
+              onClick={() => {
+                toast.promise(
+                  downloadOfferLetterAnywhere({
+                    studentId: profile.id,
+                    fullName: profile?.full_name ?? "Intern",
+                    domain: internship.domain?.name ?? "",
+                    domainSlug: internship.domain?.slug,
+                    internshipCode: internship.internship_code,
+                    offerCode: internship.offer_letter_code,
+                    startedAt: internship.started_at,
+                    duration: internship.duration,
+                  }),
+                  { loading: "Downloading offer letter...", success: "Downloaded!", error: "Failed to download." }
+                );
+              }}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1" /> Download Offer Letter to Post
+            </Button>
+          )}
           {submission?.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Reviewer:</b> {submission.feedback}</p>}
           {submission && (
             <div className="flex gap-3 mt-2 text-xs">
+              {submission.linkedin_url && <a href={submission.linkedin_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
               {submission.github_url && <a href={submission.github_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
               {submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
               {submission.drive_url && <a href={submission.drive_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
@@ -901,6 +929,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated }: { task: 
           <DialogContent>
             <DialogHeader><DialogTitle>Task {task.no}: {task.title}</DialogTitle></DialogHeader>
             <form onSubmit={submit} className="space-y-3">
+              {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.linkedin_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
               {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
               {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
               {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}

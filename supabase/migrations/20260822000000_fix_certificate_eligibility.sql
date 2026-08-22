@@ -1,12 +1,16 @@
 -- =============================================================================
--- FIX: Certificate eligibility — require ALL tasks approved, not just 1
+-- FIX: Certificate eligibility, Task 1 LinkedIn, submissions schema
 -- DATE: 2026-08-22
--- ISSUE: recalc_internship_progress() granted certificate when v_approved >= 1
--- FIX: Remove auto certificate generation entirely. Certificates must be
---       issued manually by admin via issueCertificate() or admin UI.
 -- =============================================================================
 
--- 1. Revoke premature certificates where not all tasks are approved
+-- 1. Add linkedin_url column to submissions (for Task 1 LinkedIn post)
+ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS linkedin_url text;
+
+-- 2. Update task_no CHECK constraint to allow task 1-6 (was 1-5)
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS submissions_task_no_check;
+ALTER TABLE public.submissions ADD CONSTRAINT submissions_task_no_check CHECK (task_no BETWEEN 1 AND 6);
+
+-- 3. Revoke premature certificates where not all tasks are approved
 UPDATE public.internships
 SET certificate_code = NULL,
     certificate_issued_at = NULL
@@ -20,7 +24,8 @@ WHERE certificate_code IS NOT NULL
     ELSE 5
   END;
 
--- 2. Fix the trigger function: remove auto certificate generation
+-- 4. Fix the trigger function: remove auto certificate generation
+--    Certificate must be issued manually by admin only.
 CREATE OR REPLACE FUNCTION public.recalc_internship_progress()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -48,9 +53,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
--- 3. Prevent students from self-approving submissions
--- The old WITH CHECK did not restrict the status field, allowing a student
--- to change status from 'pending' to 'approved'. Fix: only allow safe statuses.
+-- 5. Prevent students from self-approving submissions
 DROP POLICY IF EXISTS "Students update own pending submissions" ON public.submissions;
 CREATE POLICY "Students update own pending submissions" ON public.submissions
   FOR UPDATE TO authenticated
