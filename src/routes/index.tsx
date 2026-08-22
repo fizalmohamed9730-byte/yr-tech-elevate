@@ -5,7 +5,6 @@ import {
   Code2,
   Palette,
   Brain,
-  Shield,
   Rocket,
   Award,
   Users,
@@ -26,13 +25,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Premium software development and project-based internships in Full Stack, UI/UX, AI, Python, and Cyber Security.",
+          "Premium software development and project-based internships in Full Stack, UI/UX, AI, Python, and C++.",
       },
       { property: "og:title", content: "YR NOVATECH — Innovate · Develop · Deliver" },
       {
         property: "og:description",
         content:
-          "YR NOVATECH — premium software development, AI, web, mobile, UI/UX, and cyber security services plus project-based internships.",
+          "YR NOVATECH — premium software development, AI, web, mobile, and UI/UX services plus project-based internships.",
       },
     ],
   }),
@@ -65,11 +64,6 @@ const services = [
     title: "UI/UX Design",
     desc: "Beautiful, intuitive product design that converts.",
   },
-  {
-    icon: Shield,
-    title: "Cyber Security",
-    desc: "Audits, hardening, and secure-by-design delivery.",
-  },
 ];
 
 const domains = [
@@ -77,7 +71,6 @@ const domains = [
   "UI/UX Design",
   "C++ Programming",
   "Python Programming",
-  "Cyber Security",
   "Artificial Intelligence",
 ];
 
@@ -144,8 +137,8 @@ function Index() {
             style={{ animationDelay: "0.4s" }}
           >
             {[
-              { k: "6+", v: "Service Lines" },
-              { k: "6", v: "Internship Domains" },
+              { k: "5+", v: "Service Lines" },
+              { k: "5", v: "Internship Domains" },
               { k: "24h", v: "Response Time" },
               { k: "100%", v: "Hands-on Projects" },
             ].map((s) => (

@@ -106,11 +106,6 @@ export function Footer() {
                 UI/UX Design
               </Link>
             </li>
-            <li>
-              <Link to="/services" className="hover:text-foreground">
-                Cyber Security
-              </Link>
-            </li>
           </ul>
         </div>
         <div>
@@ -128,12 +123,12 @@ export function Footer() {
             </li>
             <li>
               <Link to="/internship" className="hover:text-foreground">
-                Python
+                C++
               </Link>
             </li>
             <li>
               <Link to="/internship" className="hover:text-foreground">
-                Cyber Security
+                Python
               </Link>
             </li>
             <li>

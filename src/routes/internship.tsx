@@ -20,7 +20,7 @@ export const Route = createFileRoute("/internship")({
       {
         name: "description",
         content:
-          "Join YR NOVATECH's project-based internship in Full Stack, UI/UX, C++, Python, Cyber Security, and AI. Earn verifiable certificates.",
+          "Join YR NOVATECH's project-based internship in Full Stack, UI/UX, C++, Python, and AI. Earn verifiable certificates.",
       },
       { property: "og:title", content: "YR NOVATECH Internship Program" },
       { property: "og:description", content: "Hands-on internships across six tech domains." },
@@ -34,7 +34,6 @@ const domains = [
   { title: "UI/UX Design", desc: "Figma, design systems, user research." },
   { title: "C++ Programming", desc: "DSA, OOP, competitive problem solving." },
   { title: "Python Programming", desc: "Scripting, automation, backend with FastAPI." },
-  { title: "Cyber Security", desc: "Ethical hacking, web security, CTF challenges." },
   { title: "Artificial Intelligence", desc: "LLMs, RAG, computer vision, ML pipelines." },
 ];
 

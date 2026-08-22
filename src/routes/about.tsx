@@ -52,7 +52,6 @@ const whatWeDo = [
   "AI & Machine Learning Solutions",
   "Web & Mobile Application Development",
   "UI/UX Design & Product Strategy",
-  "Cyber Security Audits & Hardening",
   "Project-Based Internship Programs",
 ];
 

@@ -1,4 +1,4 @@
-export type DomainSlug = "full-stack" | "ui-ux" | "python" | "cpp" | "cyber-security" | "artificial-intelligence";
+export type DomainSlug = "full-stack" | "ui-ux" | "python" | "cpp" | "artificial-intelligence";
 
 export interface TaskDef {
   no: number;
@@ -53,14 +53,6 @@ export const DOMAIN_TASKS: Record<DomainSlug, TaskDef[]> = {
     task(4, "OOP Design Patterns Project", "Develop a multi-module C++ project applying at least 3 design patterns (Singleton, Factory, Observer, Strategy, or similar). Implement proper encapsulation, inheritance, polymorphism, and abstract classes. Use header/source separation with a Makefile or CMake build system. Deliverables: GitHub repo, build system files, and documentation explaining the patterns used."),
     task(5, "Algorithm Optimization & Benchmarking", "Implement 3 sorting algorithms and 3 search algorithms. Perform time complexity analysis with real benchmarks. Create a benchmarking framework that compares algorithms on different input sizes and generates performance reports. Deliverables: GitHub repo with benchmarking code, performance graphs/charts, and analysis report."),
     task(6, "Complete Application & Documentation", "Build a complete console or GUI application in C++ (e.g., inventory system, expense tracker, or text editor). Include proper error handling, input validation, file persistence, and a clean user interface. Write comprehensive documentation. Deliverables: GitHub repo with full source code, build instructions, user manual, and code review."),
-  ],
-  "cyber-security": [
-    LINKEDIN_TASK,
-    task(2, "Vulnerability Assessment", "Conduct a structured vulnerability assessment of a sample web application (use DVWA, WebGoat, or a deliberately vulnerable app). Identify at least 5 vulnerability types (SQL injection, XSS, CSRF, etc.), document each with severity, reproduction steps, and screenshots. Deliverables: Vulnerability assessment report with findings, severity ratings, and reproduction steps."),
-    task(3, "Network Traffic Analysis", "Capture and analyze network traffic using Wireshark or tcpdump. Identify protocol behaviors, detect suspicious patterns, and classify traffic types. Create traffic flow diagrams and document findings about normal vs. anomalous traffic patterns. Deliverables: Analysis report with screenshots, protocol breakdown, and anomaly detection findings."),
-    task(4, "Security Policy & Incident Response", "Develop a comprehensive information security policy document for a small organization. Include acceptable use policy, access control policy, data classification, and an incident response plan with defined roles, communication templates, and escalation procedures. Deliverables: Complete security policy document and incident response plan."),
-    task(5, "Cryptography Implementation", "Implement and test encryption/decryption algorithms (AES, RSA basics, hashing). Build a secure file encryption tool that supports key management, password-based encryption, and integrity verification. Compare algorithm performance and security properties. Deliverables: GitHub repo with encryption tool, documentation explaining algorithms, and security analysis."),
-    task(6, "Penetration Testing Report", "Perform a structured penetration test following the PTES (Penetration Testing Execution Standard) methodology. Document the testing phases: reconnaissance, scanning, exploitation, and post-exploitation. Provide detailed remediation recommendations prioritized by risk. Deliverables: Complete penetration testing report with executive summary, technical findings, and remediation roadmap."),
   ],
   "artificial-intelligence": [
     LINKEDIN_TASK,

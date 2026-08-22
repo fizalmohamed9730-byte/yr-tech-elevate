@@ -7,7 +7,6 @@ import {
   Palette,
   Cpu,
   Brain,
-  Shield,
   Smartphone,
   GraduationCap,
   ArrowRight,
@@ -22,7 +21,7 @@ export const Route = createFileRoute("/services")({
       {
         name: "description",
         content:
-          "Software development, AI solutions, web & mobile apps, UI/UX design, cyber security, and internship programs from YR NOVATECH.",
+          "Software development, AI solutions, web & mobile apps, UI/UX design, and internship programs from YR NOVATECH.",
       },
       { property: "og:title", content: "YR NOVATECH Services" },
       { property: "og:description", content: "End-to-end product engineering and AI solutions." },
@@ -61,12 +60,6 @@ const services = [
     title: "UI/UX Design",
     desc: "Research-driven product design. Wireframes, prototypes, and design systems that ship.",
     features: ["User research", "Design systems", "Prototypes", "Branding"],
-  },
-  {
-    icon: Shield,
-    title: "Cyber Security",
-    desc: "Security audits, hardening, and secure-by-design delivery to protect your product and data.",
-    features: ["Audits", "Pen testing", "Hardening", "Best practices"],
   },
   {
     icon: GraduationCap,
