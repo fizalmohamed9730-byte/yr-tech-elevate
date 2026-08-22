@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Reveal } from "@/components/Reveal";
-import { Target, Eye, Rocket, GraduationCap, BadgeCheck, Code2, PenTool } from "lucide-react";
+import { Target, Eye, Rocket, GraduationCap, BadgeCheck, Code2, PenTool, Brain, BarChart3 } from "lucide-react";
 import founder from "@/assets/founder.jpg";
 import coFounder from "@/assets/co-founder.jpg";
 
@@ -129,7 +129,7 @@ function About() {
                     src={founder}
                     alt="S. Fizal Mohamed, Founder & CEO of YR NOVATECH"
                     loading="lazy"
-                    width={708}
+                    width={1024}
                     height={1024}
                     className="relative aspect-[4/5] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                   />
@@ -141,6 +141,28 @@ function About() {
                   </span>
                   <h3 className="text-2xl md:text-3xl font-bold mt-2 mb-1">S. FIZAL MOHAMED</h3>
                   <p className="text-sm text-muted-foreground mb-4">Founder & CEO, YR NOVATECH</p>
+
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-4">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                    B.Tech — Information Technology
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {[
+                      { icon: Code2, label: "Certified Full Stack Developer" },
+                      { icon: Brain, label: "AI Developer" },
+                      { icon: BarChart3, label: "Data Analytics" },
+                    ].map((c) => (
+                      <span
+                        key={c.label}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary"
+                      >
+                        <c.icon className="h-3.5 w-3.5" />
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
+
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     S. Fizal Mohamed founded YR NOVATECH with one belief: India has incredible
                     engineering talent that just needs the right opportunities. What started as
@@ -152,6 +174,27 @@ function About() {
                     He leads the company's vision around innovation, mentorship, and building products
                     that matter.
                   </p>
+
+                  <div className="mt-5 pt-5 border-t border-border">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                      Expertise
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { icon: Code2, label: "Full Stack Development" },
+                        { icon: Brain, label: "AI Development" },
+                        { icon: BarChart3, label: "Data Analytics" },
+                      ].map((s) => (
+                        <span
+                          key={s.label}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary border border-border px-2.5 py-1 text-xs text-secondary-foreground"
+                        >
+                          <s.icon className="h-3.5 w-3.5 text-primary" />
+                          {s.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>
