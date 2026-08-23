@@ -445,32 +445,34 @@ export async function downloadCertificate(data: {
     doc.addImage(qr, "PNG", 240, 150, 32, 32);
   } catch {}
 
-  // signature
+  // signature — must sit completely above the horizontal line
+  const lineY = 170;
+  const sigH = 22;
+  const sigY = lineY - sigH - 3;
   if (signature) {
     try {
-      const sigH = 15;
       const sigW = sigH * (signature.naturalWidth / signature.naturalHeight);
-      doc.addImage(signature, "PNG", 40, 155, sigW, sigH);
+      doc.addImage(signature, "PNG", 40, sigY, sigW, sigH);
     } catch (err) {
       console.error("Failed to load signature on certificate", err);
       doc.setFont("times", "italic");
       doc.setFontSize(20);
       doc.setTextColor(37, 99, 235);
-      doc.text(COMPANY.founder, 60, 165);
+      doc.text(COMPANY.founder, 60, sigY + sigH * 0.6);
     }
   } else {
     doc.setFont("times", "italic");
     doc.setFontSize(20);
-    doc.setTextColor(37, 99, 235);
-    doc.text(COMPANY.founder, 60, 165);
+    doc.setTextColor(37, 99, 255);
+    doc.text(COMPANY.founder, 60, sigY + sigH * 0.6);
   }
   doc.setDrawColor(120);
-  doc.line(40, 168, 110, 168);
+  doc.line(40, lineY, 110, lineY);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
-  doc.text(COMPANY.founder, 75, 174, { align: "center" });
-  doc.text(COMPANY.founderTitle, 75, 179, { align: "center" });
+  doc.text(COMPANY.founder, 75, lineY + 6, { align: "center" });
+  doc.text(COMPANY.founderTitle, 75, lineY + 11, { align: "center" });
 
   // seal
   if (seal) {
