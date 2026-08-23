@@ -12,6 +12,7 @@ import {
   Sparkles,
   Smartphone,
   Layers,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -64,6 +65,11 @@ const services = [
     title: "UI/UX Design",
     desc: "Beautiful, intuitive product design that converts.",
   },
+  {
+    icon: Rocket,
+    title: "Internship Programs",
+    desc: "Project-based internships to launch your engineering career.",
+  },
 ];
 
 const domains = [
@@ -84,7 +90,6 @@ const whyUs = [
 function Index() {
   return (
     <>
-      {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <img
@@ -124,12 +129,12 @@ function Index() {
               size="lg"
               className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-elegant"
             >
-              <Link to="/internship">
-                Start Internship <ArrowRight className="ml-2 h-4 w-4" />
+              <Link to="/services">
+                Explore Services <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link to="/services">Explore Services</Link>
+              <Link to="/internship">Apply for Internship</Link>
             </Button>
           </div>
           <div
@@ -154,7 +159,6 @@ function Index() {
         </div>
       </section>
 
-      {/* SERVICES */}
       <Section>
         <SectionHeading
           eyebrow="What we do"
@@ -178,12 +182,11 @@ function Index() {
         </div>
       </Section>
 
-      {/* INTERNSHIPS */}
       <Section className="bg-secondary/30 rounded-3xl">
         <SectionHeading
           eyebrow="Internship Program"
           title="Learn by building real products"
-          description="Project-based internships across six high-demand domains."
+          description="Project-based internships across five high-demand domains."
         />
         <div className="flex flex-wrap justify-center gap-3 mb-10">
           {domains.map((d) => (
@@ -208,7 +211,6 @@ function Index() {
         </div>
       </Section>
 
-      {/* WHY US */}
       <Section>
         <SectionHeading eyebrow="Why YR NOVATECH" title="Built on trust, designed for growth" />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -228,7 +230,6 @@ function Index() {
         </div>
       </Section>
 
-      {/* CTA */}
       <Section>
         <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-10 md:p-16 text-center">
           <div

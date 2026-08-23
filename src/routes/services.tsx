@@ -1,18 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
+import { Button } from "@/components/ui/button";
 import {
   Code2,
-  Layers,
-  Palette,
-  Cpu,
   Brain,
+  Layers,
   Smartphone,
+  Palette,
   GraduationCap,
   ArrowRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/services")({
   head: () => ({
@@ -74,8 +72,8 @@ function Services() {
     <>
       <Section>
         <SectionHeading
-          eyebrow="Services"
-          title="What we build"
+          eyebrow="What We Do"
+          title="Our Services"
           description="Full-stack capabilities for ambitious teams."
         />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -110,11 +108,18 @@ function Services() {
           <p className="text-white/80 mb-6 max-w-xl mx-auto">
             Tell us what you're building and we'll respond within 24 hours.
           </p>
-          <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
-            <Link to="/contact">
-              Start a project <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="flex items-center justify-center gap-4">
+            <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
+              <Link to="/contact">
+                Start a project <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+              <Link to="/services">
+                View All Services <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </Section>
     </>

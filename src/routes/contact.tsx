@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Mail, User, Building } from "lucide-react";
+import { User, Mail, MessageSquare, Building, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { COMPANY } from "@/lib/company";
@@ -55,9 +54,8 @@ function Contact() {
         toast.success("Message sent! We'll get back within 24 hours.");
         setForm({ name: "", email: "", message: "" });
       }
-    } catch (err: any) {
+    } catch {
       toast.error("Unable to send your message. Please try again.");
-      console.error("[contact] submit error:", err);
     } finally {
       setLoading(false);
     }
@@ -65,49 +63,110 @@ function Contact() {
 
   return (
     <Section>
-      <SectionHeading eyebrow="Contact" title="Get in Touch" description={`Reach out to ${COMPANY.name} for internship inquiries, partnerships, or collaboration opportunities.`} />
+      <SectionHeading
+        eyebrow="Get in Touch"
+        title="Contact Us"
+        description={`Reach out to ${COMPANY.name} for internship inquiries, partnerships, or collaboration opportunities.`}
+      />
       <div className="grid gap-8 md:grid-cols-5 max-w-5xl mx-auto">
-        <Card className="p-6 md:col-span-3 border border-border">
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name" maxLength={100} />
+        <form
+          onSubmit={onSubmit}
+          className="md:col-span-3 p-6 md:p-8 border border-border bg-card rounded-2xl space-y-5"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="name"
+                className="pl-10"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Your name"
+                maxLength={100}
+              />
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@email.com" maxLength={255} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                className="pl-10"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="you@email.com"
+                maxLength={255}
+              />
             </div>
-            <div>
-              <Label htmlFor="message">Message</Label>
-              <Textarea id="message" rows={5} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="How can we help?" maxLength={1000} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="message">Message</Label>
+            <div className="relative">
+              <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Textarea
+                id="message"
+                className="pl-10"
+                rows={5}
+                value={form.message}
+                onChange={(e) => setForm({ ...form, message: e.target.value })}
+                placeholder="How can we help?"
+                maxLength={1000}
+              />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-gradient-primary text-primary-foreground shadow-elegant">
-              {loading ? "Sending..." : "Send Message"}
-            </Button>
-          </form>
-        </Card>
+          </div>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-primary text-primary-foreground shadow-elegant"
+          >
+            {loading ? "Sending..." : "Send Message"}
+          </Button>
+        </form>
+
         <div className="md:col-span-2 space-y-4">
-          <Card className="p-5 flex items-start gap-3 border border-border">
-            <Building className="h-5 w-5 text-primary mt-0.5" />
+          <div className="p-5 border border-border bg-card rounded-xl flex items-start gap-3">
+            <Building className="h-5 w-5 text-primary mt-0.5 shrink-0" />
             <div>
               <div className="font-semibold text-sm">Company</div>
               <div className="text-sm text-muted-foreground">{COMPANY.name}</div>
             </div>
-          </Card>
-          <Card className="p-5 flex items-start gap-3 border border-border">
-            <User className="h-5 w-5 text-primary mt-0.5" />
+          </div>
+          <div className="p-5 border border-border bg-card rounded-xl flex items-start gap-3">
+            <User className="h-5 w-5 text-primary mt-0.5 shrink-0" />
             <div>
-              <div className="font-semibold text-sm">Founder & CEO</div>
+              <div className="font-semibold text-sm">{COMPANY.founderTitle}</div>
               <div className="text-sm text-muted-foreground">{COMPANY.founder}</div>
             </div>
-          </Card>
-          <Card className="p-5 flex items-start gap-3 border border-border">
-            <Mail className="h-5 w-5 text-primary mt-0.5" />
+          </div>
+          <div className="p-5 border border-border bg-card rounded-xl flex items-start gap-3">
+            <Mail className="h-5 w-5 text-primary mt-0.5 shrink-0" />
             <div>
               <div className="font-semibold text-sm">Email</div>
-              <a href={`mailto:${COMPANY.email}`} className="text-sm text-muted-foreground hover:text-foreground">{COMPANY.email}</a>
+              <a
+                href={`mailto:${COMPANY.email}`}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {COMPANY.email}
+              </a>
             </div>
-          </Card>
+          </div>
+          <div className="p-5 border border-border bg-card rounded-xl flex items-start gap-3">
+            <Globe className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-sm">Website</div>
+              <a
+                href={`https://${COMPANY.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {COMPANY.website}
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </Section>

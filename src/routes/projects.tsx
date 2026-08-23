@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, LayoutGrid } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/projects")({
@@ -57,19 +57,19 @@ function Projects() {
 
   return (
     <Section>
-      <SectionHeading eyebrow="Portfolio" title="Selected work" description="A mix of production client work and standout intern projects." />
+      <SectionHeading eyebrow="Portfolio" title="Our Projects" description="A curated showcase of client solutions and intern-built products." />
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : projects.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent mb-4">
-            <span className="text-2xl font-bold text-primary">YR</span>
+        <div className="text-center py-20">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-5">
+            <LayoutGrid className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="text-lg font-semibold mb-2">Projects coming soon</p>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            We're currently curating our portfolio of client work and intern projects. Check back soon.
+          <p className="text-xl font-semibold mb-2">Projects Coming Soon</p>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+            We're currently curating our portfolio of client work and intern projects. Check back soon for an updated showcase.
           </p>
         </div>
       ) : (
@@ -90,7 +90,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
   const gradient = GRADIENTS[index % GRADIENTS.length];
 
   return (
-    <Card className="overflow-hidden border border-border hover:shadow-elegant hover:-translate-y-1 transition-all animate-fade-up" style={{ animationDelay: `${index * 0.05}s` }}>
+    <Card className="overflow-hidden border border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300" style={{ animationDelay: `${index * 0.05}s` }}>
       <div className="h-48 bg-gradient-to-br relative overflow-hidden">
         {project.image_url ? (
           <img
@@ -104,26 +104,26 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
         <div className="absolute top-3 right-3">
           <Badge variant="secondary">{project.difficulty}</Badge>
         </div>
-        <div className="absolute bottom-4 left-4 text-white text-2xl font-bold opacity-90 drop-shadow-lg">
-          {project.title.split(" ")[0]}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-10">
+          <p className="text-white text-lg font-bold leading-snug drop-shadow-md">{project.title}</p>
         </div>
       </div>
-      <div className="p-5">
-        <h3 className="font-semibold mb-2">{project.title}</h3>
-        <p className="text-sm text-muted-foreground mb-3 whitespace-pre-line">
+      <div className="p-5 space-y-3">
+        <h3 className="font-semibold text-base leading-snug">{project.title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
           {isLong && !expanded ? desc.slice(0, 150) + "..." : desc}
         </p>
         {isLong && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-xs text-primary hover:underline mb-3"
+            className="text-xs font-medium text-primary hover:underline"
           >
             {expanded ? "Show less" : "Read more"}
           </button>
         )}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 pt-1">
           {project.project_domains?.map((pd, j) => (
-            <span key={j} className="text-xs px-2 py-1 rounded-md bg-accent text-accent-foreground">
+            <span key={j} className="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">
               {pd.domain?.name ?? "Domain"}
             </span>
           ))}

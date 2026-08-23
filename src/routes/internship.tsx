@@ -11,6 +11,11 @@ import {
   ClipboardCheck,
   Award,
   ArrowRight,
+  Layers,
+  Palette,
+  Cpu,
+  Terminal,
+  Brain,
 } from "lucide-react";
 
 export const Route = createFileRoute("/internship")({
@@ -30,11 +35,31 @@ export const Route = createFileRoute("/internship")({
 });
 
 const domains = [
-  { title: "Full Stack Development", desc: "MERN, Next.js, Postgres, deployments." },
-  { title: "UI/UX Design", desc: "Figma, design systems, user research." },
-  { title: "C++ Programming", desc: "DSA, OOP, competitive problem solving." },
-  { title: "Python Programming", desc: "Scripting, automation, backend with FastAPI." },
-  { title: "Artificial Intelligence", desc: "LLMs, RAG, computer vision, ML pipelines." },
+  {
+    icon: Layers,
+    title: "Full Stack Development",
+    desc: "Master the MERN stack, Next.js, Postgres, and production deployments end-to-end.",
+  },
+  {
+    icon: Palette,
+    title: "UI/UX Design",
+    desc: "Design in Figma, build design systems, and conduct user research that ships.",
+  },
+  {
+    icon: Cpu,
+    title: "C++ Programming",
+    desc: "Dive into DSA, OOP principles, and competitive problem solving at scale.",
+  },
+  {
+    icon: Terminal,
+    title: "Python Programming",
+    desc: "Write scripts, automate workflows, and build backends with FastAPI.",
+  },
+  {
+    icon: Brain,
+    title: "Artificial Intelligence",
+    desc: "Work with LLMs, RAG pipelines, computer vision, and end-to-end ML systems.",
+  },
 ];
 
 const workflow = [
@@ -50,19 +75,19 @@ const workflow = [
 function Internship() {
   return (
     <>
-      <Section>
+      <Section className="text-center">
         <SectionHeading
           eyebrow="Internship Program"
-          title="Project-based internships that actually count"
+          title="Launch Your Career"
           description="A structured, mentor-guided journey from registration to verifiable certificate."
         />
-        <div className="text-center">
+        <div className="mt-8">
           <Button
             asChild
             size="lg"
             className="bg-gradient-primary text-primary-foreground shadow-elegant"
           >
-            <Link to="/apply">
+            <Link to="/auth">
               Apply Now <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
@@ -70,37 +95,54 @@ function Internship() {
       </Section>
 
       <Section className="!pt-0">
-        <h3 className="text-2xl font-bold mb-6 text-center">Choose your domain</h3>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <SectionHeading
+          eyebrow="Domains"
+          title="Choose Your Domain"
+          description="Pick the track that aligns with your goals and get hands-on experience."
+        />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {domains.map((d) => (
             <Card
               key={d.title}
-              className="p-6 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all"
+              className="group p-6 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all"
             >
-              <h4 className="font-semibold mb-2">{d.title}</h4>
-              <p className="text-sm text-muted-foreground">{d.desc}</p>
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/50 text-accent-foreground transition-colors group-hover:bg-accent">
+                <d.icon className="h-6 w-6" />
+              </div>
+              <h4 className="text-lg font-semibold mb-2">{d.title}</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed">{d.desc}</p>
             </Card>
           ))}
         </div>
       </Section>
 
       <Section className="bg-secondary/30 rounded-3xl">
-        <SectionHeading eyebrow="Workflow" title="How the program works" />
-        <div className="relative max-w-3xl mx-auto">
-          <div className="absolute left-6 top-2 bottom-2 w-px bg-border md:left-1/2" />
-          <div className="space-y-6">
+        <SectionHeading
+          eyebrow="Workflow"
+          title="How the Program Works"
+          description="Seven clear steps from sign-up to certificate."
+        />
+        <div className="relative max-w-3xl mx-auto mt-12">
+          <div className="absolute left-6 top-0 bottom-0 w-px bg-border md:left-1/2" />
+          <div className="space-y-10">
             {workflow.map((w, i) => (
               <div
                 key={w.title}
-                className={`relative flex gap-4 md:gap-8 items-start ${i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
+                className={`relative flex items-start gap-4 md:gap-0 ${
+                  i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
+                }`}
               >
-                <div className="md:w-1/2 md:text-right flex md:justify-end">
-                  <div className="ml-16 md:ml-0 md:mr-8">
-                    <h4 className="font-semibold">{w.title}</h4>
-                    <p className="text-sm text-muted-foreground">{w.desc}</p>
-                  </div>
+                <div
+                  className={`md:w-1/2 ${
+                    i % 2 === 0
+                      ? "md:pr-12 md:text-right"
+                      : "md:pl-12 md:text-left"
+                  } pl-16 md:pl-0`}
+                >
+                  <h4 className="font-semibold text-base mb-1">{w.title}</h4>
+                  <p className="text-sm text-muted-foreground">{w.desc}</p>
                 </div>
-                <div className="absolute left-0 md:left-1/2 md:-translate-x-1/2 h-12 w-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-elegant">
+                <div className="absolute left-0 md:left-1/2 md:-translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-primary shadow-elegant z-10">
                   <w.icon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div className="hidden md:block md:w-1/2" />
