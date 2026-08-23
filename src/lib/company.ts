@@ -5,5 +5,5 @@ export const COMPANY = {
   founderTitle: "Founder & CEO",
   udyam: "UDYAM-TN-17-0077694",
   email: "fizalyrtech@gmail.com",
-  website: "yrnovatech.in",
+  website: "yrnovatech.online",
 } as const;
