@@ -205,10 +205,9 @@ function Dashboard() {
 
       {/* Modern SaaS Sub-Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full h-auto p-1 bg-muted rounded-lg">
+        <TabsList className="grid grid-cols-7 md:grid-cols-7 w-full h-auto p-1 bg-muted rounded-lg">
           <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm">Dashboard</TabsTrigger>
           <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm">My Tasks</TabsTrigger>
-          <TabsTrigger value="projects" className="py-2 text-xs md:text-sm">Projects</TabsTrigger>
           <TabsTrigger value="offer" className="py-2 text-xs md:text-sm">Offer Letter</TabsTrigger>
           <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm">ID Card</TabsTrigger>
           <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm">Certificate</TabsTrigger>
@@ -373,14 +372,6 @@ function Dashboard() {
                 View Offer Letter
               </Button>
             </div>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 3: Projects */}
-        <TabsContent value="projects">
-          <Card className="p-6 space-y-6">
-            <h2 className="text-xl font-semibold">Projects</h2>
-            <ProjectsPanel internship={internship} />
           </Card>
         </TabsContent>
 
@@ -679,63 +670,6 @@ function FeedbackPanel({ profile }: { profile: any }) {
   );
 }
 
-function ProjectsPanel({ internship }: { internship: any }) {
-  const [projs, setProjs] = useState<any[]>([]);
-  const [mySubs, setMySubs] = useState<any[]>([]);
-  const [loadingProj, setLoadingProj] = useState(true);
-
-  useEffect(() => {
-    if (!internship) return;
-    (async () => {
-      const [{ data: p }, { data: ps }] = await Promise.all([
-        (supabase as any).from("projects").select("*, project_domains(domain_id)").eq("active", true).order("created_at", { ascending: false }),
-        (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id),
-      ]);
-      const domainProjects = (p ?? []).filter((proj: any) =>
-        proj.project_domains?.some((pd: any) => pd.domain_id === internship.domain_id)
-      );
-      setProjs(domainProjects);
-      setMySubs(ps ?? []);
-      setLoadingProj(false);
-    })();
-  }, [internship]);
-
-  if (loadingProj) return <Loader2 className="h-5 w-5 animate-spin" />;
-  if (projs.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">No projects assigned to your domain yet.</p>;
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {projs.map((proj) => {
-        const sub = mySubs.find((s: any) => s.project_id === proj.id);
-        return (
-          <Card key={proj.id} className="p-4 border space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold">{proj.title}</h3>
-                <p className="text-xs text-muted-foreground mt-1">{proj.description || "No description"}</p>
-              </div>
-              <Badge variant={proj.difficulty === "Beginner" ? "secondary" : proj.difficulty === "Advanced" ? "destructive" : "default"}>{proj.difficulty}</Badge>
-            </div>
-            {proj.deadline && <p className="text-xs text-muted-foreground">Deadline: {new Date(proj.deadline).toLocaleDateString()}</p>}
-            {sub ? (
-              <div className="p-2 bg-accent rounded text-sm">
-                <div className="flex items-center gap-2">
-                  <span>Status:</span>
-                  <Badge variant={sub.status === "approved" ? "default" : sub.status === "rejected" ? "destructive" : "secondary"}>{sub.status}</Badge>
-                </div>
-                {sub.feedback && <p className="text-xs mt-1">Feedback: {sub.feedback}</p>}
-              </div>
-            ) : (
-              <ProjectSubmitForm projectId={proj.id} studentId={internship.student_id} onSubmitted={() => {
-                (supabase as any).from("project_submissions").select("*").eq("student_id", internship.student_id).then(({ data }: any) => setMySubs(data ?? []));
-              }} />
-            )}
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-
 function Stat({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
   return (
     <Card className="p-5">
@@ -759,63 +693,6 @@ function DownloadCard({ icon: Icon, title, desc, available, onClick }: any) {
         {available ? "Download PDF" : "Locked"}
       </Button>
     </Card>
-  );
-}
-
-function ProjectSubmitForm({ projectId, studentId, onSubmitted }: { projectId: string; studentId: string; onSubmitted: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [fileUrl, setFileUrl] = useState("");
-  const [githubUrl, setGithubUrl] = useState("");
-  const [notes, setNotes] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    const { error } = await (supabase as any).from("project_submissions").insert({
-      project_id: projectId,
-      student_id: studentId,
-      file_url: fileUrl || null,
-      github_url: githubUrl || null,
-      notes: notes || null,
-      status: "pending",
-    });
-    setBusy(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Project submitted for review");
-      setOpen(false);
-      onSubmitted();
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="w-full">Submit Project</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Submit Project</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>File URL</Label>
-            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://drive.google.com/..." />
-          </div>
-          <div>
-            <Label>GitHub URL</Label>
-            <Input value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/..." />
-          </div>
-          <div>
-            <Label>Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-          </div>
-          <Button type="submit" disabled={busy} className="w-full">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}</Button>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

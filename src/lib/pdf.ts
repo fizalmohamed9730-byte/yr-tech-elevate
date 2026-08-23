@@ -16,6 +16,31 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
+// Preprocess signature image: darken strokes while keeping transparent background
+function darkenSignature(img: HTMLImageElement): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a > 0) {
+      // Darken non-transparent pixels significantly
+      const factor = 0.35;
+      data[i] = Math.round(data[i] * factor);
+      data[i + 1] = Math.round(data[i + 1] * factor);
+      data[i + 2] = Math.round(data[i + 2] * factor);
+      // Boost alpha slightly for bolder strokes
+      data[i + 3] = Math.min(255, Math.round(a * 1.3));
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 function drawVectorSeal(doc: jsPDF, sealY: number) {
   doc.setDrawColor(37, 99, 235);
   doc.setTextColor(37, 99, 235);
@@ -81,6 +106,9 @@ export async function generateOfferLetterPDF(data: {
     loadImage(sealUrl),
     loadImage(signatureUrl)
   ]);
+
+  // Preprocess signature to make it darker/bolder
+  const darkSignature = signature ? darkenSignature(signature) : null;
 
   // --- Outer Border (Premium HR styling) ---
   doc.setDrawColor(37, 99, 235); // royal blue
@@ -209,12 +237,11 @@ export async function generateOfferLetterPDF(data: {
   doc.text("For YR NOVATECH,", 16, footerY);
 
   // Founder Signature
-  if (signature) {
+  if (darkSignature) {
     try {
-      // Transparent PNG, aspect ratio preserved (445x285 => ~1.56:1)
-      const sigH = 12;
-      const sigW = sigH * (signature.naturalWidth / signature.naturalHeight);
-      doc.addImage(signature, "PNG", 16, footerY + 2, sigW, sigH);
+      const tempImg = await loadImage(darkSignature);
+      const sigW = 12 * ((tempImg?.naturalWidth ?? 445) / (tempImg?.naturalHeight ?? 285));
+      doc.addImage(darkSignature, "PNG", 16, footerY + 2, sigW, 12);
     } catch (err) {
       console.error("Failed to load signature on offer letter", err);
       doc.setFont("times", "italic");
@@ -387,6 +414,9 @@ export async function downloadCertificate(data: {
     loadImage(signatureUrl)
   ]);
 
+  // Preprocess signature to make it darker/bolder
+  const darkSignature = signature ? darkenSignature(signature) : null;
+
   // border
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(2);
@@ -446,13 +476,14 @@ export async function downloadCertificate(data: {
   } catch {}
 
   // signature — must sit completely above the horizontal line
-  const lineY = 170;
-  const sigH = 22;
-  const sigY = lineY - sigH - 3;
-  if (signature) {
+  const lineY = 172;
+  const sigH = 28;
+  const sigY = lineY - sigH - 4;
+  if (darkSignature) {
     try {
-      const sigW = sigH * (signature.naturalWidth / signature.naturalHeight);
-      doc.addImage(signature, "PNG", 40, sigY, sigW, sigH);
+      const tempImg = await loadImage(darkSignature);
+      const sigW = sigH * ((tempImg?.naturalWidth ?? 445) / (tempImg?.naturalHeight ?? 285));
+      doc.addImage(darkSignature, "PNG", 40, sigY, sigW, sigH);
     } catch (err) {
       console.error("Failed to load signature on certificate", err);
       doc.setFont("times", "italic");
@@ -466,13 +497,15 @@ export async function downloadCertificate(data: {
     doc.setTextColor(37, 99, 255);
     doc.text(COMPANY.founder, 60, sigY + sigH * 0.6);
   }
-  doc.setDrawColor(120);
+  doc.setDrawColor(80);
+  doc.setLineWidth(0.5);
   doc.line(40, lineY, 110, lineY);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text(COMPANY.founder, 75, lineY + 6, { align: "center" });
-  doc.text(COMPANY.founderTitle, 75, lineY + 11, { align: "center" });
+  doc.text(COMPANY.founder, 75, lineY + 7, { align: "center" });
+  doc.setFontSize(9);
+  doc.text(COMPANY.founderTitle, 75, lineY + 13, { align: "center" });
 
   // seal
   if (seal) {
