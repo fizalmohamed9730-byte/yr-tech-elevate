@@ -61,17 +61,38 @@ function AdminPage() {
 
   async function reload() {
     const db = supabase as any;
-    const [p, i, rawSubs, proj, ps, d, enq, ann, fb] = await Promise.all([
+    const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
       safeQuery("profiles", supabase.from("profiles").select("*").order("created_at", { ascending: false })),
-      safeQuery("internships", supabase.from("internships").select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email,phone,college,department,year,avatar_url,created_at)").order("created_at", { ascending: false })),
+      safeQuery("internships", supabase.from("internships").select("*, domain:domains(name,slug)").order("created_at", { ascending: false })),
       safeQuery("submissions", db.from("submissions").select("*").order("submitted_at", { ascending: false })),
       safeQuery("projects", db.from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
-      safeQuery("project_submissions", db.from("project_submissions").select("*, project:projects(title), student:profiles(full_name,email)").order("submitted_at", { ascending: false })),
+      safeQuery("project_submissions", db.from("project_submissions").select("*, project:projects(title)").order("submitted_at", { ascending: false })),
       safeQuery("domains", supabase.from("domains").select("*").eq("active", true)),
       safeQuery("enquiries", supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
       safeQuery("announcements", supabase.from("announcements").select("*").order("created_at", { ascending: false })),
-      safeQuery("feedback", supabase.from("feedback").select("*, student:profiles(full_name,email)").order("created_at", { ascending: false })),
+      safeQuery("feedback", supabase.from("feedback").select("*").order("created_at", { ascending: false })),
     ]);
+
+    const studentMap = new Map<string, any>();
+    for (const profile of p) {
+      studentMap.set(profile.id, profile);
+    }
+
+    const i = rawInterns.map((intern: any) => ({
+      ...intern,
+      student: studentMap.get(intern.student_id) ?? null,
+    }));
+
+    const ps = rawPs.map((sub: any) => ({
+      ...sub,
+      student: studentMap.get(sub.student_id) ?? sub.student ?? null,
+    }));
+
+    const fb = rawFb.map((f: any) => ({
+      ...f,
+      student: studentMap.get(f.user_id) ?? null,
+    }));
+
     setProfiles(p);
     setInternships(i);
     setProjects(proj);
@@ -158,7 +179,7 @@ function AdminPage() {
     }
 
     return list;
-  }, [profiles, internships, searchTerm, filterDomain, filterStatus, filterDuration]);
+  }, [profiles, internships, domains, searchTerm, filterDomain, filterStatus, filterDuration]);
 
   async function issueCertificate(internshipId: string) {
     const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
@@ -196,7 +217,7 @@ function AdminPage() {
       .from("internships")
       .update(patch)
       .eq("id", id)
-      .select("*, domain:domains(name,slug), student:profiles!internships_student_id_fkey(full_name,email)")
+      .select("*, domain:domains(name,slug)")
       .single();
     if (error) {
       console.error("[admin] updateStatus error:", error);
@@ -207,9 +228,10 @@ function AdminPage() {
         toast.info("Generating and storing offer letter...");
         const { uploadOfferLetterToStorage } = await import("@/lib/pdf");
         const ud: any = updatedData;
+        const studentProfile = profiles.find((p) => p.id === ud.student_id);
         await uploadOfferLetterToStorage({
           studentId: ud.student_id,
-          fullName: ud.student?.full_name ?? "Intern",
+          fullName: studentProfile?.full_name ?? "Intern",
           domain: ud.domain?.name ?? "",
           domainSlug: ud.domain?.slug,
           internshipCode: ud.internship_code,
