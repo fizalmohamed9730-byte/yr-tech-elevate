@@ -31,16 +31,17 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       setRoles([]);
       return;
     }
+    const uid = user.id;
     (async () => {
       try {
         const { data, error } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id);
+          .eq("user_id", uid);
         if (error) console.error("[useAuth] user_roles query error:", error);
         setRoles(((data ?? []) as { role: AppRole }[]).map((r) => r.role));
       } catch (err) {
@@ -48,7 +49,7 @@ export function useAuth() {
         setRoles([]);
       }
     })();
-  }, [user]);
+  }, [user?.id]);
 
   return {
     session,

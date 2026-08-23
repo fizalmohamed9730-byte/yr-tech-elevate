@@ -154,20 +154,6 @@ function AuthPage() {
   async function handleRedirect(_userId: string) {
     if (navigating.current) return;
     navigating.current = true;
-    // Ensure the session is fully persisted to storage before navigating.
-    // Without this, the _authenticated route guard can call getUser() before
-    // the session is written, causing a redirect loop back to /auth.
-    const { data: sessionCheck } = await supabase.auth.getSession();
-    if (!sessionCheck.session) {
-      console.error("[auth] handleRedirect: no session after signIn, retrying...");
-      await new Promise((r) => setTimeout(r, 200));
-      const { data: retry } = await supabase.auth.getSession();
-      if (!retry.session) {
-        navigating.current = false;
-        toast.error("Session not established. Please try signing in again.");
-        return;
-      }
-    }
     navigate({ to: "/dashboard" });
   }
 

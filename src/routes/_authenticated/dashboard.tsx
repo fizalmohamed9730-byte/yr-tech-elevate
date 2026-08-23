@@ -17,8 +17,6 @@ import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downlo
 import { COMPANY } from "@/lib/company";
 import { z } from "zod";
 
-let dashboardOferCheckInFlight = false;
-
 export const Route = createFileRoute("/_authenticated/dashboard")({
   beforeLoad: ({ context }) => {
     const ctx = context as { isIntern?: boolean; isAdmin?: boolean };
@@ -79,28 +77,6 @@ function Dashboard() {
     if (internship?.id) {
       const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", internship.id).order("task_no");
       setSubmissions(s ?? []);
-    }
-
-    // Ensure a stored offer letter PDF exists (background — never block first
-    // paint). Downloads always succeed via downloadOfferLetterAnywhere even if
-    // storage is empty, so this is purely a convenience for View/preview.
-    if (internship?.offer_letter_code && !dashboardOferCheckInFlight) {
-      dashboardOferCheckInFlight = true;
-      try {
-        const { ensureOfferLetterStored } = await import("@/lib/pdf");
-        await ensureOfferLetterStored({
-          studentId: u.user.id,
-          fullName: p?.full_name ?? "Intern",
-          domain: internship.domain?.name ?? "",
-          domainSlug: internship.domain?.slug,
-          internshipCode: internship.internship_code,
-          offerCode: internship.offer_letter_code,
-          startedAt: internship.started_at,
-          duration: internship.duration,
-        });
-      } catch (err: any) {
-        console.warn("[dashboard] ensure offer letter:", err?.message);
-      }
     }
   }
 

@@ -1,13 +1,13 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-const ROLE_TIMEOUT_MS = 8000;
+const AUTH_TIMEOUT_MS = 8000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("role-query-timeout")), ms),
+      setTimeout(() => reject(new Error("auth-timeout")), ms),
     ),
   ]);
 }
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authenticated")({
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id) as unknown as Promise<any>,
-        ROLE_TIMEOUT_MS,
+        AUTH_TIMEOUT_MS,
       );
       const roles: string[] = rolesQuery.error
         ? []
@@ -47,24 +47,6 @@ export const Route = createFileRoute("/_authenticated")({
           : null;
     } catch (err: any) {
       console.error("[_authenticated] user_roles query failed:", err);
-    }
-
-    if (!role) {
-      try {
-        const prof = await withTimeout(
-          supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
-            .maybeSingle() as unknown as Promise<any>,
-          ROLE_TIMEOUT_MS,
-        );
-        const pr = (prof.data as any)?.role as string | undefined;
-        if (pr === "admin") role = "admin";
-        else if (pr === "intern" || pr === "student") role = "intern";
-      } catch (err: any) {
-        console.error("[_authenticated] profiles fallback query failed:", err);
-      }
     }
 
     if (!role) {
