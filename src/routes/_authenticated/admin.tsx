@@ -114,9 +114,19 @@ function AdminPage() {
   }, [isAdmin]);
 
   const enrichedStudents = useMemo(() => {
+    function resolveDomainName(internship: any): string {
+      if (internship?.domain?.name) return internship.domain.name;
+      if (internship?.domain_id) {
+        const dom = domains.find((d) => d.id === internship.domain_id);
+        if (dom) return dom.name;
+      }
+      return "";
+    }
+
     let list = profiles.map((profile) => {
       const internship = internships.find((i) => i.student_id === profile.id);
-      return { ...profile, internship };
+      const domainName = resolveDomainName(internship);
+      return { ...profile, internship, resolvedDomain: domainName };
     });
 
     // Search filter
@@ -127,7 +137,8 @@ function AdminPage() {
         (s.email ?? "").toLowerCase().includes(q) ||
         (s.college ?? "").toLowerCase().includes(q) ||
         (s.internship?.internship_code ?? "").toLowerCase().includes(q) ||
-        (s.internship?.domain?.name ?? "").toLowerCase().includes(q)
+        (s.internship?.domain?.name ?? "").toLowerCase().includes(q) ||
+        (s.resolvedDomain ?? "").toLowerCase().includes(q)
       );
     }
 
@@ -471,7 +482,7 @@ function AdminPage() {
                         <TableCell className="text-xs max-w-[130px] truncate">{s.college ?? "—"}</TableCell>
                         <TableCell className="text-xs">{s.department ?? "—"}</TableCell>
                         <TableCell className="text-xs">{s.year ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{i?.domain?.name ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{s.resolvedDomain || <span className="text-muted-foreground italic">Domain not assigned</span>}</TableCell>
                         <TableCell className="text-xs">{i?.duration ?? "—"}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</TableCell>
                         <TableCell>
@@ -522,7 +533,7 @@ function AdminPage() {
                                     <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Internship Details</h4>
                                     <div className="grid grid-cols-2 gap-2">
                                       <div><span className="text-muted-foreground">Internship ID:</span> <span className="font-mono">{i?.internship_code ?? "—"}</span></div>
-                                      <div><span className="text-muted-foreground">Domain:</span> {i?.domain?.name ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Domain:</span> {s.resolvedDomain || <span className="text-muted-foreground italic">Domain not assigned</span>}</div>
                                       <div><span className="text-muted-foreground">Duration:</span> {i?.duration ?? "—"}</div>
                                       <div><span className="text-muted-foreground">Status:</span> {i ? <Badge variant={i.status === "active" ? "default" : i.status === "completed" ? "outline" : "secondary"} className="ml-1">{i.status}</Badge> : "—"}</div>
                                       <div><span className="text-muted-foreground">Start Date:</span> {i?.started_at ? new Date(i.started_at).toLocaleDateString() : "—"}</div>
@@ -556,10 +567,10 @@ function AdminPage() {
                             )}
                             {i?.status === "active" && (
                               <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => {
-                                import("@/lib/pdf").then((m) => m.downloadIdCard({
+                                  import("@/lib/pdf").then((m) => m.downloadIdCard({
                                   fullName: s.full_name ?? "Intern",
                                   internshipCode: i.internship_code ?? "",
-                                  domain: i.domain?.name ?? "",
+                                  domain: s.resolvedDomain || (i.domain?.name ?? ""),
                                   photoDataUrl: s.avatar_url,
                                   email: s.email,
                                   duration: i.duration,
@@ -1036,39 +1047,67 @@ function AdminPage() {
 
         {/* Tab 11: Analytics */}
         <TabsContent value="analytics">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="p-6 space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-600"/> Application Funnel</h4>
-              <div className="space-y-4 pt-4">
-                <div className="flex justify-between text-sm"><span>Registered Students:</span><span className="font-bold">{profiles.length}</span></div>
-                <div className="flex justify-between text-sm"><span>Pending Approvals:</span><span className="font-bold text-amber-600">{pendingApps}</span></div>
-                <div className="flex justify-between text-sm"><span>Active Interns:</span><span className="font-bold text-blue-600">{activeCount}</span></div>
-                <div className="flex justify-between text-sm"><span>Graduated Interns:</span><span className="font-bold text-emerald-600">{completedCount}</span></div>
+          {(() => {
+            const totalStudents = profiles.length;
+            const totalInternships = internships.length;
+            const activeInterns = internships.filter((i) => i.status === "active").length;
+            const completedInterns = internships.filter((i) => i.status === "completed").length;
+            const pendingApprovals = internships.filter((i) => i.status === "pending").length;
+            const rejectedInterns = internships.filter((i) => i.status === "rejected").length;
+            const totalSubmissions = submissions.length;
+            const approvedSubs = submissions.filter((s) => s.status === "approved").length;
+            const pendingSubsCount = submissions.filter((s) => s.status === "pending" || s.status === "resubmit").length;
+            const rejectedSubs = submissions.filter((s) => s.status === "rejected").length;
+            const certEligible = internships.filter((i) => i.status === "completed" && !i.certificate_code).length;
+            const certsIssued = internships.filter((i) => i.certificate_code).length;
+
+            return (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="p-6 space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-600"/> Application Funnel</h4>
+                  <div className="space-y-4 pt-4">
+                    <div className="flex justify-between text-sm"><span>Registered Students:</span><span className="font-bold">{totalStudents}</span></div>
+                    <div className="flex justify-between text-sm"><span>Total Internships:</span><span className="font-bold">{totalInternships}</span></div>
+                    <div className="flex justify-between text-sm"><span>Pending Approvals:</span><span className="font-bold text-amber-600">{pendingApprovals}</span></div>
+                    <div className="flex justify-between text-sm"><span>Active Interns:</span><span className="font-bold text-blue-600">{activeInterns}</span></div>
+                    <div className="flex justify-between text-sm"><span>Completed Internships:</span><span className="font-bold text-emerald-600">{completedInterns}</span></div>
+                    <div className="flex justify-between text-sm"><span>Rejected:</span><span className="font-bold text-destructive">{rejectedInterns}</span></div>
+                  </div>
+                </Card>
+                <Card className="p-6 space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Briefcase className="h-4 w-4 text-blue-600"/> Interns by Domain</h4>
+                  <div className="space-y-3 pt-4">
+                    {domains.map((dom) => {
+                      const count = internships.filter((i) => i.domain_id === dom.id).length;
+                      return (
+                        <div key={dom.id} className="flex justify-between text-sm">
+                          <span>{dom.name}</span>
+                          <span className="font-bold">{count}</span>
+                        </div>
+                      );
+                    })}
+                    {domains.length === 0 && <p className="text-xs text-muted-foreground">No domains configured</p>}
+                  </div>
+                </Card>
+                <Card className="p-6 space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CheckSquare className="h-4 w-4 text-blue-600"/> Task Submissions</h4>
+                  <div className="space-y-4 pt-4">
+                    <div className="flex justify-between text-sm"><span>Total Submissions:</span><span className="font-bold">{totalSubmissions}</span></div>
+                    <div className="flex justify-between text-sm"><span>Approved:</span><span className="font-bold text-emerald-600">{approvedSubs}</span></div>
+                    <div className="flex justify-between text-sm"><span>Pending Review:</span><span className="font-bold text-amber-600">{pendingSubsCount}</span></div>
+                    <div className="flex justify-between text-sm"><span>Rejected / Resubmit:</span><span className="font-bold text-destructive">{rejectedSubs}</span></div>
+                  </div>
+                </Card>
+                <Card className="p-6 space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Award className="h-4 w-4 text-blue-600"/> Certificates</h4>
+                  <div className="space-y-4 pt-4">
+                    <div className="flex justify-between text-sm"><span>Certificates Issued:</span><span className="font-bold text-emerald-600">{certsIssued}</span></div>
+                    <div className="flex justify-between text-sm"><span>Eligible (Not Yet Issued):</span><span className="font-bold text-amber-600">{certEligible}</span></div>
+                  </div>
+                </Card>
               </div>
-            </Card>
-            <Card className="p-6 space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><Briefcase className="h-4 w-4 text-blue-600"/> Domain Enrollments</h4>
-              <div className="space-y-3 pt-4">
-                {domains.map((dom) => {
-                  const count = internships.filter(i => i.domain?.name === dom.name).length;
-                  return (
-                    <div key={dom.id} className="flex justify-between text-sm">
-                      <span>{dom.name}:</span>
-                      <span className="font-bold">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-            <Card className="p-6 space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1"><CheckSquare className="h-4 w-4 text-blue-600"/> Task Analytics</h4>
-              <div className="space-y-4 pt-4">
-                <div className="flex justify-between text-sm"><span>Total Submissions:</span><span className="font-bold">{submissions.length}</span></div>
-                <div className="flex justify-between text-sm"><span>Needs Review:</span><span className="font-bold text-amber-600">{pendingSubs.length}</span></div>
-                <div className="flex justify-between text-sm"><span>Approved:</span><span className="font-bold text-emerald-600">{submissions.filter(s => s.status === 'approved').length}</span></div>
-              </div>
-            </Card>
-          </div>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
