@@ -724,9 +724,10 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
       internship_id: internshipId,
       task_no: task.no,
       github_url: (fd.get("github") as string) || null,
-      project_url: (fd.get("project") as string) || null,
+      project_url: task.no === 1
+        ? (fd.get("linkedin") as string) || null
+        : (fd.get("project") as string) || null,
       drive_url: (fd.get("drive") as string) || null,
-      linkedin_url: (fd.get("linkedin") as string) || null,
       notes: (fd.get("notes") as string) || null,
       status: "pending",
       feedback: null,
@@ -781,9 +782,9 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
           {submission?.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Reviewer:</b> {submission.feedback}</p>}
           {submission && (
             <div className="flex gap-2 md:gap-3 mt-2 text-xs flex-wrap">
-              {submission.linkedin_url && <a href={submission.linkedin_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
+              {task.no === 1 && submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
               {submission.github_url && <a href={submission.github_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
-              {submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
+              {task.no !== 1 && submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
               {submission.drive_url && <a href={submission.drive_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
             </div>
           )}
@@ -797,7 +798,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
           <DialogContent>
             <DialogHeader><DialogTitle>Task {task.no}: {task.title}</DialogTitle></DialogHeader>
             <form onSubmit={submit} className="space-y-3">
-              {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.linkedin_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
+              {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
               {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
               {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
               {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}

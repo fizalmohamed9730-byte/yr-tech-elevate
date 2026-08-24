@@ -1,19 +1,18 @@
 -- =============================================================================
--- FIX: submissions.linkedin_url + domains anon read access
+-- FIX: Task 1 LinkedIn URL submission + domains anon read access
 -- DATE: 2026-08-24
 -- =============================================================================
--- Issue 1: submissions table missing linkedin_url column (needed for Task 1)
--- Issue 2: domains table RLS/grants not allowing anon role to read active domains
+-- Issue 1: Task 1 LinkedIn URL is stored in project_url (not a separate column).
+--          This migration only updates task_no CHECK to allow 1-6.
+-- Issue 2: domains table RLS/grants not allowing anon role to read active domains.
 --
 -- HOW TO APPLY: Run this SQL in the Supabase Dashboard > SQL Editor
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- ISSUE 1: Add linkedin_url to submissions
+-- ISSUE 1: Update task_no CHECK to allow 1-6
+-- Task 1 = LinkedIn post URL (stored in project_url), Tasks 2-6 = domain-specific
 -- ---------------------------------------------------------------------------
-ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS linkedin_url text;
-
--- Update task_no CHECK to allow 1-6 (Task 1 is LinkedIn, Tasks 2-6 are domain-specific)
 ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS submissions_task_no_check;
 ALTER TABLE public.submissions ADD CONSTRAINT submissions_task_no_check CHECK (task_no BETWEEN 1 AND 6);
 

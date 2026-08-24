@@ -226,7 +226,6 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   github_url text,
   project_url text,
   drive_url text,
-  linkedin_url text,
   notes text,
   status text NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending','approved','rejected','resubmit')),

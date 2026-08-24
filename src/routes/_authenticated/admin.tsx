@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone, MessageSquare, Star } from "lucide-react";
+import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone, MessageSquare, Star, Linkedin } from "lucide-react";
 import { getTasksForSlug } from "@/lib/tasks";
 import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterAnywhere, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -689,8 +689,9 @@ function AdminPage() {
                       <div className="font-semibold mt-1">{taskMeta?.title ?? `Task ${s.task_no}`}</div>
                       <div className="text-xs text-muted-foreground">{s.internship?.student?.full_name} · {s.internship?.domain?.name}</div>
                       <div className="flex gap-3 mt-2 text-xs flex-wrap">
+                        {s.task_no === 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
                         {s.github_url && <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
-                        {s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
+                        {s.task_no !== 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
                         {s.drive_url && <a href={s.drive_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
                       </div>
                       {s.notes && <p className="text-xs mt-2 text-muted-foreground">{s.notes}</p>}
