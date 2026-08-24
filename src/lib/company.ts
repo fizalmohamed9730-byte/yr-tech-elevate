@@ -6,4 +6,5 @@ export const COMPANY = {
   udyam: "UDYAM-TN-17-0077694",
   email: "fizalyrtech@gmail.com",
   website: "yrnovatech.online",
+  instagram: "https://www.instagram.com/yrnovatech_official/",
 } as const;

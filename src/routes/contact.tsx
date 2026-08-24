@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { User, Mail, MessageSquare, Building, Globe } from "lucide-react";
+import { User, Mail, MessageSquare, Building, Globe, Instagram } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { COMPANY } from "@/lib/company";
@@ -164,6 +164,20 @@ function Contact() {
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 {COMPANY.website}
+              </a>
+            </div>
+          </div>
+          <div className="p-5 border border-border bg-card rounded-xl flex items-start gap-3">
+            <Instagram className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-sm">Instagram</div>
+              <a
+                href={COMPANY.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                @yrnovatech_official
               </a>
             </div>
           </div>

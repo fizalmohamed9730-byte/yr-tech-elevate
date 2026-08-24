@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
 import { Github, Linkedin, Mail, MessageCircle, Instagram } from "lucide-react";
+import { COMPANY } from "@/lib/company";
 
 export function Footer() {
   return (
@@ -32,7 +33,7 @@ export function Footer() {
               <Github className="h-4 w-4" />
             </a>
             <a
-              href="https://www.instagram.com/"
+              href="https://www.instagram.com/yrnovatech_official/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"

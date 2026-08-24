@@ -4,6 +4,7 @@ import { COMPANY } from "./company";
 import logoUrl from "@/assets/company-logo.png";
 import sealUrl from "@/assets/company-seal.png";
 import signatureUrl from "@/assets/fizal-mohamed-signature-transparent.png";
+import msmeLogoUrl from "@/assets/msme-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to preload images safely in the browser
@@ -100,11 +101,12 @@ export async function generateOfferLetterPDF(data: {
 }): Promise<jsPDF> {
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   
-  // Preload logo, seal, and signature images
-  const [logo, seal, signature] = await Promise.all([
+  // Preload logo, seal, signature, and MSME logo images
+  const [logo, seal, signature, msmeLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
-    loadImage(signatureUrl)
+    loadImage(signatureUrl),
+    loadImage(msmeLogoUrl)
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -284,6 +286,17 @@ export async function generateOfferLetterPDF(data: {
     drawVectorSeal(doc, sealY);
   }
 
+  // MSME Logo — bottom right below the seal
+  if (msmeLogo) {
+    try {
+      const msmeW = 18;
+      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
+      doc.addImage(msmeLogo, "PNG", 150, footerY + 34, msmeW, msmeH);
+    } catch (err) {
+      console.error("Failed to render MSME logo on offer letter", err);
+    }
+  }
+
   return doc;
 }
 
@@ -407,11 +420,12 @@ export async function downloadCertificate(data: {
 }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   
-  // Preload logo, seal, and signature images
-  const [logo, seal, signature] = await Promise.all([
+  // Preload logo, seal, signature, and MSME logo images
+  const [logo, seal, signature, msmeLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
-    loadImage(signatureUrl)
+    loadImage(signatureUrl),
+    loadImage(msmeLogoUrl)
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -516,6 +530,17 @@ export async function downloadCertificate(data: {
     }
   } else {
     drawVectorCertificateSeal(doc, 170, 165);
+  }
+
+  // MSME Logo — bottom left above the bottom row
+  if (msmeLogo) {
+    try {
+      const msmeW = 18;
+      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
+      doc.addImage(msmeLogo, "PNG", 20, 180 - msmeH, msmeW, msmeH);
+    } catch (err) {
+      console.error("Failed to render MSME logo on certificate", err);
+    }
   }
 
   // bottom row
