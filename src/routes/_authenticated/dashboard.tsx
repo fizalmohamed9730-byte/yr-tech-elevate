@@ -156,21 +156,21 @@ function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 space-y-8">
+    <div className="container mx-auto px-4 py-6 md:py-10 space-y-6 md:space-y-8">
       {/* Welcome & Overview Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6 border-border/40">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 border-b pb-4 md:pb-6 border-border/40">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
-          <p className="text-muted-foreground">{COMPANY.name} Internship Portal</p>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
+          <p className="text-sm md:text-muted-foreground">{COMPANY.name} Internship Portal</p>
         </div>
       </div>
 
       {/* Prominent Offer Letter Banner */}
       {(internship.status === "active" || internship.status === "completed") && internship.offer_letter_code && (
-        <Card className="p-6 border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col md:flex-row items-center justify-between gap-6 shadow-elegant">
+        <Card className="p-4 md:p-6 border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6 shadow-elegant">
           <div className="space-y-1">
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" /> Download Your Official Offer Letter
+              <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" /> Download Your Official Offer Letter
             </h3>
             <p className="text-sm text-blue-700 dark:text-blue-300">
               Your enrollment is approved! Download your official offer letter below.
@@ -196,7 +196,7 @@ function Dashboard() {
                 }
               );
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-elegant px-6"
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-elegant px-4 md:px-6 w-full md:w-auto"
           >
             Download Offer Letter
           </Button>
@@ -205,30 +205,32 @@ function Dashboard() {
 
       {/* Modern SaaS Sub-Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-7 md:grid-cols-7 w-full h-auto p-1 bg-muted rounded-lg">
-          <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm">Dashboard</TabsTrigger>
-          <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm">My Tasks</TabsTrigger>
-          <TabsTrigger value="offer" className="py-2 text-xs md:text-sm">Offer Letter</TabsTrigger>
-          <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm">ID Card</TabsTrigger>
-          <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm">Certificate</TabsTrigger>
-          <TabsTrigger value="profile" className="py-2 text-xs md:text-sm">Profile</TabsTrigger>
-          <TabsTrigger value="feedback" className="py-2 text-xs md:text-sm">Feedback</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex md:grid md:grid-cols-7 w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1">
+            <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Dashboard</TabsTrigger>
+            <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">My Tasks</TabsTrigger>
+            <TabsTrigger value="offer" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Offer Letter</TabsTrigger>
+            <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">ID Card</TabsTrigger>
+            <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Certificate</TabsTrigger>
+            <TabsTrigger value="profile" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Profile</TabsTrigger>
+            <TabsTrigger value="feedback" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Feedback</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Tab 1: Dashboard */}
         <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
+          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-5">
             <Stat label="Domain" value={internship.domain?.name ?? "—"} />
             <Stat label="Duration" value={internship.duration || "1 Month"} />
             <Stat label="Internship ID" value={internship.internship_code} mono />
-            <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"}>{internship.status}</Badge>} />
+            <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"} className="text-xs">{internship.status}</Badge>} />
             <Stat label="Progress" value={`${internship.progress_percent}%`} />
           </div>
 
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Progress</h2>
-              <div className="text-sm text-muted-foreground space-x-4">
+          <Card className="p-4 md:p-6 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
+              <h2 className="text-lg md:text-xl font-semibold">Progress</h2>
+              <div className="text-sm text-muted-foreground flex flex-col md:flex-row md:space-x-4 gap-1 md:gap-0">
                 <span>{submissions.filter(s=>s.status==='approved').length} / {durationTasksCount} tasks approved</span>
                 <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - submissions.filter(s=>s.status==='approved').length)} tasks remaining</span>
               </div>
@@ -236,29 +238,29 @@ function Dashboard() {
             <Progress value={internship.progress_percent} />
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="p-6 space-y-4">
-              <h3 className="font-semibold text-lg flex items-center gap-2"><IdCard className="h-5 w-5 text-primary" /> Internship ID Card Preview</h3>
-              <div className="flex justify-center bg-muted/30 p-4 rounded-lg">
-                <div className="w-[180px] h-[280px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[8px]">
-                  <div className="bg-primary text-primary-foreground p-3 text-center">
-                    <div className="font-bold text-[10px]">{COMPANY.name}</div>
-                    <div className="text-[5px] opacity-80">{COMPANY.tagline}</div>
+          <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+            <Card className="p-4 md:p-6 space-y-4">
+              <h3 className="font-semibold text-base md:text-lg flex items-center gap-2"><IdCard className="h-5 w-5 text-primary flex-shrink-0" /> Internship ID Card Preview</h3>
+              <div className="flex justify-center bg-muted/30 p-3 md:p-4 rounded-lg">
+                <div className="w-[160px] md:w-[180px] h-[250px] md:h-[280px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[7px] md:text-[8px]">
+                  <div className="bg-primary text-primary-foreground p-2 md:p-3 text-center">
+                    <div className="font-bold text-[9px] md:text-[10px]">{COMPANY.name}</div>
+                    <div className="text-[4px] md:text-[5px] opacity-80">{COMPANY.tagline}</div>
                     <div className="font-semibold mt-1">INTERN ID CARD</div>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
+                  <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-3 space-y-2 md:space-y-3">
                     {photo ? (
-                      <img src={photo} alt="Student" className="w-16 h-18 rounded object-cover border" />
+                      <img src={photo} alt="Student" className="w-14 h-16 md:w-16 md:h-18 rounded object-cover border" />
                     ) : (
-                      <div className="w-16 h-18 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
+                      <div className="w-14 h-16 md:w-16 md:h-18 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
                     )}
                     <div className="text-center">
-                      <div className="font-bold text-[9px] truncate max-w-[150px]">{profile?.full_name}</div>
-                      <div className="text-muted-foreground text-[6px] mt-0.5">{internship.domain?.name}</div>
+                      <div className="font-bold text-[8px] md:text-[9px] truncate max-w-[130px] md:max-w-[150px]">{profile?.full_name}</div>
+                      <div className="text-muted-foreground text-[5px] md:text-[6px] mt-0.5">{internship.domain?.name}</div>
                     </div>
-                    <div className="w-full text-left space-y-1 pt-2 border-t text-[6px]">
+                    <div className="w-full text-left space-y-1 pt-1 md:pt-2 border-t text-[5px] md:text-[6px]">
                       <div className="flex justify-between"><span>ID:</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
-                      <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[100px]">{profile?.email}</span></div>
+                      <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[90px] md:max-w-[100px]">{profile?.email}</span></div>
                     </div>
                   </div>
                   <div className="bg-slate-900 h-1" />
@@ -267,26 +269,26 @@ function Dashboard() {
               <Button onClick={() => setActiveTab("idcard")} variant="outline" className="w-full">Manage ID Card</Button>
             </Card>
 
-            <Card className="p-6 flex flex-col justify-between">
+            <Card className="p-4 md:p-6 flex flex-col justify-between">
               <div>
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary" /> Certificate of Completion</h3>
+                <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
                 <p className="text-sm text-muted-foreground">
                   Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are reviewed and approved by the admin.
                 </p>
               </div>
-              <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-6">View Certificate Status</Button>
+              <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>
             </Card>
           </div>
         </TabsContent>
 
         {/* Tab 2: Tasks */}
         <TabsContent value="tasks">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-2">Internship Tasks ({internship.domain?.name})</h2>
-            <p className="text-sm text-muted-foreground mb-6">
+          <Card className="p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-semibold mb-2">Internship Tasks ({internship.domain?.name})</h2>
+            <p className="text-sm text-muted-foreground mb-4 md:mb-6">
               Complete each task and submit it for admin review. Each task unlocks after the previous task is approved.
             </p>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {tasks.map((t) => (
                 <TaskRow
                   key={t.no}
@@ -305,32 +307,32 @@ function Dashboard() {
 
         {/* Tab 4: Offer Letter */}
         <TabsContent value="offer">
-          <Card className="p-6 max-w-xl mx-auto space-y-6">
-            <div className="flex items-center justify-between border-b pb-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><FileText className="h-5 w-5 text-blue-600" /> Offer Letter Details</h2>
-              <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">Approved</Badge>
+          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
+            <div className="flex items-center justify-between border-b pb-3 md:pb-4">
+              <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><FileText className="h-5 w-5 text-blue-600 flex-shrink-0" /> Offer Letter Details</h2>
+              <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-xs">Approved</Badge>
             </div>
             
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between border-b pb-2">
+            <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
+              <div className="flex justify-between border-b pb-2 gap-2">
                 <span className="text-muted-foreground">Offer ID Code:</span>
-                <span className="font-mono font-semibold">{internship.offer_letter_code ?? "Pending"}</span>
+                <span className="font-mono font-semibold text-right">{internship.offer_letter_code ?? "Pending"}</span>
               </div>
-              <div className="flex justify-between border-b pb-2">
+              <div className="flex justify-between border-b pb-2 gap-2">
                 <span className="text-muted-foreground">Internship ID:</span>
-                <span className="font-mono font-semibold">{internship.internship_code}</span>
+                <span className="font-mono font-semibold text-right">{internship.internship_code}</span>
               </div>
-              <div className="flex justify-between border-b pb-2">
+              <div className="flex justify-between border-b pb-2 gap-2">
                 <span className="text-muted-foreground">Udyam Registration:</span>
-                <span className="font-semibold">{COMPANY.udyam}</span>
+                <span className="font-semibold text-right">{COMPANY.udyam}</span>
               </div>
-              <div className="flex justify-between border-b pb-2">
+              <div className="flex justify-between border-b pb-2 gap-2">
                 <span className="text-muted-foreground">Issue Status:</span>
                 <span className="text-emerald-600 font-semibold">Approved & Signed</span>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-3 pt-2">
               <Button
                 onClick={() => {
                   toast.promise(
@@ -377,8 +379,8 @@ function Dashboard() {
 
         {/* Tab 5: ID Card */}
         <TabsContent value="idcard">
-          <Card className="p-6 max-w-sm mx-auto space-y-6 text-center shadow-elegant">
-            <h2 className="text-xl font-semibold flex items-center justify-center gap-2"><IdCard className="h-5 w-5 text-primary" /> Digital ID Card</h2>
+          <Card className="p-4 md:p-6 max-w-sm mx-auto space-y-4 md:space-y-6 text-center shadow-elegant">
+            <h2 className="text-lg md:text-xl font-semibold flex items-center justify-center gap-2"><IdCard className="h-5 w-5 text-primary flex-shrink-0" /> Digital ID Card</h2>
 
             {internship.status === "pending" || internship.status === "rejected" ? (
               <div className="py-8">
@@ -442,8 +444,8 @@ function Dashboard() {
 
         {/* Tab 6: Certificate */}
         <TabsContent value="certificate">
-          <Card className="p-6 max-w-xl mx-auto space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary" /> Certificate of Completion</h2>
+          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
+            <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
             
             <p className="text-sm text-muted-foreground">
               Your certificate becomes eligible only after all required tasks ({durationTasksCount}) are submitted, approved by the admin, and your internship is marked as completed. The admin will issue your certificate once all requirements are met.
@@ -491,8 +493,8 @@ function Dashboard() {
 
         {/* Tab 7: Profile */}
         <TabsContent value="profile">
-          <Card className="p-6 max-w-xl mx-auto space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Edit My Profile</h2>
+          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
+            <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><User className="h-5 w-5 text-primary flex-shrink-0" /> Edit My Profile</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="flex items-center gap-4">
                 {photo ? <img src={photo} alt="me" className="h-20 w-20 rounded-full object-cover border" /> : <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">No photo</div>}
@@ -605,8 +607,8 @@ function FeedbackPanel({ profile }: { profile: any }) {
   }
 
   return (
-    <Card className="p-6 max-w-xl mx-auto space-y-6">
-      <h2 className="text-xl font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" /> Submit Feedback</h2>
+    <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
+      <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary flex-shrink-0" /> Submit Feedback</h2>
       <p className="text-sm text-muted-foreground">Share your experience about the internship program.</p>
 
       {submitted && (
@@ -672,9 +674,9 @@ function FeedbackPanel({ profile }: { profile: any }) {
 
 function Stat({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
   return (
-    <Card className="p-5">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold mt-1 ${mono ? "font-mono" : ""}`}>{value}</div>
+    <Card className="p-3 md:p-5">
+      <div className="text-[10px] md:text-xs text-muted-foreground">{label}</div>
+      <div className={`text-sm md:text-lg font-semibold mt-1 break-words ${mono ? "font-mono" : ""}`}>{value}</div>
     </Card>
   );
 }
@@ -729,16 +731,16 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
   }
 
   return (
-    <div className="border rounded-lg p-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+    <div className="border rounded-lg p-3 md:p-4">
+      <div className="flex items-start justify-between gap-2 md:gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-xs text-muted-foreground">Task {task.no}</span>
-            <h3 className="font-semibold">{task.title}</h3>
-            {task.no === 1 && <Linkedin className="h-3.5 w-3.5 text-blue-600" />}
-            {status && <Badge variant={status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"}>{status}</Badge>}
+            <h3 className="font-semibold text-sm md:text-base">{task.title}</h3>
+            {task.no === 1 && <Linkedin className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />}
+            {status && <Badge variant={status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"} className="text-xs">{status}</Badge>}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">{task.description}</p>
           {task.no === 1 && task.requires.linkedin && internship?.offer_letter_code && profile && (
             <Button
               size="sm"
@@ -765,7 +767,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
           )}
           {submission?.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Reviewer:</b> {submission.feedback}</p>}
           {submission && (
-            <div className="flex gap-3 mt-2 text-xs">
+            <div className="flex gap-2 md:gap-3 mt-2 text-xs flex-wrap">
               {submission.linkedin_url && <a href={submission.linkedin_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
               {submission.github_url && <a href={submission.github_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
               {submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
@@ -775,7 +777,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" disabled={!canSubmit} variant={canSubmit ? "default" : "outline"}>
+            <Button size="sm" disabled={!canSubmit} variant={canSubmit ? "default" : "outline"} className="flex-shrink-0">
               <Upload className="h-3.5 w-3.5 mr-1"/>{submission ? "Resubmit" : "Submit"}
             </Button>
           </DialogTrigger>
