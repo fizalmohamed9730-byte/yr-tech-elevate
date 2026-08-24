@@ -243,27 +243,38 @@ function Dashboard() {
               <h3 className="font-semibold text-base md:text-lg flex items-center gap-2"><IdCard className="h-5 w-5 text-primary flex-shrink-0" /> Internship ID Card Preview</h3>
               <div className="flex justify-center bg-muted/30 p-3 md:p-4 rounded-lg">
                 <div className="w-[160px] md:w-[180px] h-[250px] md:h-[280px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[7px] md:text-[8px]">
-                  <div className="bg-primary text-primary-foreground p-2 md:p-3 text-center">
+                  {/* Header */}
+                  <div className="bg-primary text-primary-foreground p-2 md:p-2.5 text-center">
                     <div className="font-bold text-[9px] md:text-[10px]">{COMPANY.name}</div>
                     <div className="text-[4px] md:text-[5px] opacity-80">{COMPANY.tagline}</div>
-                    <div className="font-semibold mt-1">INTERN ID CARD</div>
+                    <div className="font-semibold mt-0.5 text-[7px] md:text-[8px]">INTERN ID CARD</div>
+                    <div className="text-[3px] md:text-[4px] opacity-70 mt-0.5">Udyam: {COMPANY.udyam}</div>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-3 space-y-2 md:space-y-3">
+                  {/* Photo */}
+                  <div className="flex justify-center pt-2 md:pt-3">
                     {photo ? (
-                      <img src={photo} alt="Student" className="w-14 h-16 md:w-16 md:h-18 rounded object-cover border" />
+                      <img src={photo} alt="Student" className="w-14 h-16 md:w-16 md:h-[72px] rounded object-cover border" />
                     ) : (
-                      <div className="w-14 h-16 md:w-16 md:h-18 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
+                      <div className="w-14 h-16 md:w-16 md:h-[72px] bg-muted flex items-center justify-center text-muted-foreground border text-[6px]">No Photo</div>
                     )}
-                    <div className="text-center">
-                      <div className="font-bold text-[8px] md:text-[9px] truncate max-w-[130px] md:max-w-[150px]">{profile?.full_name}</div>
-                      <div className="text-muted-foreground text-[5px] md:text-[6px] mt-0.5">{internship.domain?.name}</div>
-                    </div>
-                    <div className="w-full text-left space-y-1 pt-1 md:pt-2 border-t text-[5px] md:text-[6px]">
-                      <div className="flex justify-between"><span>ID:</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
-                      <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[90px] md:max-w-[100px]">{profile?.email}</span></div>
-                    </div>
                   </div>
-                  <div className="bg-slate-900 h-1" />
+                  {/* Name */}
+                  <div className="text-center px-2 pt-1.5">
+                    <div className="font-bold text-[8px] md:text-[9px] leading-tight">{profile?.full_name}</div>
+                  </div>
+                  {/* Divider */}
+                  <div className="mx-2 mt-1 border-t border-primary/30" />
+                  {/* Info */}
+                  <div className="flex-1 px-2.5 pt-1.5 space-y-[3px] text-[5px] md:text-[6px]">
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">ID</span><span className="font-mono font-semibold text-right">{internship.internship_code}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Domain</span><span className="text-right leading-tight max-w-[90px]">{internship.domain?.name}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Duration</span><span>{internship.duration || "1 Month"}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Issue</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Valid</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Email</span><span className="truncate max-w-[90px] text-right">{profile?.email}</span></div>
+                  </div>
+                  {/* Footer */}
+                  <div className="bg-slate-900 h-1 mt-auto" />
                 </div>
               </div>
               <Button onClick={() => setActiveTab("idcard")} variant="outline" className="w-full">Manage ID Card</Button>
@@ -391,36 +402,38 @@ function Dashboard() {
               <>
                 <div className="flex justify-center">
                   <div className="w-[200px] h-[310px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[9px] border-primary/20">
+                    {/* Header */}
                     <div className="bg-primary text-primary-foreground p-3 text-center">
                       <div className="font-bold text-[11px]">{COMPANY.name}</div>
                       <div className="text-[6px] opacity-80">{COMPANY.tagline}</div>
-                      <div className="font-semibold mt-1">INTERN ID CARD</div>
+                      <div className="font-semibold mt-0.5 text-[8px]">INTERN ID CARD</div>
+                      <div className="text-[5px] opacity-70 mt-0.5">Udyam: {COMPANY.udyam}</div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-3">
+                    {/* Photo */}
+                    <div className="flex justify-center pt-3">
                       {photo ? (
-                        <img src={photo} alt="Student" className="w-18 h-20 rounded object-cover border shadow-sm" />
+                        <img src={photo} alt="Student" className="w-[72px] h-[80px] rounded object-cover border shadow-sm" />
                       ) : (
-                        <div className="w-18 h-20 bg-muted flex items-center justify-center text-muted-foreground border">No Photo</div>
+                        <div className="w-[72px] h-[80px] bg-muted flex items-center justify-center text-muted-foreground border text-[7px]">No Photo</div>
                       )}
-                      <div className="text-center">
-                        <div className="font-bold text-[10px] truncate max-w-[170px]">{profile?.full_name}</div>
-                        <div className="text-muted-foreground text-[7px] mt-0.5">{internship.domain?.name}</div>
-                      </div>
-                      <div className="w-full text-left space-y-1.5 pt-3 border-t text-[7px]">
-                        <div className="flex justify-between"><span>ID:</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
-                        <div className="flex justify-between"><span>Duration:</span><span>{internship.duration || "1 Month"}</span></div>
-                        <div className="flex justify-between"><span>Issue:</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                        <div className="flex justify-between"><span>Valid:</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                        <div className="flex justify-between"><span>Email:</span><span className="truncate max-w-[100px]">{profile?.email}</span></div>
-                      </div>
-                      <div className="text-[6px] text-muted-foreground pt-1">
-                        Founder & CEO: {COMPANY.founder}
-                      </div>
                     </div>
-                    <div className="absolute right-2 bottom-6 opacity-30">
-                      <div className="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center text-[4px] font-bold text-primary">{COMPANY.name[0]}{COMPANY.name.split(" ")[1]?.[0] ?? ""}</div>
+                    {/* Name */}
+                    <div className="text-center px-3 pt-2">
+                      <div className="font-bold text-[10px] leading-tight">{profile?.full_name}</div>
                     </div>
-                    <div className="bg-slate-900 h-1.5" />
+                    {/* Divider */}
+                    <div className="mx-3 mt-1.5 border-t border-primary/30" />
+                    {/* Info */}
+                    <div className="flex-1 px-3 pt-2 space-y-1.5 text-[7px]">
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">ID</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Domain</span><span className="text-right leading-tight max-w-[110px]">{internship.domain?.name}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Duration</span><span>{internship.duration || "1 Month"}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Issue</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Valid</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Email</span><span className="truncate max-w-[110px] text-right">{profile?.email}</span></div>
+                    </div>
+                    {/* Footer */}
+                    <div className="bg-slate-900 h-1.5 mt-auto" />
                   </div>
                 </div>
 

@@ -45,6 +45,7 @@ function ApplyPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
+  const [loadingDomains, setLoadingDomains] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,30 +53,46 @@ function ApplyPage() {
     const maxAttempts = 3;
 
     async function loadDomains() {
+      setLoadingDomains(true);
       while (attempt < maxAttempts && !cancelled) {
         attempt++;
-        const { data, error } = await supabase
-          .from("domains")
-          .select("id,name,slug")
-          .eq("active", true)
-          .order("name");
+        try {
+          const { data, error } = await supabase
+            .from("domains")
+            .select("id,name,slug")
+            .eq("active", true)
+            .order("name");
 
-        if (cancelled) return;
+          if (cancelled) return;
 
-        if (error) {
-          console.error(`[apply] domains load error (attempt ${attempt}/${maxAttempts}):`, error);
+          if (error) {
+            console.error(`[apply] domains load error (attempt ${attempt}/${maxAttempts}):`, error);
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 1000 * attempt));
+              continue;
+            }
+            setDomainsError("Unable to load internship domains. Please refresh and try again.");
+            setDomains([]);
+            setLoadingDomains(false);
+            return;
+          }
+
+          console.log(`[apply] domains loaded: ${data?.length ?? 0} domains`);
+          setDomains(data ?? []);
+          setDomainsError(null);
+          setLoadingDomains(false);
+          return;
+        } catch (err: any) {
+          console.error(`[apply] domains load exception (attempt ${attempt}/${maxAttempts}):`, err);
           if (attempt < maxAttempts) {
             await new Promise((r) => setTimeout(r, 1000 * attempt));
             continue;
           }
-          setDomainsError("Domains could not be loaded. Try again shortly.");
+          setDomainsError("Unable to load internship domains. Please refresh and try again.");
           setDomains([]);
+          setLoadingDomains(false);
           return;
         }
-
-        setDomains(data ?? []);
-        setDomainsError(null);
-        return;
       }
     }
 
@@ -446,16 +463,19 @@ function ApplyPage() {
               <Label htmlFor="app-domain">Domain (Cannot be changed later)</Label>
               {domainsError ? (
                 <p className="text-sm text-destructive">{domainsError}</p>
-              ) : domains.length === 0 ? (
+              ) : loadingDomains ? (
                 <p className="text-sm text-muted-foreground">Loading domains...</p>
+              ) : domains.length === 0 ? (
+                <p className="text-sm text-destructive">No domains available. Please refresh and try again.</p>
               ) : null}
               <select
                 id="app-domain"
                 name="domainId"
                 required
+                disabled={loadingDomains || domains.length === 0}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Select Domain</option>
+                <option value="">{loadingDomains ? "Loading..." : "Select Domain"}</option>
                 {domains.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}

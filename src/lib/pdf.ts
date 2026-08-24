@@ -545,34 +545,35 @@ export async function downloadIdCard(data: {
 
   // ── HEADER BAND ──
   doc.setFillColor(37, 99, 235);
-  doc.rect(0, 0, 85, 30, "F");
+  doc.rect(0, 0, 85, 28, "F");
 
   if (logo) {
     try {
-      doc.addImage(logo, "PNG", 5, 4, 14, 14);
+      doc.addImage(logo, "PNG", 5, 4, 16, 16);
     } catch {}
   }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.text(COMPANY.name, 24, 8);
+  doc.setFontSize(12);
+  doc.text(COMPANY.name, 25, 9);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
-  doc.text(COMPANY.tagline, 24, 13);
+  doc.setFontSize(5.5);
+  doc.text(COMPANY.tagline, 25, 14);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.text("INTERN ID CARD", 24, 19);
-  doc.setFontSize(4.5);
+  doc.setFontSize(8);
+  doc.text("INTERN ID CARD", 25, 20);
+  doc.setFontSize(4);
   doc.setFont("helvetica", "normal");
-  doc.text(`Udyam: ${COMPANY.udyam}`, 24, 24);
+  doc.text(`Udyam: ${COMPANY.udyam}`, 25, 25);
 
   // ── STUDENT PHOTO ──
-  doc.setDrawColor(180);
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.3);
   doc.setFillColor(240, 240, 240);
-  doc.rect(27.5, 36, 30, 34, "FD");
+  doc.roundedRect(27.5, 34, 30, 36, 2, 2, "FD");
   if (data.photoDataUrl) {
-    try { doc.addImage(data.photoDataUrl, "JPEG", 27.5, 36, 30, 34); } catch {}
+    try { doc.addImage(data.photoDataUrl, "JPEG", 27.5, 34, 30, 36); } catch {}
   } else {
     doc.setFontSize(6);
     doc.setTextColor(140);
@@ -582,57 +583,52 @@ export async function downloadIdCard(data: {
   // ── STUDENT NAME ──
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(data.fullName, 42.5, 78, { align: "center", maxWidth: 75 });
+  doc.setFontSize(11);
+  doc.text(data.fullName, 42.5, 77, { align: "center", maxWidth: 75 });
 
-  // ── INFO ROWS ──
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  let y = 86;
+  // ── DIVIDER ──
+  doc.setDrawColor(37, 99, 235);
+  doc.setLineWidth(0.4);
+  doc.line(10, 81, 75, 81);
+
+  // ── INFO SECTION ──
   const issueDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const months = parseInt(data.duration ?? "1") || 1;
   const validUntil = new Date(Date.now() + months * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-  const row = (k: string, v: string) => {
-    doc.setTextColor(110); doc.setFont("helvetica", "bold"); doc.text(k, 6, y);
-    doc.setTextColor(15, 23, 42); doc.setFont("helvetica", "normal"); doc.text(v, 79, y, { align: "right", maxWidth: 55 });
-    y += 5;
+  let y = 87;
+  const labelColor: [number, number, number] = [100, 110, 130];
+  const valueColor: [number, number, number] = [15, 23, 42];
+
+  const fieldRow = (label: string, value: string) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5);
+    doc.setTextColor(...labelColor);
+    doc.text(label, 8, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...valueColor);
+    const lines = doc.splitTextToSize(value, 58);
+    doc.text(lines, 8, y + 4);
+    y += 4 + lines.length * 3.2 + 2;
   };
-  row("ID", data.internshipCode);
-  row("Domain", data.domain);
-  row("Duration", data.duration || "1 Month");
-  row("Issue Date", issueDate);
-  row("Valid Until", validUntil);
-  if (data.email) row("Email", data.email);
 
-  // ── FOUNDER & CEO ──
-  y += 2;
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(5.5);
-  doc.setTextColor(100);
-  doc.text("Founder & CEO", 6, y);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6);
-  doc.setTextColor(37, 99, 235);
-  doc.text(COMPANY.founder, 6, y + 4);
+  fieldRow("INTERNSHIP ID", data.internshipCode);
+  fieldRow("DOMAIN", data.domain);
+  fieldRow("DURATION", data.duration || "1 Month");
+  fieldRow("ISSUE DATE", issueDate);
+  fieldRow("VALID UNTIL", validUntil);
+  if (data.email) fieldRow("EMAIL", data.email);
 
-  // ── QR CODE ──
-  try {
-    const qr = await QRCode.toDataURL(`Intern: ${data.internshipCode} | ${data.fullName} | ${COMPANY.name}`, { margin: 0, width: 180 });
-    doc.addImage(qr, "PNG", 58, 101, 20, 20);
-  } catch {}
-
-  // ── COMPANY SEAL (bottom-right corner) ──
-  const sealX = 62;
-  const sealY = 113;
+  // ── COMPANY SEAL ──
   if (seal) {
     try {
-      doc.addImage(seal, "PNG", sealX, sealY - 9, 18, 18);
+      doc.addImage(seal, "PNG", 62, 108, 16, 16);
     } catch {
-      drawVectorIdCardSeal(doc, sealX + 9, sealY);
+      drawVectorIdCardSeal(doc, 70, 116);
     }
   } else {
-    drawVectorIdCardSeal(doc, sealX + 9, sealY);
+    drawVectorIdCardSeal(doc, 70, 116);
   }
 
   // ── FOOTER BAND ──
