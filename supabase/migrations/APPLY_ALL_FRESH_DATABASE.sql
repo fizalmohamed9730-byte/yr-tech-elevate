@@ -222,10 +222,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS internships_one_per_student ON public.internsh
 CREATE TABLE IF NOT EXISTS public.submissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   internship_id uuid NOT NULL REFERENCES public.internships(id) ON DELETE CASCADE,
-  task_no int NOT NULL CHECK (task_no BETWEEN 1 AND 5),
+  task_no int NOT NULL CHECK (task_no BETWEEN 1 AND 6),
   github_url text,
   project_url text,
   drive_url text,
+  linkedin_url text,
   notes text,
   status text NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending','approved','rejected','resubmit')),
