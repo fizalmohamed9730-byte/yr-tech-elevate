@@ -30,7 +30,7 @@ function ProfilePage() {
   async function load() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
+    const { data } = await supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single();
     setProfile(data);
     setPhoto(data?.avatar_url ?? null);
   }

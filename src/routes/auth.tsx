@@ -187,7 +187,7 @@ function AuthPage() {
     reader.readAsDataURL(file);
   }
 
-  async function waitForSession(maxAttempts = 5, delayMs = 300): Promise<boolean> {
+  async function waitForSession(maxAttempts = 3, delayMs = 200): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const { data, error } = await supabase.auth.getSession();

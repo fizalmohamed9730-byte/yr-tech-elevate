@@ -14,9 +14,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText, BarChart3, CheckSquare, Briefcase, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search, X, MailPlus, Download, Megaphone, MessageSquare, Star, Linkedin } from "lucide-react";
 import { getTasksForSlug } from "@/lib/tasks";
-import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterAnywhere, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
-import { sendOfferLetterEmail, sendCertificateEmail } from "@/routes/-email.serverfn";
+
+// PDF + email functions are lazy-loaded to avoid pulling jspdf (~300KB) into the admin bundle.
+type PdfModule = typeof import("@/lib/pdf");
+let _pdfMod: PdfModule | null = null;
+async function getPdf(): Promise<PdfModule> {
+  if (!_pdfMod) _pdfMod = await import("@/lib/pdf");
+  return _pdfMod;
+}
+type EmailModule = typeof import("@/routes/-email.serverfn");
+let _emailMod: EmailModule | null = null;
+async function getEmail(): Promise<EmailModule> {
+  if (!_emailMod) _emailMod = await import("@/routes/-email.serverfn");
+  return _emailMod;
+}
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
@@ -64,15 +76,15 @@ function AdminPage() {
   async function reload() {
     const db = supabase as any;
     const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
-      safeQuery("profiles", supabase.from("profiles").select("*").order("created_at", { ascending: false })),
-      safeQuery("internships", supabase.from("internships").select("*, domain:domains(name,slug)").order("created_at", { ascending: false })),
-      safeQuery("submissions", db.from("submissions").select("*").order("submitted_at", { ascending: false })),
-      safeQuery("projects", db.from("projects").select("*, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
-      safeQuery("project_submissions", db.from("project_submissions").select("*, project:projects(title)").order("submitted_at", { ascending: false })),
-      safeQuery("domains", supabase.from("domains").select("*").eq("active", true)),
-      safeQuery("enquiries", supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
-      safeQuery("announcements", supabase.from("announcements").select("*").order("created_at", { ascending: false })),
-      safeQuery("feedback", supabase.from("feedback").select("*").order("created_at", { ascending: false })),
+      safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, avatar_url, created_at").order("created_at", { ascending: false })),
+      safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, offer_letter_email_sent, offer_letter_email_sent_at, offer_letter_email_error, offer_letter_resend_message_id, certificate_code, certificate_issued_at, certificate_email_sent, certificate_email_sent_at, certificate_email_error, certificate_resend_message_id, progress_percent, completed_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+      safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
+      safeQuery("projects", db.from("projects").select("id, title, description, github_url, demo_url, created_at, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
+      safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, demo_url, notes, status, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
+      safeQuery("domains", supabase.from("domains").select("id, name, slug, active").eq("active", true)),
+      safeQuery("enquiries", db.from("enquiries").select("id, name, email, phone, subject, message, status, created_at").order("created_at", { ascending: false })),
+      safeQuery("announcements", db.from("announcements").select("id, title, body, priority, created_at").order("created_at", { ascending: false })),
+      safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
     ]);
 
     const studentMap = new Map<string, any>();
@@ -129,12 +141,41 @@ function AdminPage() {
     return () => { mounted = false; };
   }, []);
 
-  // Auto-refresh every 30s once admin is confirmed
+  // Auto-refresh every 60s once admin is confirmed
   useEffect(() => {
     if (!isAdmin) return;
-    const interval = setInterval(() => { reload(); }, 30000);
+    const interval = setInterval(() => { reload(); }, 60000);
     return () => clearInterval(interval);
   }, [isAdmin]);
+
+  const approvedCountByInternship = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const sub of submissions) {
+      if (sub.status !== "approved") continue;
+      map.set(sub.internship_id, (map.get(sub.internship_id) ?? 0) + 1);
+    }
+    return map;
+  }, [submissions]);
+
+  const internshipByStudent = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const internship of internships) {
+      map.set(internship.student_id, internship);
+    }
+    return map;
+  }, [internships]);
+
+  const approvedCountByStudent = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const sub of submissions) {
+      if (sub.status !== "approved") continue;
+      const internship = internshipByStudent.get(sub.internship_id);
+      if (internship?.student_id) {
+        map.set(internship.student_id, (map.get(internship.student_id) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [submissions, internshipByStudent]);
 
   const enrichedStudents = useMemo(() => {
     function resolveDomainName(internship: any): string {
@@ -146,8 +187,13 @@ function AdminPage() {
       return "";
     }
 
+    const internshipByStudent = new Map<string, any>();
+    for (const internship of internships) {
+      internshipByStudent.set(internship.student_id, internship);
+    }
+
     let list = profiles.map((profile) => {
-      const internship = internships.find((i) => i.student_id === profile.id);
+      const internship = internshipByStudent.get(profile.id) ?? null;
       const domainName = resolveDomainName(internship);
       return { ...profile, internship, resolvedDomain: domainName };
     });
@@ -200,7 +246,7 @@ function AdminPage() {
     if (intern?.student?.email) {
       toast.info("Sending certificate email...");
       try {
-        const emailResult = await sendCertificateEmail({
+        const emailResult = await (await getEmail()).sendCertificateEmail({
           data: {
             internshipId,
             email: intern.student.email,
@@ -228,7 +274,7 @@ function AdminPage() {
     if (!intern.student?.email) return toast.error("No email found for this intern");
     setSendingEmail(`ol-${intern.id}`);
     try {
-      const result = await sendOfferLetterEmail({
+      const result = await (await getEmail()).sendOfferLetterEmail({
         data: {
           internshipId: intern.id,
           email: intern.student.email,
@@ -257,7 +303,7 @@ function AdminPage() {
     if (!intern.student?.email) return toast.error("No email found for this intern");
     setSendingEmail(`cert-${intern.id}`);
     try {
-      const result = await sendCertificateEmail({
+      const result = await (await getEmail()).sendCertificateEmail({
         data: {
           internshipId: intern.id,
           email: intern.student.email,
@@ -334,7 +380,7 @@ function AdminPage() {
       if (studentProfile?.email) {
         toast.info("Sending offer letter email...");
         try {
-          const emailResult = await sendOfferLetterEmail({
+          const emailResult = await (await getEmail()).sendOfferLetterEmail({
             data: {
               internshipId: id,
               email: studentProfile.email,
@@ -597,10 +643,7 @@ function AdminPage() {
                 <TableBody>
                   {enrichedStudents.map((s) => {
                     const i = s.internship;
-                    const taskApproved = submissions.filter((sub) => {
-                      const intern = internships.find((ii) => ii.id === sub.internship_id);
-                      return intern?.student_id === s.id && sub.status === "approved";
-                    }).length;
+                    const taskApproved = approvedCountByStudent.get(s.id) ?? 0;
                     const taskTotal = i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0;
                     return (
                       <TableRow key={s.id}>
@@ -719,7 +762,7 @@ function AdminPage() {
                             )}
                             {i?.status === "active" && (
                               <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => {
-                                  import("@/lib/pdf").then((m) => m.downloadIdCard({
+                                  getPdf().then((m) => m.downloadIdCard({
                                   fullName: s.full_name ?? "Intern",
                                   internshipCode: i.internship_code ?? "",
                                   domain: s.resolvedDomain || (i.domain?.name ?? ""),
@@ -1001,8 +1044,8 @@ function AdminPage() {
                         )}
                       </TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
-                        <Button size="sm" variant="outline" onClick={() => viewOfferLetterFromStorage(i.student_id)}>View</Button>
-                        <Button size="sm" onClick={() => downloadOfferLetterAnywhere({
+                        <Button size="sm" variant="outline" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id))}>View</Button>
+                        <Button size="sm" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({
                           studentId: i.student_id,
                           fullName: i.student?.full_name ?? "Intern",
                           domain: i.domain?.name ?? "",
@@ -1011,7 +1054,7 @@ function AdminPage() {
                           offerCode: i.offer_letter_code,
                           startedAt: i.started_at,
                           duration: i.duration,
-                        })}>Download</Button>
+                        }))}>Download</Button>
                         <Button
                           size="sm"
                           variant={i.offer_letter_email_sent ? "outline" : "default"}
@@ -1087,7 +1130,7 @@ function AdminPage() {
                           )}
                         </TableCell>
                         <TableCell className="space-x-1 whitespace-nowrap">
-                          <Button size="sm" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })}>
+                          <Button size="sm" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration }))}>
                             Download
                           </Button>
                           <Button
@@ -1133,7 +1176,7 @@ function AdminPage() {
                     </TableHeader>
                     <TableBody>
                       {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
-                        const approved = submissions.filter(sub => sub.internship_id === i.id && sub.status === "approved").length;
+                        const approved = approvedCountByInternship.get(i.id) ?? 0;
                         const total = i.duration === "1 Month" ? 3 : i.duration === "2 Months" ? 4 : 5;
                         return (
                         <TableRow key={i.id}>

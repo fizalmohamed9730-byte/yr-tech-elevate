@@ -13,7 +13,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star } from "lucide-react";
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
-import { downloadIdCard, downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterFromStorage, downloadOfferLetterAnywhere } from "@/lib/pdf";
+// PDF functions are lazy-loaded to avoid pulling jspdf (~300KB) into the dashboard bundle.
+type PdfModule = typeof import("@/lib/pdf");
+let _pdfMod: PdfModule | null = null;
+async function getPdf(): Promise<PdfModule> {
+  if (!_pdfMod) _pdfMod = await import("@/lib/pdf");
+  return _pdfMod;
+}
 import { COMPANY } from "@/lib/company";
 import { z } from "zod";
 
@@ -44,9 +50,11 @@ function Dashboard() {
   async function load() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
+
+    // Fetch profile + internship in parallel
     const [{ data: p }, { data: i }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", u.user.id).single(),
-      supabase.from("internships").select("*, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+      supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
+      supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
     ]);
     setProfile(p);
     setPhoto(p?.avatar_url ?? null);
@@ -64,7 +72,7 @@ function Dashboard() {
             started_at: internship.started_at ?? new Date().toISOString(),
           })
           .eq("id", internship.id)
-          .select("*, domain:domains(name,slug)")
+          .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
           .maybeSingle();
         if (upd) internship = upd;
       } catch (err: any) {
@@ -75,7 +83,7 @@ function Dashboard() {
     setLoading(false);
 
     if (internship?.id) {
-      const { data: s } = await supabase.from("submissions").select("*").eq("internship_id", internship.id).order("task_no");
+      const { data: s } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
       setSubmissions(s ?? []);
     }
   }
@@ -179,7 +187,7 @@ function Dashboard() {
           <Button
             onClick={() => {
               toast.promise(
-                downloadOfferLetterAnywhere({
+                getPdf().then(m => m.downloadOfferLetterAnywhere({
                   studentId: profile.id,
                   fullName: profile?.full_name ?? "Intern",
                   domain: internship.domain?.name ?? "",
@@ -188,7 +196,7 @@ function Dashboard() {
                   offerCode: internship.offer_letter_code,
                   startedAt: internship.started_at,
                   duration: internship.duration,
-                }),
+                })),
                 {
                   loading: "Downloading offer letter...",
                   success: "Downloaded successfully!",
@@ -347,7 +355,7 @@ function Dashboard() {
               <Button
                 onClick={() => {
                   toast.promise(
-                    downloadOfferLetterAnywhere({
+                    getPdf().then(m => m.downloadOfferLetterAnywhere({
                       studentId: profile.id,
                       fullName: profile?.full_name ?? "Intern",
                       domain: internship.domain?.name ?? "",
@@ -356,7 +364,7 @@ function Dashboard() {
                       offerCode: internship.offer_letter_code,
                       startedAt: internship.started_at,
                       duration: internship.duration,
-                    }),
+                    })),
                     {
                       loading: "Downloading offer letter PDF...",
                       success: "Downloaded successfully!",
@@ -373,7 +381,7 @@ function Dashboard() {
                 className="flex-1"
                 onClick={() => {
                   toast.promise(
-                    viewOfferLetterFromStorage(profile.id),
+                    getPdf().then(m => m.viewOfferLetterFromStorage(profile.id)),
                     {
                       loading: "Opening offer letter preview...",
                       success: "Opened!",
@@ -438,14 +446,14 @@ function Dashboard() {
                 </div>
 
                 <Button
-                  onClick={() => downloadIdCard({
+                  onClick={() => getPdf().then(m => m.downloadIdCard({
                     fullName: profile?.full_name ?? "Intern",
                     internshipCode: internship.internship_code,
                     domain: internship.domain?.name ?? "",
                     photoDataUrl: profile?.avatar_url,
                     email: profile?.email,
                     duration: internship.duration,
-                  })}
+                  }))}
                   className="w-full bg-gradient-primary text-primary-foreground"
                 >
                   Download PDF ID Card
@@ -489,14 +497,14 @@ function Dashboard() {
 
             <Button
               disabled={!internship.certificate_code}
-              onClick={() => downloadCertificate({
+              onClick={() => getPdf().then(m => m.downloadCertificate({
                 fullName: profile?.full_name ?? "Intern",
                 domain: internship.domain?.name ?? "",
                 internshipCode: internship.internship_code,
                 certificateCode: internship.certificate_code,
                 issuedAt: internship.certificate_issued_at,
                 duration: internship.duration,
-              })}
+              }))}
               className="w-full bg-gradient-primary text-primary-foreground"
             >
               {internship.certificate_code ? "Download Certificate PDF" : "Locked"}
@@ -762,7 +770,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
               className="mt-2 text-xs"
               onClick={() => {
                 toast.promise(
-                  downloadOfferLetterAnywhere({
+                  getPdf().then(m => m.downloadOfferLetterAnywhere({
                     studentId: profile.id,
                     fullName: profile?.full_name ?? "Intern",
                     domain: internship.domain?.name ?? "",
@@ -771,7 +779,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
                     offerCode: internship.offer_letter_code,
                     startedAt: internship.started_at,
                     duration: internship.duration,
-                  }),
+                  })),
                   { loading: "Downloading offer letter...", success: "Downloaded!", error: "Failed to download." }
                 );
               }}

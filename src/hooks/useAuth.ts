@@ -14,8 +14,10 @@ export function useAuth() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
+      if (loading) setLoading(false);
     });
-    (async () => {
+    // Fallback: if onAuthStateChange doesn't fire within 1s, read session directly
+    const fallback = setTimeout(async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) console.error("[useAuth] getSession error:", error);
@@ -26,8 +28,11 @@ export function useAuth() {
       } finally {
         setLoading(false);
       }
-    })();
-    return () => sub.subscription.unsubscribe();
+    }, 1000);
+    return () => {
+      clearTimeout(fallback);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

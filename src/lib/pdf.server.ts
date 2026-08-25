@@ -17,16 +17,23 @@ function resolveAssetPath(filename: string): string | null {
   return null;
 }
 
+const assetCache = new Map<string, Buffer | null>();
+
 function loadAssetBuffer(filename: string): Buffer | null {
+  if (assetCache.has(filename)) return assetCache.get(filename) ?? null;
   const resolved = resolveAssetPath(filename);
   if (!resolved) {
     console.warn(`[pdf.server] Asset not found: ${filename} (searched multiple paths)`);
+    assetCache.set(filename, null);
     return null;
   }
   try {
-    return readFileSync(resolved);
+    const buf = readFileSync(resolved);
+    assetCache.set(filename, buf);
+    return buf;
   } catch (err) {
     console.error(`[pdf.server] Failed to read asset ${filename}:`, err);
+    assetCache.set(filename, null);
     return null;
   }
 }

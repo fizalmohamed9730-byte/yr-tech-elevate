@@ -46,7 +46,7 @@ function Projects() {
     (async () => {
       const { data, error } = await (supabase as any)
         .from("projects")
-        .select("*, project_domains(domain:domains(name))")
+        .select("id, title, description, image_url, github_url, demo_url, created_at, project_domains(domain:domains(name))")
         .eq("active", true)
         .order("created_at", { ascending: false });
       if (error) console.error("[projects] load error:", error);
