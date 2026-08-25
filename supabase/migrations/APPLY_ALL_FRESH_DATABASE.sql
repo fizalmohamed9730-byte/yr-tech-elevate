@@ -214,7 +214,13 @@ ALTER TABLE public.internships
   ADD COLUMN IF NOT EXISTS certificate_code text UNIQUE,
   ADD COLUMN IF NOT EXISTS certificate_issued_at timestamptz,
   ADD COLUMN IF NOT EXISTS duration text NOT NULL DEFAULT '1 Month'
-    CHECK (duration IN ('1 Month', '2 Months', '3 Months'));
+    CHECK (duration IN ('1 Month', '2 Months', '3 Months')),
+  ADD COLUMN IF NOT EXISTS offer_letter_email_sent boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS offer_letter_email_sent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS offer_letter_email_error text,
+  ADD COLUMN IF NOT EXISTS certificate_email_sent boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS certificate_email_sent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS certificate_email_error text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS internships_one_per_student ON public.internships(student_id);
 

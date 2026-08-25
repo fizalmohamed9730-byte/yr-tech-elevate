@@ -16,6 +16,7 @@ import { Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, File
 import { getTasksForSlug } from "@/lib/tasks";
 import { downloadCertificate, viewOfferLetterFromStorage, downloadOfferLetterAnywhere, downloadIdCard } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
+import { sendOfferLetterEmail, sendCertificateEmail } from "@/routes/-email.serverfn";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
@@ -44,6 +45,7 @@ function AdminPage() {
   const [filterDomain, setFilterDomain] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterDuration, setFilterDuration] = useState("all");
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<T[]> {
     try {
@@ -193,7 +195,91 @@ function AdminPage() {
       return toast.error("Failed to issue certificate: " + error.message);
     }
     toast.success("Certificate issued: " + code);
+    // Auto-send certificate email
+    const intern = internships.find((i) => i.id === internshipId);
+    if (intern?.student?.email) {
+      toast.info("Sending certificate email...");
+      try {
+        const emailResult = await sendCertificateEmail({
+          data: {
+            internshipId,
+            email: intern.student.email,
+            fullName: intern.student.full_name ?? "Intern",
+            domain: intern.domain?.name ?? "",
+            duration: intern.duration ?? "1 Month",
+            internshipCode: intern.internship_code,
+            certificateCode: code,
+            issuedAt: now,
+          },
+        });
+        if (emailResult?.error) {
+          toast.error("Email delivery failed: " + emailResult.error);
+        } else {
+          toast.success("Certificate emailed to " + intern.student.email);
+        }
+      } catch (emailErr: any) {
+        toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
+      }
+    }
     reload();
+  }
+
+  async function handleSendOfferLetterEmail(intern: any) {
+    if (!intern.student?.email) return toast.error("No email found for this intern");
+    setSendingEmail(`ol-${intern.id}`);
+    try {
+      const result = await sendOfferLetterEmail({
+        data: {
+          internshipId: intern.id,
+          email: intern.student.email,
+          fullName: intern.student.full_name ?? "Intern",
+          domain: intern.domain?.name ?? "",
+          duration: intern.duration ?? "1 Month",
+          internshipCode: intern.internship_code,
+          offerCode: intern.offer_letter_code,
+          startedAt: intern.started_at,
+        },
+      });
+      if (result?.error) {
+        toast.error("Email failed: " + result.error);
+      } else {
+        toast.success("Offer letter emailed successfully");
+        reload();
+      }
+    } catch (err: any) {
+      toast.error("Email failed: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSendingEmail(null);
+    }
+  }
+
+  async function handleSendCertificateEmail(intern: any) {
+    if (!intern.student?.email) return toast.error("No email found for this intern");
+    setSendingEmail(`cert-${intern.id}`);
+    try {
+      const result = await sendCertificateEmail({
+        data: {
+          internshipId: intern.id,
+          email: intern.student.email,
+          fullName: intern.student.full_name ?? "Intern",
+          domain: intern.domain?.name ?? "",
+          duration: intern.duration ?? "1 Month",
+          internshipCode: intern.internship_code,
+          certificateCode: intern.certificate_code,
+          issuedAt: intern.certificate_issued_at,
+        },
+      });
+      if (result?.error) {
+        toast.error("Email failed: " + result.error);
+      } else {
+        toast.success("Certificate emailed successfully");
+        reload();
+      }
+    } catch (err: any) {
+      toast.error("Email failed: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSendingEmail(null);
+    }
   }
 
   async function removeStudent(studentId: string) {
@@ -240,6 +326,31 @@ function AdminPage() {
           duration: ud.duration,
         });
         toast.success("Offer letter PDF stored in Supabase Storage");
+        // Auto-send offer letter email
+        if (studentProfile?.email) {
+          toast.info("Sending offer letter email...");
+          try {
+            const emailResult = await sendOfferLetterEmail({
+              data: {
+                internshipId: id,
+                email: studentProfile.email,
+                fullName: studentProfile.full_name ?? "Intern",
+                domain: ud.domain?.name ?? "",
+                duration: ud.duration ?? "1 Month",
+                internshipCode: ud.internship_code,
+                offerCode: ud.offer_letter_code,
+                startedAt: ud.started_at,
+              },
+            });
+            if (emailResult?.error) {
+              toast.error("Email delivery failed: " + emailResult.error);
+            } else {
+              toast.success("Offer letter emailed to " + studentProfile.email);
+            }
+          } catch (emailErr: any) {
+            toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
+          }
+        }
       } catch (err: any) {
         toast.error("Failed to store Offer Letter PDF: " + err.message);
       }
@@ -515,11 +626,21 @@ function AdminPage() {
                           ) : <span className="text-xs text-muted-foreground">No app</span>}
                         </TableCell>
                         <TableCell>
-                          {i?.offer_letter_code ? <Badge variant="default" className="bg-emerald-600">Issued</Badge> : i?.status === "active" ? <Badge variant="outline">Pending</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                          {i?.offer_letter_code ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="default" className="bg-emerald-600">Issued</Badge>
+                              {i.offer_letter_email_sent && <span title="Emailed"><MailPlus className="h-3 w-3 text-emerald-600" /></span>}
+                            </div>
+                          ) : i?.status === "active" ? <Badge variant="outline">Pending</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="text-xs">{i ? `${taskApproved}/${taskTotal}` : "—"}</TableCell>
                         <TableCell>
-                          {i?.certificate_code ? <Badge variant="default" className="bg-emerald-600">Issued</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                          {i?.certificate_code ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="default" className="bg-emerald-600">Issued</Badge>
+                              {i.certificate_email_sent && <span title="Emailed"><MailPlus className="h-3 w-3 text-emerald-600" /></span>}
+                            </div>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-nowrap">
@@ -570,6 +691,12 @@ function AdminPage() {
                                       <div><span className="text-muted-foreground">Offer Letter:</span> {i?.offer_letter_code ? <span className="font-mono">{i.offer_letter_code}</span> : "Not issued"}</div>
                                       <div><span className="text-muted-foreground">Certificate:</span> {i?.certificate_code ? <span className="font-mono">{i.certificate_code}</span> : "Not issued"}</div>
                                     </div>
+                                    {(i?.offer_letter_email_sent !== undefined || i?.certificate_email_sent !== undefined) && (
+                                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t">
+                                        <div><span className="text-muted-foreground">OL Email:</span> {i?.offer_letter_email_sent ? <Badge variant="default" className="bg-emerald-600 text-xs">Sent</Badge> : <Badge variant="outline" className="text-xs">Not Sent</Badge>}</div>
+                                        <div><span className="text-muted-foreground">Cert Email:</span> {i?.certificate_email_sent ? <Badge variant="default" className="bg-emerald-600 text-xs">Sent</Badge> : <Badge variant="outline" className="text-xs">Not Sent</Badge>}</div>
+                                      </div>
+                                    )}
                                   </div>
                                   {(s.github_url || s.linkedin_url) && (
                                     <div className="border rounded-lg p-3 space-y-2">
@@ -830,7 +957,7 @@ function AdminPage() {
         {/* Tab 6: Offer Letters */}
         <TabsContent value="offers">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Secure Storage Offer Letters</h3>
+            <h3 className="text-lg font-semibold mb-4">Offer Letters</h3>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -839,6 +966,7 @@ function AdminPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Domain</TableHead>
                     <TableHead>Offer Code</TableHead>
+                    <TableHead>Email Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -849,6 +977,23 @@ function AdminPage() {
                       <TableCell className="font-medium">{i.student?.full_name}</TableCell>
                       <TableCell>{i.domain?.name}</TableCell>
                       <TableCell className="font-mono text-xs">{i.offer_letter_code ?? "—"}</TableCell>
+                      <TableCell>
+                        {i.offer_letter_email_sent ? (
+                          <div className="text-xs">
+                            <Badge variant="default" className="bg-emerald-600">Sent</Badge>
+                            {i.offer_letter_email_sent_at && (
+                              <div className="text-muted-foreground mt-1">{new Date(i.offer_letter_email_sent_at).toLocaleString()}</div>
+                            )}
+                          </div>
+                        ) : i.offer_letter_email_error ? (
+                          <div className="text-xs">
+                            <Badge variant="destructive">Failed</Badge>
+                            <div className="text-muted-foreground mt-1 truncate max-w-[120px]" title={i.offer_letter_email_error}>{i.offer_letter_email_error}</div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Not Sent</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
                         <Button size="sm" variant="outline" onClick={() => viewOfferLetterFromStorage(i.student_id)}>View</Button>
                         <Button size="sm" onClick={() => downloadOfferLetterAnywhere({
@@ -861,11 +1006,25 @@ function AdminPage() {
                           startedAt: i.started_at,
                           duration: i.duration,
                         })}>Download</Button>
+                        <Button
+                          size="sm"
+                          variant={i.offer_letter_email_sent ? "outline" : "default"}
+                          disabled={sendingEmail === `ol-${i.id}`}
+                          onClick={() => handleSendOfferLetterEmail(i)}
+                        >
+                          {sendingEmail === `ol-${i.id}` ? (
+                            <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</>
+                          ) : i.offer_letter_email_sent ? (
+                            <><RotateCw className="h-3 w-3 mr-1" />Resend</>
+                          ) : (
+                            <><MailPlus className="h-3 w-3 mr-1" />Send</>
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                   {internships.filter(i => i.status === "active" || i.status === "completed").length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No issued offer letters yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No issued offer letters yet</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -888,6 +1047,7 @@ function AdminPage() {
                       <TableHead>Duration</TableHead>
                       <TableHead>Certificate Code</TableHead>
                       <TableHead>Issued</TableHead>
+                      <TableHead>Email Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -901,14 +1061,45 @@ function AdminPage() {
                         <TableCell className="font-mono text-xs">{i.certificate_code}</TableCell>
                         <TableCell className="text-xs">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "—"}</TableCell>
                         <TableCell>
+                          {i.certificate_email_sent ? (
+                            <div className="text-xs">
+                              <Badge variant="default" className="bg-emerald-600">Sent</Badge>
+                              {i.certificate_email_sent_at && (
+                                <div className="text-muted-foreground mt-1">{new Date(i.certificate_email_sent_at).toLocaleString()}</div>
+                              )}
+                            </div>
+                          ) : i.certificate_email_error ? (
+                            <div className="text-xs">
+                              <Badge variant="destructive">Failed</Badge>
+                              <div className="text-muted-foreground mt-1 truncate max-w-[120px]" title={i.certificate_email_error}>{i.certificate_email_error}</div>
+                            </div>
+                          ) : (
+                            <Badge variant="outline">Not Sent</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="space-x-1 whitespace-nowrap">
                           <Button size="sm" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })}>
                             Download
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={i.certificate_email_sent ? "outline" : "default"}
+                            disabled={sendingEmail === `cert-${i.id}`}
+                            onClick={() => handleSendCertificateEmail(i)}
+                          >
+                            {sendingEmail === `cert-${i.id}` ? (
+                              <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Sending...</>
+                            ) : i.certificate_email_sent ? (
+                              <><RotateCw className="h-3 w-3 mr-1" />Resend</>
+                            ) : (
+                              <><MailPlus className="h-3 w-3 mr-1" />Send</>
+                            )}
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                     {internships.filter(i => i.certificate_code).length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No certificates issued yet</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No certificates issued yet</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
