@@ -310,11 +310,12 @@ function AdminPage() {
       return toast.error("Failed to update: " + error.message);
     }
     if (status === "active") {
+      const ud: any = updatedData;
+      const studentProfile = profiles.find((p) => p.id === ud.student_id);
+      // Store PDF in Supabase Storage (non-blocking for email)
       try {
         toast.info("Generating and storing offer letter...");
         const { uploadOfferLetterToStorage } = await import("@/lib/pdf");
-        const ud: any = updatedData;
-        const studentProfile = profiles.find((p) => p.id === ud.student_id);
         await uploadOfferLetterToStorage({
           studentId: ud.student_id,
           fullName: studentProfile?.full_name ?? "Intern",
@@ -326,33 +327,35 @@ function AdminPage() {
           duration: ud.duration,
         });
         toast.success("Offer letter PDF stored in Supabase Storage");
-        // Auto-send offer letter email
-        if (studentProfile?.email) {
-          toast.info("Sending offer letter email...");
-          try {
-            const emailResult = await sendOfferLetterEmail({
-              data: {
-                internshipId: id,
-                email: studentProfile.email,
-                fullName: studentProfile.full_name ?? "Intern",
-                domain: ud.domain?.name ?? "",
-                duration: ud.duration ?? "1 Month",
-                internshipCode: ud.internship_code,
-                offerCode: ud.offer_letter_code,
-                startedAt: ud.started_at,
-              },
-            });
-            if (emailResult?.error) {
-              toast.error("Email delivery failed: " + emailResult.error);
-            } else {
-              toast.success("Offer letter emailed to " + studentProfile.email);
-            }
-          } catch (emailErr: any) {
-            toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
-          }
-        }
       } catch (err: any) {
         toast.error("Failed to store Offer Letter PDF: " + err.message);
+      }
+      // Send email (independent of storage result)
+      if (studentProfile?.email) {
+        toast.info("Sending offer letter email...");
+        try {
+          const emailResult = await sendOfferLetterEmail({
+            data: {
+              internshipId: id,
+              email: studentProfile.email,
+              fullName: studentProfile.full_name ?? "Intern",
+              domain: ud.domain?.name ?? "",
+              duration: ud.duration ?? "1 Month",
+              internshipCode: ud.internship_code,
+              offerCode: ud.offer_letter_code,
+              startedAt: ud.started_at,
+            },
+          });
+          if (emailResult?.error) {
+            toast.error("Email delivery failed: " + emailResult.error);
+          } else {
+            toast.success("Offer letter emailed to " + studentProfile.email);
+          }
+        } catch (emailErr: any) {
+          toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
+        }
+      } else {
+        toast.warning("No email address found — offer letter not emailed");
       }
     }
     toast.success(status === "active" ? "Approved — offer letter issued" : "Updated");
@@ -984,11 +987,14 @@ function AdminPage() {
                             {i.offer_letter_email_sent_at && (
                               <div className="text-muted-foreground mt-1">{new Date(i.offer_letter_email_sent_at).toLocaleString()}</div>
                             )}
+                            {i.offer_letter_resend_message_id && (
+                              <div className="text-muted-foreground mt-0.5 font-mono text-[10px]" title={`Resend ID: ${i.offer_letter_resend_message_id}`}>ID: {i.offer_letter_resend_message_id.slice(0, 12)}…</div>
+                            )}
                           </div>
                         ) : i.offer_letter_email_error ? (
                           <div className="text-xs">
                             <Badge variant="destructive">Failed</Badge>
-                            <div className="text-muted-foreground mt-1 truncate max-w-[120px]" title={i.offer_letter_email_error}>{i.offer_letter_email_error}</div>
+                            <div className="text-destructive mt-1 max-w-[160px] leading-tight" title={i.offer_letter_email_error}>{i.offer_letter_email_error.length > 60 ? i.offer_letter_email_error.slice(0, 60) + "…" : i.offer_letter_email_error}</div>
                           </div>
                         ) : (
                           <Badge variant="outline">Not Sent</Badge>
@@ -1067,11 +1073,14 @@ function AdminPage() {
                               {i.certificate_email_sent_at && (
                                 <div className="text-muted-foreground mt-1">{new Date(i.certificate_email_sent_at).toLocaleString()}</div>
                               )}
+                              {i.certificate_resend_message_id && (
+                                <div className="text-muted-foreground mt-0.5 font-mono text-[10px]" title={`Resend ID: ${i.certificate_resend_message_id}`}>ID: {i.certificate_resend_message_id.slice(0, 12)}…</div>
+                              )}
                             </div>
                           ) : i.certificate_email_error ? (
                             <div className="text-xs">
                               <Badge variant="destructive">Failed</Badge>
-                              <div className="text-muted-foreground mt-1 truncate max-w-[120px]" title={i.certificate_email_error}>{i.certificate_email_error}</div>
+                              <div className="text-destructive mt-1 max-w-[160px] leading-tight" title={i.certificate_email_error}>{i.certificate_email_error.length > 60 ? i.certificate_email_error.slice(0, 60) + "…" : i.certificate_email_error}</div>
                             </div>
                           ) : (
                             <Badge variant="outline">Not Sent</Badge>

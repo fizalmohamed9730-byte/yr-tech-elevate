@@ -15,19 +15,31 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
-    const { getEmailConfig } = await import("@/lib/config.server");
-    const { generateOfferLetterPDFBuffer } = await import("@/lib/pdf.server");
-    const { Resend } = await import("resend");
+    const maskedEmail = data.email.replace(/(.{2})(.*)(@.*)/, "$1***$3");
+    console.log(`[email] === sendOfferLetterEmail invoked ===`);
+    console.log(`[email] internshipId: ${data.internshipId}`);
+    console.log(`[email] recipient: ${maskedEmail}`);
+    console.log(`[email] intern: ${data.fullName}`);
+    console.log(`[email] internshipCode: ${data.internshipCode}`);
 
+    // 1. Check config
+    const { getEmailConfig } = await import("@/lib/config.server");
     const config = getEmailConfig();
+    console.log(`[email] RESEND_API_KEY present: ${!!config.resendApiKey}`);
+    console.log(`[email] EMAIL_FROM: ${config.emailFrom}`);
+
     if (!config.resendApiKey) {
-      return { success: false, error: "RESEND_API_KEY not configured" };
+      const errMsg = "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
+      console.error(`[email] FATAL: ${errMsg}`);
+      return { success: false, error: errMsg };
     }
 
-    const resend = new Resend(config.resendApiKey);
-
+    // 2. Generate PDF
+    console.log(`[email] Generating offer letter PDF...`);
+    let pdfBuffer: Buffer;
     try {
-      const pdfBuffer = await generateOfferLetterPDFBuffer({
+      const { generateOfferLetterPDFBuffer } = await import("@/lib/pdf.server");
+      pdfBuffer = await generateOfferLetterPDFBuffer({
         fullName: data.fullName,
         domain: data.domain,
         internshipCode: data.internshipCode,
@@ -35,8 +47,36 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         startedAt: data.startedAt,
         duration: data.duration,
       });
+      console.log(`[email] PDF generated: ${pdfBuffer.length} bytes`);
+      if (pdfBuffer.length < 500) {
+        console.warn(`[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`);
+      }
+    } catch (pdfErr: any) {
+      const errMsg = `PDF generation failed: ${pdfErr?.message ?? "Unknown error"}`;
+      console.error(`[email] ${errMsg}`);
+      // Record failure
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (supabaseAdmin as any)
+          .from("internships")
+          .update({
+            offer_letter_email_sent: false,
+            offer_letter_email_error: errMsg.slice(0, 500),
+          })
+          .eq("id", data.internshipId);
+      } catch {}
+      return { success: false, error: errMsg };
+    }
 
-      const { data: result, error } = await resend.emails.send({
+    // 3. Send via Resend
+    console.log(`[email] Calling Resend API...`);
+    let resendResult: any;
+    let resendError: any;
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(config.resendApiKey);
+
+      const response = await resend.emails.send({
         from: config.emailFrom,
         to: [data.email],
         replyTo: config.emailReplyTo,
@@ -82,12 +122,37 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         ],
       });
 
-      if (error) {
-        console.error("[email] Resend offer letter error:", error);
-        return { success: false, error: error.message ?? "Email send failed" };
-      }
+      resendResult = response.data;
+      resendError = response.error;
+    } catch (sendErr: any) {
+      resendError = sendErr;
+      console.error(`[email] Resend API call threw:`, sendErr);
+    }
 
-      // Record delivery in database
+    // 4. Handle result
+    if (resendError) {
+      const errMsg = `Resend error: ${resendError.message ?? JSON.stringify(resendError)}`;
+      console.error(`[email] ${errMsg}`);
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (supabaseAdmin as any)
+          .from("internships")
+          .update({
+            offer_letter_email_sent: false,
+            offer_letter_email_error: errMsg.slice(0, 500),
+          })
+          .eq("id", data.internshipId);
+        console.log(`[email] Failure recorded in DB for internship ${data.internshipId}`);
+      } catch (dbErr) {
+        console.error(`[email] Failed to record error in DB:`, dbErr);
+      }
+      return { success: false, error: errMsg };
+    }
+
+    // 5. Success
+    const messageId = resendResult?.id ?? null;
+    console.log(`[email] Resend accepted email. Message ID: ${messageId}`);
+    try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       await (supabaseAdmin as any)
         .from("internships")
@@ -95,27 +160,16 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
           offer_letter_email_sent: true,
           offer_letter_email_sent_at: new Date().toISOString(),
           offer_letter_email_error: null,
+          offer_letter_resend_message_id: messageId,
         })
         .eq("id", data.internshipId);
-
-      return { success: true, messageId: result?.id };
-    } catch (err: any) {
-      console.error("[email] sendOfferLetterEmail error:", err);
-
-      // Record failure
-      try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await (supabaseAdmin as any)
-          .from("internships")
-          .update({
-            offer_letter_email_sent: false,
-            offer_letter_email_error: err?.message?.slice(0, 500) ?? "Unknown error",
-          })
-          .eq("id", data.internshipId);
-      } catch {}
-
-      return { success: false, error: err?.message ?? "Unknown error" };
+      console.log(`[email] Success recorded in DB for internship ${data.internshipId}`);
+    } catch (dbErr) {
+      console.error(`[email] Failed to record success in DB:`, dbErr);
     }
+
+    console.log(`[email] === sendOfferLetterEmail complete ===`);
+    return { success: true, messageId };
   });
 
 export const sendCertificateEmail = createServerFn({ method: "POST" })
@@ -132,19 +186,31 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
-    const { getEmailConfig } = await import("@/lib/config.server");
-    const { generateCertificatePDFBuffer } = await import("@/lib/pdf.server");
-    const { Resend } = await import("resend");
+    const maskedEmail = data.email.replace(/(.{2})(.*)(@.*)/, "$1***$3");
+    console.log(`[email] === sendCertificateEmail invoked ===`);
+    console.log(`[email] internshipId: ${data.internshipId}`);
+    console.log(`[email] recipient: ${maskedEmail}`);
+    console.log(`[email] intern: ${data.fullName}`);
+    console.log(`[email] internshipCode: ${data.internshipCode}`);
 
+    // 1. Check config
+    const { getEmailConfig } = await import("@/lib/config.server");
     const config = getEmailConfig();
+    console.log(`[email] RESEND_API_KEY present: ${!!config.resendApiKey}`);
+    console.log(`[email] EMAIL_FROM: ${config.emailFrom}`);
+
     if (!config.resendApiKey) {
-      return { success: false, error: "RESEND_API_KEY not configured" };
+      const errMsg = "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
+      console.error(`[email] FATAL: ${errMsg}`);
+      return { success: false, error: errMsg };
     }
 
-    const resend = new Resend(config.resendApiKey);
-
+    // 2. Generate PDF
+    console.log(`[email] Generating certificate PDF...`);
+    let pdfBuffer: Buffer;
     try {
-      const pdfBuffer = await generateCertificatePDFBuffer({
+      const { generateCertificatePDFBuffer } = await import("@/lib/pdf.server");
+      pdfBuffer = await generateCertificatePDFBuffer({
         fullName: data.fullName,
         domain: data.domain,
         internshipCode: data.internshipCode,
@@ -152,8 +218,35 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         issuedAt: data.issuedAt,
         duration: data.duration,
       });
+      console.log(`[email] PDF generated: ${pdfBuffer.length} bytes`);
+      if (pdfBuffer.length < 500) {
+        console.warn(`[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`);
+      }
+    } catch (pdfErr: any) {
+      const errMsg = `PDF generation failed: ${pdfErr?.message ?? "Unknown error"}`;
+      console.error(`[email] ${errMsg}`);
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (supabaseAdmin as any)
+          .from("internships")
+          .update({
+            certificate_email_sent: false,
+            certificate_email_error: errMsg.slice(0, 500),
+          })
+          .eq("id", data.internshipId);
+      } catch {}
+      return { success: false, error: errMsg };
+    }
 
-      const { data: result, error } = await resend.emails.send({
+    // 3. Send via Resend
+    console.log(`[email] Calling Resend API...`);
+    let resendResult: any;
+    let resendError: any;
+    try {
+      const { Resend } = await import("resend");
+      const resend = new Resend(config.resendApiKey);
+
+      const response = await resend.emails.send({
         from: config.emailFrom,
         to: [data.email],
         replyTo: config.emailReplyTo,
@@ -199,12 +292,37 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         ],
       });
 
-      if (error) {
-        console.error("[email] Resend certificate error:", error);
-        return { success: false, error: error.message ?? "Email send failed" };
-      }
+      resendResult = response.data;
+      resendError = response.error;
+    } catch (sendErr: any) {
+      resendError = sendErr;
+      console.error(`[email] Resend API call threw:`, sendErr);
+    }
 
-      // Record delivery in database
+    // 4. Handle result
+    if (resendError) {
+      const errMsg = `Resend error: ${resendError.message ?? JSON.stringify(resendError)}`;
+      console.error(`[email] ${errMsg}`);
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (supabaseAdmin as any)
+          .from("internships")
+          .update({
+            certificate_email_sent: false,
+            certificate_email_error: errMsg.slice(0, 500),
+          })
+          .eq("id", data.internshipId);
+        console.log(`[email] Failure recorded in DB for internship ${data.internshipId}`);
+      } catch (dbErr) {
+        console.error(`[email] Failed to record error in DB:`, dbErr);
+      }
+      return { success: false, error: errMsg };
+    }
+
+    // 5. Success
+    const messageId = resendResult?.id ?? null;
+    console.log(`[email] Resend accepted email. Message ID: ${messageId}`);
+    try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       await (supabaseAdmin as any)
         .from("internships")
@@ -212,25 +330,14 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
           certificate_email_sent: true,
           certificate_email_sent_at: new Date().toISOString(),
           certificate_email_error: null,
+          certificate_resend_message_id: messageId,
         })
         .eq("id", data.internshipId);
-
-      return { success: true, messageId: result?.id };
-    } catch (err: any) {
-      console.error("[email] sendCertificateEmail error:", err);
-
-      // Record failure
-      try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await (supabaseAdmin as any)
-          .from("internships")
-          .update({
-            certificate_email_sent: false,
-            certificate_email_error: err?.message?.slice(0, 500) ?? "Unknown error",
-          })
-          .eq("id", data.internshipId);
-      } catch {}
-
-      return { success: false, error: err?.message ?? "Unknown error" };
+      console.log(`[email] Success recorded in DB for internship ${data.internshipId}`);
+    } catch (dbErr) {
+      console.error(`[email] Failed to record success in DB:`, dbErr);
     }
+
+    console.log(`[email] === sendCertificateEmail complete ===`);
+    return { success: true, messageId };
   });

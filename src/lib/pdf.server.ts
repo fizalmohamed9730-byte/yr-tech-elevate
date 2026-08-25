@@ -1,17 +1,32 @@
 import PDFDocument from "pdfkit";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import QRCode from "qrcode";
 import { COMPANY } from "./company";
 
-function assetPath(filename: string): string {
-  return join(process.cwd(), "src", "assets", filename);
+// In production (Vercel), src/assets/ does not exist. We resolve assets
+// from multiple fallback paths so local dev, CI, and serverless all work.
+function resolveAssetPath(filename: string): string | null {
+  const candidates = [
+    join(process.cwd(), "src", "assets", filename),
+    join(process.cwd(), "assets", filename),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
 }
 
 function loadAssetBuffer(filename: string): Buffer | null {
+  const resolved = resolveAssetPath(filename);
+  if (!resolved) {
+    console.warn(`[pdf.server] Asset not found: ${filename} (searched multiple paths)`);
+    return null;
+  }
   try {
-    return readFileSync(assetPath(filename));
-  } catch {
+    return readFileSync(resolved);
+  } catch (err) {
+    console.error(`[pdf.server] Failed to read asset ${filename}:`, err);
     return null;
   }
 }
@@ -52,18 +67,29 @@ export async function generateOfferLetterPDFBuffer(data: {
   startedAt?: string | null;
   duration?: string | null;
 }): Promise<Buffer> {
+  console.log(`[pdf.server] Generating offer letter PDF for ${data.internshipCode}`);
+
   const doc = new PDFDocument({ size: "A4", margin: 0 });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
   const finished = new Promise<Buffer>((resolve, reject) => {
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
+    doc.on("end", () => {
+      const buf = Buffer.concat(chunks);
+      console.log(`[pdf.server] Offer letter PDF generated: ${buf.length} bytes`);
+      resolve(buf);
+    });
+    doc.on("error", (err) => {
+      console.error("[pdf.server] PDF generation error:", err);
+      reject(err);
+    });
   });
 
   const logoBuf = loadAssetBuffer("company-logo.png");
   const sealBuf = loadAssetBuffer("company-seal.png");
   const sigBuf = loadAssetBuffer("fizal-mohamed-signature-transparent.png");
   const msmeBuf = loadAssetBuffer("msme-logo.png");
+
+  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}`);
 
   // Border
   doc.save();
@@ -211,18 +237,29 @@ export async function generateCertificatePDFBuffer(data: {
   issuedAt?: string | null;
   duration?: string | null;
 }): Promise<Buffer> {
+  console.log(`[pdf.server] Generating certificate PDF for ${data.internshipCode}`);
+
   const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 0 });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
   const finished = new Promise<Buffer>((resolve, reject) => {
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
+    doc.on("end", () => {
+      const buf = Buffer.concat(chunks);
+      console.log(`[pdf.server] Certificate PDF generated: ${buf.length} bytes`);
+      resolve(buf);
+    });
+    doc.on("error", (err) => {
+      console.error("[pdf.server] Certificate PDF generation error:", err);
+      reject(err);
+    });
   });
 
   const logoBuf = loadAssetBuffer("company-logo.png");
   const sealBuf = loadAssetBuffer("company-seal.png");
   const sigBuf = loadAssetBuffer("fizal-mohamed-signature-transparent.png");
   const msmeBuf = loadAssetBuffer("msme-logo.png");
+
+  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}`);
 
   // Border
   doc.save();
