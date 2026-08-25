@@ -187,9 +187,26 @@ function AuthPage() {
     reader.readAsDataURL(file);
   }
 
-  async function handleRedirect(_userId: string) {
+  async function waitForSession(maxAttempts = 5, delayMs = 300): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data.session?.user) {
+          console.log("[auth] session confirmed after", i + 1, "attempt(s)");
+          return true;
+        }
+      } catch (err) {
+        console.warn("[auth] getSession attempt", i + 1, "failed:", err);
+      }
+      if (i < maxAttempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return false;
+  }
+
+  async function handleRedirect() {
     if (navigating.current) return;
     navigating.current = true;
+    console.log("[auth] navigating to /dashboard");
     navigate({ to: "/dashboard" });
   }
 
@@ -250,6 +267,8 @@ function AuthPage() {
       console.log("[auth] signInWithPassword result:", {
         code: error?.code,
         message: error?.message,
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
       });
 
       if (error?.code === "email_not_confirmed") {
@@ -259,9 +278,9 @@ function AuthPage() {
         return toast.error("Email not confirmed. Check your inbox or resend the confirmation.");
       }
 
-      setLoading(false);
-
       if (error) {
+        setLoading(false);
+        navigating.current = false;
         console.error("[auth] signIn error:", error);
         return toast.error(
           isNetworkError(error)
@@ -270,14 +289,22 @@ function AuthPage() {
         );
       }
 
-      toast.success("Welcome back!");
-      if (data?.user) {
-        await handleRedirect(data.user.id);
-      } else {
-        navigate({ to: "/dashboard" });
+      if (!data?.user) {
+        setLoading(false);
+        navigating.current = false;
+        return toast.error("Login succeeded but no user data returned. Please try again.");
       }
+
+      const sessionReady = await waitForSession();
+      if (!sessionReady) {
+        console.warn("[auth] session not confirmed after signInWithPassword, navigating anyway");
+      }
+
+      toast.success("Welcome back!");
+      await handleRedirect();
     } catch (err: any) {
       setLoading(false);
+      navigating.current = false;
       console.error("[auth] signIn exception:", err);
       if (err?.message === "timeout") {
         toast.error("Unable to connect to server. Check your internet connection.");
@@ -365,21 +392,22 @@ function AuthPage() {
         SIGN_IN_TIMEOUT,
       );
 
-      setLoading(false);
-
       if (signInError) {
+        setLoading(false);
+        navigating.current = false;
         console.error("[auth] auto-login failed:", signInError);
         setSignUpSuccess(true);
         setSignUpEmail(parsed.data.email);
         return toast.error("Account created. Auto-login is pending — please sign in manually.");
       }
 
-      toast.success("Account created! Redirecting to your dashboard...");
-      if (signInData?.user) {
-        await handleRedirect(signInData.user.id);
-      } else {
-        navigate({ to: "/dashboard" });
+      const sessionReady = await waitForSession();
+      if (!sessionReady) {
+        console.warn("[auth] session not confirmed after signup auto-login, navigating anyway");
       }
+
+      toast.success("Account created! Redirecting to your dashboard...");
+      await handleRedirect();
     } catch (err: any) {
       setLoading(false);
       console.error("[auth] signUp exception:", err);
