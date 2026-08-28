@@ -139,21 +139,25 @@ export async function generateOfferLetterPDF(data: {
   doc.setTextColor(100);
   doc.text("INNOVATE • DEVELOP • DELIVER", 105, 29, { align: "center" });
 
-  // MSME Logo + Udyam Registration at the top right
+  // MSME Logo + Udyam block — top right column (x=142..194)
   if (msmeLogo) {
     try {
-      const msmeW = 12;
+      const msmeW = 10;
       const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
-      doc.addImage(msmeLogo, "PNG", 162, 14, msmeW, msmeH);
+      doc.addImage(msmeLogo, "PNG", 142, 13, msmeW, msmeH);
     } catch (err) {
       console.error("Failed to render MSME logo header on offer letter", err);
     }
   }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("Udyam Registration No:", 154, 17);
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
-  doc.text(`Udyam Registration No:`, 176, 18, { align: "right" });
-  doc.text(`${COMPANY.udyam}`, 192, 22, { align: "right" });
-  doc.text(`Email: ${COMPANY.email}`, 192, 26, { align: "right" });
-  doc.text(`Web: www.yrnovatech.online`, 192, 30, { align: "right" });
+  doc.text(`${COMPANY.udyam}`, 154, 21);
+  doc.setFontSize(7.5);
+  doc.text(`Email: ${COMPANY.email}`, 154, 27);
+  doc.text(`Web: www.yrnovatech.online`, 154, 31);
 
   // Divider Line
   doc.setDrawColor(37, 99, 235);
@@ -443,21 +447,23 @@ export async function downloadCertificate(data: {
     } catch {}
   }
 
-  // MSME Logo — top right near company branding
+  // MSME Logo — top right corner
   if (msmeLogo) {
     try {
-      const msmeW = 14;
+      const msmeW = 12;
       const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
-      doc.addImage(msmeLogo, "PNG", 255, 14, msmeW, msmeH);
+      doc.addImage(msmeLogo, "PNG", 250, 13, msmeW, msmeH);
     } catch (err) {
       console.error("Failed to render MSME logo header on certificate", err);
     }
   }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(80);
+  doc.text("Udyam Registration No:", 264, 17);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(100);
-  doc.text(`Udyam Registration No:`, 269, 18, { align: "center" });
-  doc.text(`${COMPANY.udyam}`, 269, 22, { align: "center" });
+  doc.text(`${COMPANY.udyam}`, 264, 21);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);

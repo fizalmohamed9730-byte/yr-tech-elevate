@@ -115,16 +115,17 @@ export async function generateOfferLetterPDFBuffer(data: {
   doc.fontSize(8.5).font("Helvetica").fillColor(GRAY).text("INNOVATE • DEVELOP • DELIVER", pt(16), pt(24), { width: pt(190) - pt(16) * 2, align: "center" });
   doc.restore();
 
-  // Right info + MSME Logo
+  // Right info + MSME Logo — top right column (pt(142)..pt(194))
   doc.save();
   if (msmeBuf) {
-    try { doc.image(msmeBuf, pt(160), pt(14), { width: pt(12) }); } catch {}
+    try { doc.image(msmeBuf, pt(142), pt(13), { width: pt(10) }); } catch {}
   }
+  doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY);
+  doc.text("Udyam Registration No:", pt(154), pt(17));
   doc.fontSize(7.5).font("Helvetica").fillColor(GRAY);
-  doc.text("Udyam Registration No:", pt(160), pt(18), { width: pt(34), align: "right" });
-  doc.text(`${COMPANY.udyam}`, pt(160), pt(22), { width: pt(34), align: "right" });
-  doc.text(`Email: ${COMPANY.email}`, pt(160), pt(26), { width: pt(34), align: "right" });
-  doc.text("Web: www.yrnovatech.online", pt(160), pt(30), { width: pt(34), align: "right" });
+  doc.text(`${COMPANY.udyam}`, pt(154), pt(21));
+  doc.text(`Email: ${COMPANY.email}`, pt(154), pt(27));
+  doc.text("Web: www.yrnovatech.online", pt(154), pt(31));
   doc.restore();
 
   // Divider
@@ -276,13 +277,14 @@ export async function generateCertificatePDFBuffer(data: {
     try { doc.image(logoBuf, pt(138.5), pt(14), { width: pt(20), height: pt(20) }); } catch {}
   }
 
-  // MSME Logo + Udyam Registration — top right
+  // MSME Logo + Udyam Registration — top right corner
   if (msmeBuf) {
-    try { doc.image(msmeBuf, pt(255), pt(14), { width: pt(14) }); } catch {}
+    try { doc.image(msmeBuf, pt(250), pt(13), { width: pt(12) }); } catch {}
   }
-  doc.save().fontSize(7).font("Helvetica").fillColor(GRAY);
-  doc.text("Udyam Registration No:", pt(255), pt(18), { width: pt(34), align: "center" });
-  doc.text(`${COMPANY.udyam}`, pt(255), pt(22), { width: pt(34), align: "center" });
+  doc.save().fontSize(6.5).font("Helvetica-Bold").fillColor(SIG_GRAY);
+  doc.text("Udyam Registration No:", pt(264), pt(17));
+  doc.fontSize(7).font("Helvetica").fillColor(SIG_GRAY);
+  doc.text(`${COMPANY.udyam}`, pt(264), pt(21));
   doc.restore();
 
   // Company name
