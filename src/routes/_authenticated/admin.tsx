@@ -74,8 +74,9 @@ function AdminPage() {
   }
 
   async function reload() {
-    const db = supabase as any;
-    const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
+    try {
+      const db = supabase as any;
+      const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
       safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, avatar_url, created_at").order("created_at", { ascending: false })),
       safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, offer_letter_email_sent, offer_letter_email_sent_at, offer_letter_email_error, offer_letter_resend_message_id, certificate_code, certificate_issued_at, certificate_email_sent, certificate_email_sent_at, certificate_email_error, certificate_resend_message_id, progress_percent, completed_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
       safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
@@ -123,20 +124,28 @@ function AdminPage() {
       const internship = internshipMap.get(sub.internship_id) ?? null;
       return { ...sub, internship };
     });
-    setSubmissions(enrichedSubs);
+      setSubmissions(enrichedSubs);
+    } catch (err: any) {
+      console.error("[admin] reload error:", err);
+    }
   }
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user || !mounted) return;
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
-      const admin = (roles ?? []).some((r: any) => r.role === "admin");
-      if (!mounted) return;
-      setIsAdmin(admin);
-      setChecking(false);
-      if (admin) await reload();
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user || !mounted) return;
+        const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+        const admin = (roles ?? []).some((r: any) => r.role === "admin");
+        if (!mounted) return;
+        setIsAdmin(admin);
+        if (admin) await reload();
+      } catch (err: any) {
+        console.error("[admin] init error:", err);
+      } finally {
+        if (mounted) setChecking(false);
+      }
     })();
     return () => { mounted = false; };
   }, []);
@@ -241,33 +250,34 @@ function AdminPage() {
       return toast.error("Failed to issue certificate: " + error.message);
     }
     toast.success("Certificate issued: " + code);
-    // Auto-send certificate email
+    reload();
+    // Fire-and-forget: send certificate email
     const intern = internships.find((i) => i.id === internshipId);
     if (intern?.student?.email) {
-      toast.info("Sending certificate email...");
-      try {
-        const emailResult = await (await getEmail()).sendCertificateEmail({
-          data: {
-            internshipId,
-            email: intern.student.email,
-            fullName: intern.student.full_name ?? "Intern",
-            domain: intern.domain?.name ?? "",
-            duration: intern.duration ?? "1 Month",
-            internshipCode: intern.internship_code,
-            certificateCode: code,
-            issuedAt: now,
-          },
-        });
-        if (emailResult?.error) {
-          toast.error("Email delivery failed: " + emailResult.error);
-        } else {
-          toast.success("Certificate emailed to " + intern.student.email);
+      (async () => {
+        try {
+          const emailResult = await (await getEmail()).sendCertificateEmail({
+            data: {
+              internshipId,
+              email: intern.student.email,
+              fullName: intern.student.full_name ?? "Intern",
+              domain: intern.domain?.name ?? "",
+              duration: intern.duration ?? "1 Month",
+              internshipCode: intern.internship_code,
+              certificateCode: code,
+              issuedAt: now,
+            },
+          });
+          if (emailResult?.error) {
+            toast.error("Email failed: " + emailResult.error);
+          } else {
+            toast.success("Certificate emailed to " + intern.student.email);
+          }
+        } catch (emailErr: any) {
+          toast.error("Email failed: " + (emailErr?.message ?? "Unknown error"));
         }
-      } catch (emailErr: any) {
-        toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
-      }
+      })();
     }
-    reload();
   }
 
   async function handleSendOfferLetterEmail(intern: any) {
@@ -355,57 +365,60 @@ function AdminPage() {
       console.error("[admin] updateStatus error:", error);
       return toast.error("Failed to update: " + error.message);
     }
+    toast.success(status === "active" ? "Approved — offer letter issued" : "Updated");
+    reload();
+
+    // Fire-and-forget: PDF storage + email (non-blocking)
     if (status === "active") {
       const ud: any = updatedData;
       const studentProfile = profiles.find((p) => p.id === ud.student_id);
-      // Store PDF in Supabase Storage (non-blocking for email)
-      try {
-        toast.info("Generating and storing offer letter...");
-        const { uploadOfferLetterToStorage } = await import("@/lib/pdf");
-        await uploadOfferLetterToStorage({
-          studentId: ud.student_id,
-          fullName: studentProfile?.full_name ?? "Intern",
-          domain: ud.domain?.name ?? "",
-          domainSlug: ud.domain?.slug,
-          internshipCode: ud.internship_code,
-          offerCode: ud.offer_letter_code,
-          startedAt: ud.started_at,
-          duration: ud.duration,
-        });
-        toast.success("Offer letter PDF stored in Supabase Storage");
-      } catch (err: any) {
-        toast.error("Failed to store Offer Letter PDF: " + err.message);
-      }
-      // Send email (independent of storage result)
-      if (studentProfile?.email) {
-        toast.info("Sending offer letter email...");
+      // Store PDF in Supabase Storage
+      (async () => {
         try {
-          const emailResult = await (await getEmail()).sendOfferLetterEmail({
-            data: {
-              internshipId: id,
-              email: studentProfile.email,
-              fullName: studentProfile.full_name ?? "Intern",
-              domain: ud.domain?.name ?? "",
-              duration: ud.duration ?? "1 Month",
-              internshipCode: ud.internship_code,
-              offerCode: ud.offer_letter_code,
-              startedAt: ud.started_at,
-            },
+          const { uploadOfferLetterToStorage } = await import("@/lib/pdf");
+          await uploadOfferLetterToStorage({
+            studentId: ud.student_id,
+            fullName: studentProfile?.full_name ?? "Intern",
+            domain: ud.domain?.name ?? "",
+            domainSlug: ud.domain?.slug,
+            internshipCode: ud.internship_code,
+            offerCode: ud.offer_letter_code,
+            startedAt: ud.started_at,
+            duration: ud.duration,
           });
-          if (emailResult?.error) {
-            toast.error("Email delivery failed: " + emailResult.error);
-          } else {
-            toast.success("Offer letter emailed to " + studentProfile.email);
-          }
-        } catch (emailErr: any) {
-          toast.error("Email delivery failed: " + (emailErr?.message ?? "Unknown error"));
+          toast.success("Offer letter PDF stored");
+        } catch (err: any) {
+          console.error("[admin] PDF storage error:", err);
+          toast.error("Failed to store PDF: " + err.message);
         }
-      } else {
-        toast.warning("No email address found — offer letter not emailed");
+      })();
+      // Send email
+      if (studentProfile?.email) {
+        (async () => {
+          try {
+            const emailResult = await (await getEmail()).sendOfferLetterEmail({
+              data: {
+                internshipId: id,
+                email: studentProfile.email,
+                fullName: studentProfile.full_name ?? "Intern",
+                domain: ud.domain?.name ?? "",
+                duration: ud.duration ?? "1 Month",
+                internshipCode: ud.internship_code,
+                offerCode: ud.offer_letter_code,
+                startedAt: ud.started_at,
+              },
+            });
+            if (emailResult?.error) {
+              toast.error("Email failed: " + emailResult.error);
+            } else {
+              toast.success("Offer letter emailed to " + studentProfile.email);
+            }
+          } catch (emailErr: any) {
+            toast.error("Email failed: " + (emailErr?.message ?? "Unknown error"));
+          }
+        })();
       }
     }
-    toast.success(status === "active" ? "Approved — offer letter issued" : "Updated");
-    reload();
   }
 
   async function reviewSubmission(id: string, status: "approved" | "rejected" | "resubmit", feedback: string) {
@@ -769,7 +782,7 @@ function AdminPage() {
                                   photoDataUrl: s.avatar_url,
                                   email: s.email,
                                   duration: i.duration,
-                                }));
+                                })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")));
                               }} title="Download ID Card">ID Card</Button>
                             )}
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-destructive" onClick={() => removeStudent(s.id)} title="Remove Student"><Trash2 className="h-3 w-3" /></Button>
@@ -1044,7 +1057,7 @@ function AdminPage() {
                         )}
                       </TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
-                        <Button size="sm" variant="outline" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id))}>View</Button>
+                        <Button size="sm" variant="outline" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id)).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
                         <Button size="sm" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({
                           studentId: i.student_id,
                           fullName: i.student?.full_name ?? "Intern",
@@ -1054,7 +1067,7 @@ function AdminPage() {
                           offerCode: i.offer_letter_code,
                           startedAt: i.started_at,
                           duration: i.duration,
-                        }))}>Download</Button>
+                        })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
                         <Button
                           size="sm"
                           variant={i.offer_letter_email_sent ? "outline" : "default"}
@@ -1130,7 +1143,7 @@ function AdminPage() {
                           )}
                         </TableCell>
                         <TableCell className="space-x-1 whitespace-nowrap">
-                          <Button size="sm" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration }))}>
+                          <Button size="sm" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>
                             Download
                           </Button>
                           <Button

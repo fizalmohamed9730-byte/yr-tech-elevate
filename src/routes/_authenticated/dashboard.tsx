@@ -48,43 +48,48 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   async function load() {
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
 
-    // Fetch profile + internship in parallel
-    const [{ data: p }, { data: i }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-      supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
-    ]);
-    setProfile(p);
-    setPhoto(p?.avatar_url ?? null);
+      // Fetch profile + internship in parallel
+      const [{ data: p }, { data: i }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+      ]);
+      setProfile(p);
+      setPhoto(p?.avatar_url ?? null);
 
-    let internship = i;
-    // Legacy users (registered before the offer-letter migration) have a
-    // "pending" internship with no offer code, so they can't download their
-    // offer letter. Auto-activate on load — the DB trigger issues the code.
-    if (internship?.id && !internship.offer_letter_code) {
-      try {
-        const { data: upd } = await (supabase as any)
-          .from("internships")
-          .update({
-            status: "active",
-            started_at: internship.started_at ?? new Date().toISOString(),
-          })
-          .eq("id", internship.id)
-          .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
-          .maybeSingle();
-        if (upd) internship = upd;
-      } catch (err: any) {
-        console.warn("[dashboard] auto-activate internship:", err?.message);
+      let internship = i;
+      // Legacy users (registered before the offer-letter migration) have a
+      // "pending" internship with no offer code, so they can't download their
+      // offer letter. Auto-activate on load — the DB trigger issues the code.
+      if (internship?.id && !internship.offer_letter_code) {
+        try {
+          const { data: upd } = await (supabase as any)
+            .from("internships")
+            .update({
+              status: "active",
+              started_at: internship.started_at ?? new Date().toISOString(),
+            })
+            .eq("id", internship.id)
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
+            .maybeSingle();
+          if (upd) internship = upd;
+        } catch (err: any) {
+          console.warn("[dashboard] auto-activate internship:", err?.message);
+        }
       }
-    }
-    setInternship(internship);
-    setLoading(false);
+      setInternship(internship);
 
-    if (internship?.id) {
-      const { data: s } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
-      setSubmissions(s ?? []);
+      if (internship?.id) {
+        const { data: s } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
+        setSubmissions(s ?? []);
+      }
+    } catch (err: any) {
+      console.error("[dashboard] load error:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -453,7 +458,7 @@ function Dashboard() {
                     photoDataUrl: profile?.avatar_url,
                     email: profile?.email,
                     duration: internship.duration,
-                  }))}
+                  })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
                   className="w-full bg-gradient-primary text-primary-foreground"
                 >
                   Download PDF ID Card
@@ -504,7 +509,7 @@ function Dashboard() {
                 certificateCode: internship.certificate_code,
                 issuedAt: internship.certificate_issued_at,
                 duration: internship.duration,
-              }))}
+              })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
               className="w-full bg-gradient-primary text-primary-foreground"
             >
               {internship.certificate_code ? "Download Certificate PDF" : "Locked"}
@@ -596,7 +601,7 @@ function FeedbackPanel({ profile }: { profile: any }) {
     (async () => {
       const { data } = await supabase
         .from("feedback")
-        .select("*")
+        .select("id, user_id, rating, message, created_at")
         .eq("user_id", profile.id)
         .order("created_at", { ascending: false });
       setExistingFeedback(data ?? []);
@@ -608,23 +613,28 @@ function FeedbackPanel({ profile }: { profile: any }) {
     if (rating === 0) return toast.error("Please select a rating.");
     if (message.trim().length < 10) return toast.error("Feedback must be at least 10 characters.");
     setSubmitting(true);
-    const { error } = await supabase.from("feedback").insert({
-      user_id: profile.id,
-      rating,
-      message: message.trim(),
-    });
-    setSubmitting(false);
-    if (error) return toast.error(error.message);
-    toast.success("Feedback submitted! Thank you.");
-    setSubmitted(true);
-    setMessage("");
-    setRating(0);
-    const { data } = await supabase
-      .from("feedback")
-      .select("*")
-      .eq("user_id", profile.id)
-      .order("created_at", { ascending: false });
-    setExistingFeedback(data ?? []);
+    try {
+      const { error } = await supabase.from("feedback").insert({
+        user_id: profile.id,
+        rating,
+        message: message.trim(),
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Feedback submitted! Thank you.");
+      setSubmitted(true);
+      setMessage("");
+      setRating(0);
+      const { data } = await supabase
+        .from("feedback")
+        .select("id, user_id, rating, message, created_at")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+      setExistingFeedback(data ?? []);
+    } catch (err: any) {
+      toast.error("Failed to submit feedback: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

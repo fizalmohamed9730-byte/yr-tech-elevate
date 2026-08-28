@@ -1,56 +1,39 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-const AUTH_TIMEOUT_MS = 10000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500;
+const AUTH_TIMEOUT_MS = 4000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("auth-timeout")), ms),
-    ),
-  ]);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("auth-timeout")), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 async function resolveUser() {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const { data, error } = await withTimeout(
-        supabase.auth.getUser(),
-        AUTH_TIMEOUT_MS,
-      );
-      if (!error && data.user) {
-        console.log("[_authenticated] getUser success on attempt", attempt + 1);
-        return data.user;
-      }
-      console.warn("[_authenticated] getUser returned no user (attempt", attempt + 1, "):", error?.message);
-    } catch (err: any) {
-      if (err?.name === "Redirect" || err?.isRedirect) throw err;
-      console.warn("[_authenticated] getUser exception (attempt", attempt + 1, "):", err?.message);
+  // First try getUser (validates JWT against Supabase server)
+  try {
+    const { data, error } = await withTimeout(
+      supabase.auth.getUser(),
+      AUTH_TIMEOUT_MS,
+    );
+    if (!error && data.user) {
+      return data.user;
     }
-
-    if (attempt < MAX_RETRIES - 1) {
-      await sleep(RETRY_DELAY_MS * (attempt + 1));
-    }
+  } catch (err: any) {
+    if (err?.name === "Redirect" || err?.isRedirect) throw err;
   }
 
-  console.log("[_authenticated] getUser failed after retries, falling back to getSession");
+  // Fallback: read session from localStorage (no network call)
   try {
     const { data, error } = await supabase.auth.getSession();
     if (!error && data.session?.user) {
-      console.log("[_authenticated] getSession fallback success");
       return data.session.user;
     }
-    console.warn("[_authenticated] getSession fallback also failed:", error?.message);
-  } catch (err: any) {
-    console.error("[_authenticated] getSession fallback exception:", err);
-  }
+  } catch {}
 
   return null;
 }
@@ -85,7 +68,6 @@ export const Route = createFileRoute("/_authenticated")({
           : null;
     } catch (err: any) {
       if (err?.name === "Redirect" || err?.isRedirect) throw err;
-      console.error("[_authenticated] user_roles query failed:", err);
     }
 
     if (!role) {
