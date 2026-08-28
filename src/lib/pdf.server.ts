@@ -115,12 +115,16 @@ export async function generateOfferLetterPDFBuffer(data: {
   doc.fontSize(8.5).font("Helvetica").fillColor(GRAY).text("INNOVATE • DEVELOP • DELIVER", pt(16), pt(24), { width: pt(190) - pt(16) * 2, align: "center" });
   doc.restore();
 
-  // Right info
+  // Right info + MSME Logo
   doc.save();
+  if (msmeBuf) {
+    try { doc.image(msmeBuf, pt(160), pt(14), { width: pt(12) }); } catch {}
+  }
   doc.fontSize(7.5).font("Helvetica").fillColor(GRAY);
-  doc.text("UDYAM-TN-17-0077694", pt(160), pt(19), { width: pt(34), align: "right" });
-  doc.text(`Email: ${COMPANY.email}`, pt(160), pt(23), { width: pt(34), align: "right" });
-  doc.text("Web: www.yrnovatech.online", pt(160), pt(27), { width: pt(34), align: "right" });
+  doc.text("Udyam Registration No:", pt(160), pt(18), { width: pt(34), align: "right" });
+  doc.text(`${COMPANY.udyam}`, pt(160), pt(22), { width: pt(34), align: "right" });
+  doc.text(`Email: ${COMPANY.email}`, pt(160), pt(26), { width: pt(34), align: "right" });
+  doc.text("Web: www.yrnovatech.online", pt(160), pt(30), { width: pt(34), align: "right" });
   doc.restore();
 
   // Divider
@@ -225,13 +229,6 @@ export async function generateOfferLetterPDFBuffer(data: {
     drawVectorSeal(doc, pt(160), footerY + pt(14), pt(18));
   }
 
-  // MSME Logo
-  if (msmeBuf) {
-    try {
-      doc.image(msmeBuf, pt(150), footerY + pt(34), { width: pt(18) });
-    } catch {}
-  }
-
   doc.end();
   return finished;
 }
@@ -278,6 +275,15 @@ export async function generateCertificatePDFBuffer(data: {
   if (logoBuf) {
     try { doc.image(logoBuf, pt(138.5), pt(14), { width: pt(20), height: pt(20) }); } catch {}
   }
+
+  // MSME Logo + Udyam Registration — top right
+  if (msmeBuf) {
+    try { doc.image(msmeBuf, pt(255), pt(14), { width: pt(14) }); } catch {}
+  }
+  doc.save().fontSize(7).font("Helvetica").fillColor(GRAY);
+  doc.text("Udyam Registration No:", pt(255), pt(18), { width: pt(34), align: "center" });
+  doc.text(`${COMPANY.udyam}`, pt(255), pt(22), { width: pt(34), align: "center" });
+  doc.restore();
 
   // Company name
   doc.save().fontSize(24).font("Helvetica-Bold").fillColor(BLUE).text(COMPANY.name, pt(0), pt(36), { width: 841.89, align: "center" }).restore();
@@ -343,18 +349,10 @@ export async function generateCertificatePDFBuffer(data: {
     drawVectorSeal(doc, pt(170), pt(165), pt(13));
   }
 
-  // MSME Logo
-  if (msmeBuf) {
-    try {
-      doc.image(msmeBuf, pt(20), pt(170), { width: pt(18) });
-    } catch {}
-  }
-
   // Bottom row
   doc.save().fontSize(9).font("Helvetica").fillColor(SIG_GRAY);
   doc.text(`Certificate ID: ${data.certificateCode}`, pt(20), pt(193));
   doc.text(`Internship ID: ${data.internshipCode}`, pt(0), pt(193), { width: 841.89, align: "center" });
-  doc.text(`Udyam: ${COMPANY.udyam}`, pt(0), pt(193), { width: 841.89 - pt(20), align: "right" });
   doc.restore();
 
   doc.end();

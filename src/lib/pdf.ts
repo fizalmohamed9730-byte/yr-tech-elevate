@@ -139,11 +139,21 @@ export async function generateOfferLetterPDF(data: {
   doc.setTextColor(100);
   doc.text("INNOVATE • DEVELOP • DELIVER", 105, 29, { align: "center" });
 
-  // UDYAM Number at the top right
+  // MSME Logo + Udyam Registration at the top right
+  if (msmeLogo) {
+    try {
+      const msmeW = 12;
+      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
+      doc.addImage(msmeLogo, "PNG", 162, 14, msmeW, msmeH);
+    } catch (err) {
+      console.error("Failed to render MSME logo header on offer letter", err);
+    }
+  }
   doc.setFontSize(7.5);
-  doc.text(`UDYAM-TN-17-0077694`, 192, 21, { align: "right" });
-  doc.text(`Email: ${COMPANY.email}`, 192, 25, { align: "right" });
-  doc.text(`Web: www.yrnovatech.online`, 192, 29, { align: "right" });
+  doc.text(`Udyam Registration No:`, 176, 18, { align: "right" });
+  doc.text(`${COMPANY.udyam}`, 192, 22, { align: "right" });
+  doc.text(`Email: ${COMPANY.email}`, 192, 26, { align: "right" });
+  doc.text(`Web: www.yrnovatech.online`, 192, 30, { align: "right" });
 
   // Divider Line
   doc.setDrawColor(37, 99, 235);
@@ -284,17 +294,6 @@ export async function generateOfferLetterPDF(data: {
     }
   } else {
     drawVectorSeal(doc, sealY);
-  }
-
-  // MSME Logo — bottom right below the seal
-  if (msmeLogo) {
-    try {
-      const msmeW = 18;
-      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
-      doc.addImage(msmeLogo, "PNG", 150, footerY + 34, msmeW, msmeH);
-    } catch (err) {
-      console.error("Failed to render MSME logo on offer letter", err);
-    }
   }
 
   return doc;
@@ -444,6 +443,22 @@ export async function downloadCertificate(data: {
     } catch {}
   }
 
+  // MSME Logo — top right near company branding
+  if (msmeLogo) {
+    try {
+      const msmeW = 14;
+      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
+      doc.addImage(msmeLogo, "PNG", 255, 14, msmeW, msmeH);
+    } catch (err) {
+      console.error("Failed to render MSME logo header on certificate", err);
+    }
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(100);
+  doc.text(`Udyam Registration No:`, 269, 18, { align: "center" });
+  doc.text(`${COMPANY.udyam}`, 269, 22, { align: "center" });
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
   doc.setTextColor(37, 99, 235);
@@ -532,23 +547,11 @@ export async function downloadCertificate(data: {
     drawVectorCertificateSeal(doc, 170, 165);
   }
 
-  // MSME Logo — bottom left above the bottom row
-  if (msmeLogo) {
-    try {
-      const msmeW = 18;
-      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
-      doc.addImage(msmeLogo, "PNG", 20, 180 - msmeH, msmeW, msmeH);
-    } catch (err) {
-      console.error("Failed to render MSME logo on certificate", err);
-    }
-  }
-
   // bottom row
   doc.setTextColor(80);
   doc.setFontSize(9);
   doc.text(`Certificate ID: ${data.certificateCode}`, 20, 195);
   doc.text(`Internship ID: ${data.internshipCode}`, 148.5, 195, { align: "center" });
-  doc.text(`Udyam: ${COMPANY.udyam}`, 280, 195, { align: "right" });
 
   doc.save(`${COMPANY.name}-Certificate-${data.certificateCode}.pdf`);
 }
