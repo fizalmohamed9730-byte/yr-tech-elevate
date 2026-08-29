@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -18,21 +18,23 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import heroBg from "@/assets/hero-bg.jpg";
+import skyrovixLogo from "@/assets/skyrovix-logo.png";
+import vinixLogo from "@/assets/vinix-logo.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "YR NOVATECH — Innovate · Develop · Deliver" },
+      { title: "YR NOVATECH \u2014 Innovate \u00B7 Develop \u00B7 Deliver" },
       {
         name: "description",
         content:
           "Premium software development and project-based internships in Full Stack, UI/UX, AI, Python, and C++.",
       },
-      { property: "og:title", content: "YR NOVATECH — Innovate · Develop · Deliver" },
+      { property: "og:title", content: "YR NOVATECH \u2014 Innovate \u00B7 Develop \u00B7 Deliver" },
       {
         property: "og:description",
         content:
-          "YR NOVATECH — premium software development, AI, web, mobile, and UI/UX services plus project-based internships.",
+          "YR NOVATECH \u2014 premium software development, AI, web, mobile, and UI/UX services plus project-based internships.",
       },
     ],
   }),
@@ -82,7 +84,7 @@ const domains = [
 
 const whyUs = [
   { icon: Award, title: "Industry Mentors", desc: "Learn directly from experienced engineers." },
-  { icon: Users, title: "Project-Based", desc: "Real work, not theory — ship a portfolio." },
+  { icon: Users, title: "Project-Based", desc: "Real work, not theory \u2014 ship a portfolio." },
   { icon: CheckCircle2, title: "Verified Certificates", desc: "QR-code verifiable on completion." },
   { icon: Rocket, title: "Career Ready", desc: "GitHub, LinkedIn, and interview support." },
 ];
@@ -110,14 +112,14 @@ function Index() {
             className="text-4xl md:text-7xl font-bold tracking-tight mb-6 animate-fade-up"
             style={{ animationDelay: "0.1s" }}
           >
-            Innovate <span className="text-gradient">· Develop</span> · Deliver
+            Innovate <span className="text-gradient">\u00B7 Develop</span> \u00B7 Deliver
           </h1>
           <p
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-up"
             style={{ animationDelay: "0.2s" }}
           >
             YR NOVATECH is a premium software company. We design, engineer, and ship world-class
-            digital products — and we train the next generation of engineers through project-based
+            digital products \u2014 and we train the next generation of engineers through project-based
             internships.
           </p>
           <div
@@ -230,6 +232,42 @@ function Index() {
         </div>
       </Section>
 
+      <Section className="bg-secondary/30 rounded-3xl">
+        <SectionHeading
+          eyebrow="Our Partners"
+          title="Trusted by industry leaders"
+          description="We collaborate with forward-thinking companies to deliver exceptional opportunities."
+        />
+        <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16">
+          <a
+            href="https://www.skyrovix.online"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col items-center gap-3 transition-all hover:scale-105"
+          >
+            <img
+              src={skyrovixLogo}
+              alt="Skyrovix"
+              className="h-14 md:h-18 w-auto object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+            />
+            <span className="text-sm text-muted-foreground font-medium">www.skyrovix.online</span>
+          </a>
+          <a
+            href="https://www.vinix.online"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col items-center gap-3 transition-all hover:scale-105"
+          >
+            <img
+              src={vinixLogo}
+              alt="Vinix Technologies"
+              className="h-14 md:h-18 w-auto object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+            />
+            <span className="text-sm text-muted-foreground font-medium">www.vinix.online</span>
+          </a>
+        </div>
+      </Section>
+
       <Section>
         <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-10 md:p-16 text-center">
           <div
@@ -241,7 +279,7 @@ function Index() {
               Ready to build something great?
             </h2>
             <p className="text-white/80 max-w-xl mx-auto mb-8">
-              Whether you're hiring a team or starting your career — we'd love to talk.
+              Whether you're hiring a team or starting your career \u2014 we'd love to talk.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
