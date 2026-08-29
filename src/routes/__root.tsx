@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "YR NOVATECH — Innovate · Develop · Deliver" },
+      { title: "YR NOVATECH - Innovate. Develop. Deliver." },
       { name: "description", content: "YR NOVATECH builds modern software and trains the next generation of engineers through hands-on, project-based internships." },
       { name: "author", content: "YR NOVATECH" },
-      { property: "og:title", content: "YR NOVATECH — Innovate · Develop · Deliver" },
+      { property: "og:title", content: "YR NOVATECH - Innovate. Develop. Deliver." },
       { property: "og:description", content: "Software development, AI solutions, and project-based internships." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

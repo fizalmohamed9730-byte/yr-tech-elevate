@@ -398,7 +398,7 @@ function AuthPage() {
         console.error("[auth] auto-login failed:", signInError);
         setSignUpSuccess(true);
         setSignUpEmail(parsed.data.email);
-        return toast.error("Account created. Auto-login is pending — please sign in manually.");
+        return toast.error("Account created. Auto-login is pending - please sign in manually.");
       }
 
       const sessionReady = await waitForSession();

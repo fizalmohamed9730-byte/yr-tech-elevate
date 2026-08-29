@@ -80,7 +80,7 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         from: config.emailFrom,
         to: [data.email],
         replyTo: config.emailReplyTo,
-        subject: "YR NOVATECH — Internship Offer Letter",
+        subject: "YR NOVATECH - Internship Offer Letter",
         html: `<!DOCTYPE html>
 <html>
 <head>
@@ -250,7 +250,7 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         from: config.emailFrom,
         to: [data.email],
         replyTo: config.emailReplyTo,
-        subject: "YR NOVATECH — Internship Completion Certificate",
+        subject: "YR NOVATECH - Internship Completion Certificate",
         html: `<!DOCTYPE html>
 <html>
 <head>

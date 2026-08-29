@@ -10,7 +10,7 @@ export function Footer() {
         <div className="space-y-4">
           <Logo />
           <p className="text-sm text-muted-foreground max-w-xs">
-            Innovate · Develop · Deliver. Premium software engineering, AI solutions, and
+            Innovate. Develop. Deliver. Premium software engineering, AI solutions, and
             project-based internships.
           </p>
           <div className="flex gap-2">
@@ -141,8 +141,8 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} YR NOVATECH. All rights reserved. · Founded by S. FIZAL MOHAMED
-        · Udyam UDYAM-TN-17-0077694
+        © {new Date().getFullYear()} YR NOVATECH. All rights reserved. | Founded by S. FIZAL MOHAMED
+        | Udyam UDYAM-TN-17-0077694
       </div>
     </footer>
   );

@@ -196,7 +196,7 @@ function ApplyPage() {
       return toast.error("An account with this email already exists. Try signing in instead.");
     }
 
-    // 2. Auto-login (no email verification required — emails are auto-confirmed)
+    // 2. Auto-login (no email verification required - emails are auto-confirmed)
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: parsed.data.email,
       password: parsed.data.password,

@@ -365,7 +365,7 @@ function AdminPage() {
       console.error("[admin] updateStatus error:", error);
       return toast.error("Failed to update: " + error.message);
     }
-    toast.success(status === "active" ? "Approved — offer letter issued" : "Updated");
+    toast.success(status === "active" ? "Approved - offer letter issued" : "Updated");
     reload();
 
     // Fire-and-forget: PDF storage + email (non-blocking)
@@ -667,16 +667,16 @@ function AdminPage() {
                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs">N/A</div>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium whitespace-nowrap">{s.full_name ?? "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{i?.internship_code ?? "—"}</TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">{s.full_name ?? "-"}</TableCell>
+                        <TableCell className="font-mono text-xs">{i?.internship_code ?? "-"}</TableCell>
                         <TableCell className="text-xs max-w-[120px] truncate">{s.email}</TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{s.phone ?? "—"}</TableCell>
-                        <TableCell className="text-xs max-w-[130px] truncate">{s.college ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{s.department ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{s.year ?? "—"}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{s.phone ?? "-"}</TableCell>
+                        <TableCell className="text-xs max-w-[130px] truncate">{s.college ?? "-"}</TableCell>
+                        <TableCell className="text-xs">{s.department ?? "-"}</TableCell>
+                        <TableCell className="text-xs">{s.year ?? "-"}</TableCell>
                         <TableCell className="text-xs">{s.resolvedDomain || <span className="text-muted-foreground italic">Domain not assigned</span>}</TableCell>
-                        <TableCell className="text-xs">{i?.duration ?? "—"}</TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</TableCell>
+                        <TableCell className="text-xs">{i?.duration ?? "-"}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{s.created_at ? new Date(s.created_at).toLocaleDateString() : "-"}</TableCell>
                         <TableCell>
                           {i ? (
                             <Badge variant={i.status === "active" ? "default" : i.status === "pending" ? "secondary" : i.status === "completed" ? "outline" : "destructive"}>
@@ -690,16 +690,16 @@ function AdminPage() {
                               <Badge variant="default" className="bg-emerald-600">Issued</Badge>
                               {i.offer_letter_email_sent && <span title="Emailed"><MailPlus className="h-3 w-3 text-emerald-600" /></span>}
                             </div>
-                          ) : i?.status === "active" ? <Badge variant="outline">Pending</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                          ) : i?.status === "active" ? <Badge variant="outline">Pending</Badge> : <span className="text-xs text-muted-foreground">-</span>}
                         </TableCell>
-                        <TableCell className="text-xs">{i ? `${taskApproved}/${taskTotal}` : "—"}</TableCell>
+                        <TableCell className="text-xs">{i ? `${taskApproved}/${taskTotal}` : "-"}</TableCell>
                         <TableCell>
                           {i?.certificate_code ? (
                             <div className="flex items-center gap-1">
                               <Badge variant="default" className="bg-emerald-600">Issued</Badge>
                               {i.certificate_email_sent && <span title="Emailed"><MailPlus className="h-3 w-3 text-emerald-600" /></span>}
                             </div>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                          ) : <span className="text-xs text-muted-foreground">-</span>}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-nowrap">
@@ -718,29 +718,29 @@ function AdminPage() {
                                   <div className="border rounded-lg p-3 space-y-2">
                                     <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Personal Information</h4>
                                     <div className="grid grid-cols-2 gap-2">
-                                      <div><span className="text-muted-foreground">Full Name:</span> {s.full_name ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Full Name:</span> {s.full_name ?? "-"}</div>
                                       <div><span className="text-muted-foreground">Email:</span> {s.email}</div>
-                                      <div><span className="text-muted-foreground">Phone:</span> {s.phone ?? "—"}</div>
-                                      <div><span className="text-muted-foreground">Year:</span> {s.year ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">Phone:</span> {s.phone ?? "-"}</div>
+                                      <div><span className="text-muted-foreground">Year:</span> {s.year ?? "-"}</div>
                                     </div>
                                   </div>
                                   <div className="border rounded-lg p-3 space-y-2">
                                     <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Academic Details</h4>
                                     <div className="grid grid-cols-2 gap-2">
-                                      <div><span className="text-muted-foreground">College:</span> {s.college ?? "—"}</div>
-                                      <div><span className="text-muted-foreground">Department:</span> {s.department ?? "—"}</div>
+                                      <div><span className="text-muted-foreground">College:</span> {s.college ?? "-"}</div>
+                                      <div><span className="text-muted-foreground">Department:</span> {s.department ?? "-"}</div>
                                     </div>
                                   </div>
                                   <div className="border rounded-lg p-3 space-y-2">
                                     <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wide">Internship Details</h4>
                                     <div className="grid grid-cols-2 gap-2">
-                                      <div><span className="text-muted-foreground">Internship ID:</span> <span className="font-mono">{i?.internship_code ?? "—"}</span></div>
+                                      <div><span className="text-muted-foreground">Internship ID:</span> <span className="font-mono">{i?.internship_code ?? "-"}</span></div>
                                       <div><span className="text-muted-foreground">Domain:</span> {s.resolvedDomain || <span className="text-muted-foreground italic">Domain not assigned</span>}</div>
-                                      <div><span className="text-muted-foreground">Duration:</span> {i?.duration ?? "—"}</div>
-                                      <div><span className="text-muted-foreground">Status:</span> {i ? <Badge variant={i.status === "active" ? "default" : i.status === "completed" ? "outline" : "secondary"} className="ml-1">{i.status}</Badge> : "—"}</div>
-                                      <div><span className="text-muted-foreground">Start Date:</span> {i?.started_at ? new Date(i.started_at).toLocaleDateString() : "—"}</div>
-                                      <div><span className="text-muted-foreground">End Date:</span> {i?.completed_at ? new Date(i.completed_at).toLocaleDateString() : "—"}</div>
-                                      <div><span className="text-muted-foreground">Registered:</span> {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</div>
+                                      <div><span className="text-muted-foreground">Duration:</span> {i?.duration ?? "-"}</div>
+                                      <div><span className="text-muted-foreground">Status:</span> {i ? <Badge variant={i.status === "active" ? "default" : i.status === "completed" ? "outline" : "secondary"} className="ml-1">{i.status}</Badge> : "-"}</div>
+                                      <div><span className="text-muted-foreground">Start Date:</span> {i?.started_at ? new Date(i.started_at).toLocaleDateString() : "-"}</div>
+                                      <div><span className="text-muted-foreground">End Date:</span> {i?.completed_at ? new Date(i.completed_at).toLocaleDateString() : "-"}</div>
+                                      <div><span className="text-muted-foreground">Registered:</span> {s.created_at ? new Date(s.created_at).toLocaleDateString() : "-"}</div>
                                       <div><span className="text-muted-foreground">Progress:</span> {taskApproved} / {taskTotal} tasks approved</div>
                                     </div>
                                   </div>
@@ -822,7 +822,7 @@ function AdminPage() {
                     <TableRow key={i.id}>
                       <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{i.student?.full_name ?? "—"}</div>
+                        <div className="font-medium">{i.student?.full_name ?? "-"}</div>
                         <div className="text-xs text-muted-foreground">{i.student?.email}</div>
                       </TableCell>
                       <TableCell>
@@ -841,7 +841,7 @@ function AdminPage() {
                             <Button size="sm" variant="outline" onClick={() => updateStatus(i.id, "rejected")}>Reject</Button>
                           </>
                         )}
-                        {i.status !== "pending" && <span className="text-xs text-muted-foreground">—</span>}
+                        {i.status !== "pending" && <span className="text-xs text-muted-foreground">-</span>}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -869,11 +869,11 @@ function AdminPage() {
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs text-muted-foreground">{s.internship?.internship_code} · Task {s.task_no}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{s.internship?.internship_code} | Task {s.task_no}</span>
                         <Badge variant={s.status === "approved" ? "default" : s.status === "rejected" ? "destructive" : "secondary"}>{s.status}</Badge>
                       </div>
                       <div className="font-semibold mt-1">{taskMeta?.title ?? `Task ${s.task_no}`}</div>
-                      <div className="text-xs text-muted-foreground">{s.internship?.student?.full_name} · {s.internship?.domain?.name}</div>
+                      <div className="text-xs text-muted-foreground">{s.internship?.student?.full_name} | {s.internship?.domain?.name}</div>
                       <div className="flex gap-3 mt-2 text-xs flex-wrap">
                         {s.task_no === 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
                         {s.github_url && <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
@@ -999,7 +999,7 @@ function AdminPage() {
                       <span className="font-semibold">{ps.project?.title}</span>
                       <Badge variant={ps.status === "approved" ? "default" : ps.status === "rejected" ? "destructive" : "secondary"}>{ps.status}</Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">{ps.student?.full_name} · {ps.student?.email}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{ps.student?.full_name} | {ps.student?.email}</div>
                     {ps.github_url && <a href={ps.github_url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs inline-flex items-center gap-1 mt-1"><Github className="h-3 w-3" />GitHub</a>}
                     {ps.notes && <p className="text-xs mt-2 text-muted-foreground">{ps.notes}</p>}
                     {ps.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Feedback:</b> {ps.feedback}</p>}
@@ -1035,7 +1035,7 @@ function AdminPage() {
                       <TableCell className="font-mono text-xs">{i.internship_code}</TableCell>
                       <TableCell className="font-medium">{i.student?.full_name}</TableCell>
                       <TableCell>{i.domain?.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{i.offer_letter_code ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{i.offer_letter_code ?? "-"}</TableCell>
                       <TableCell>
                         {i.offer_letter_email_sent ? (
                           <div className="text-xs">
@@ -1121,7 +1121,7 @@ function AdminPage() {
                         <TableCell>{i.domain?.name}</TableCell>
                         <TableCell className="text-xs">{i.duration}</TableCell>
                         <TableCell className="font-mono text-xs">{i.certificate_code}</TableCell>
-                        <TableCell className="text-xs">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "—"}</TableCell>
+                        <TableCell className="text-xs">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</TableCell>
                         <TableCell>
                           {i.certificate_email_sent ? (
                             <div className="text-xs">
@@ -1317,7 +1317,7 @@ function AdminPage() {
                 </div>
                 <p className="text-sm">{fb.message}</p>
                 <div className="text-xs text-muted-foreground">
-                  {fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "—"})
+                  {fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "-"})
                 </div>
               </div>
             ))}

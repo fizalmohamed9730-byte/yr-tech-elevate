@@ -10,7 +10,7 @@ export const Route = createFileRoute("/projects")({
   head: () => ({
     meta: [
       { title: "Projects Portfolio | YR NOVATECH" },
-      { name: "description", content: "Explore client and student projects built at YR NOVATECH — web apps, AI products, dashboards, and more." },
+      { name: "description", content: "Explore client and student projects built at YR NOVATECH - web apps, AI products, dashboards, and more." },
       { property: "og:title", content: "YR NOVATECH Projects" },
       { property: "og:description", content: "Client and student work portfolio." },
     ],

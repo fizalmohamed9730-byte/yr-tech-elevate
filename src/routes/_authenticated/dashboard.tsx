@@ -63,7 +63,7 @@ function Dashboard() {
       let internship = i;
       // Legacy users (registered before the offer-letter migration) have a
       // "pending" internship with no offer code, so they can't download their
-      // offer letter. Auto-activate on load — the DB trigger issues the code.
+      // offer letter. Auto-activate on load - the DB trigger issues the code.
       if (internship?.id && !internship.offer_letter_code) {
         try {
           const { data: upd } = await (supabase as any)
@@ -233,7 +233,7 @@ function Dashboard() {
         {/* Tab 1: Dashboard */}
         <TabsContent value="dashboard" className="space-y-6">
           <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-5">
-            <Stat label="Domain" value={internship.domain?.name ?? "—"} />
+            <Stat label="Domain" value={internship.domain?.name ?? "-"} />
             <Stat label="Duration" value={internship.duration || "1 Month"} />
             <Stat label="Internship ID" value={internship.internship_code} mono />
             <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"} className="text-xs">{internship.status}</Badge>} />

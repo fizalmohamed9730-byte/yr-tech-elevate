@@ -13,7 +13,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
         <div className="flex flex-col leading-tight whitespace-nowrap">
           <span className="font-bold tracking-tight text-lg md:text-xl">YR NOVATECH</span>
           <span className="text-[10px] md:text-xs text-muted-foreground tracking-wider uppercase">
-            Innovate · Develop · Deliver
+            Innovate. Develop. Deliver
           </span>
         </div>
       )}

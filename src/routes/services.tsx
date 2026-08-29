@@ -15,7 +15,7 @@ import {
 export const Route = createFileRoute("/services")({
   head: () => ({
     meta: [
-      { title: "Services — Web, Full Stack, AI & More | YR NOVATECH" },
+      { title: "Services - Web, Full Stack, AI & More | YR NOVATECH" },
       {
         name: "description",
         content:
@@ -32,7 +32,7 @@ const services = [
   {
     icon: Code2,
     title: "Software Development",
-    desc: "Robust, scalable custom software engineered for your business — from internal tools to full platforms.",
+    desc: "Robust, scalable custom software engineered for your business - from internal tools to full platforms.",
     features: ["Custom builds", "APIs & services", "Automation", "Cloud deploys"],
   },
   {

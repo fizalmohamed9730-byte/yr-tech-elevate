@@ -9,7 +9,7 @@ import coFounder from "@/assets/co-founder.jpg";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About YR NOVATECH — Technology & Innovation Company" },
+      { title: "About YR NOVATECH - Technology & Innovation Company" },
       {
         name: "description",
         content:
@@ -143,7 +143,7 @@ function About() {
 
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-4">
                     <GraduationCap className="h-4 w-4 text-primary" />
-                    B.Tech — Information Technology
+                    B.Tech - Information Technology
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-5">
@@ -166,7 +166,7 @@ function About() {
                     S. Fizal Mohamed founded YR NOVATECH with one belief: India has incredible
                     engineering talent that just needs the right opportunities. What started as
                     freelance projects has grown into a technology company delivering software
-                    solutions for clients across industries — and a learning platform mentoring
+                    solutions for clients across industries - and a learning platform mentoring
                     hundreds of students every year.
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed mt-3">
@@ -206,7 +206,7 @@ function About() {
                   <div className="absolute -inset-4 bg-gradient-primary opacity-15 blur-2xl rounded-3xl" />
                   <img
                     src={coFounder}
-                    alt="M. Annapoorani — Co-Founder & COO of YR NOVATECH"
+                    alt="M. Annapoorani - Co-Founder & COO of YR NOVATECH"
                     loading="lazy"
                     width={640}
                     height={853}
