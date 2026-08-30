@@ -26,6 +26,6 @@ export function getEmailConfig() {
   return {
     resendApiKey: process.env.RESEND_API_KEY ?? "",
     emailFrom: process.env.EMAIL_FROM ?? "YR NOVATECH <onboarding@resend.dev>",
-    emailReplyTo: process.env.EMAIL_REPLY_TO ?? "fizalyrtech@gmail.com",
+    emailReplyTo: process.env.EMAIL_REPLY_TO ?? "yrnovatech07@gmail.com",
   };
 }

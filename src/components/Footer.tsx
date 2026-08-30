@@ -51,7 +51,7 @@ export function Footer() {
               <MessageCircle className="h-4 w-4" />
             </a>
             <a
-              href="mailto:fizalyrtech@gmail.com"
+              href="mailto:yrnovatech07@gmail.com"
               aria-label="Email"
               className="p-2 rounded-md hover:bg-accent"
             >
