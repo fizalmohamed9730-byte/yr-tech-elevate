@@ -5,6 +5,8 @@ import { Reveal } from "@/components/Reveal";
 import { Target, Eye, Rocket, GraduationCap, BadgeCheck, Code2, PenTool, Brain, BarChart3 } from "lucide-react";
 import founder from "@/assets/founder.png";
 import coFounder from "@/assets/co-founder.jpg";
+import msmeLogo from "@/assets/msme-logo.png";
+import { COMPANY } from "@/lib/company";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -107,6 +109,39 @@ function About() {
             ))}
           </div>
         </div>
+      </Section>
+
+      <Section className="!pt-0">
+        <Reveal>
+          <Card className="max-w-4xl mx-auto p-8 border border-border bg-card shadow-elegant">
+            <div className="flex flex-col sm:flex-row items-center gap-8">
+              <div className="shrink-0">
+                <img
+                  src={msmeLogo}
+                  alt="MSME Certified Company"
+                  className="h-24 sm:h-28 w-auto object-contain"
+                  width={120}
+                  height={120}
+                />
+              </div>
+              <div className="text-center sm:text-left">
+                <h3 className="text-xl sm:text-2xl font-bold mb-2">MSME Certified Company</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  YR NOVATECH is a registered Micro, Small & Medium Enterprise under the
+                  Ministry of Micro, Small & Medium Enterprises, Government of India.
+                </p>
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Udyam Registration No.
+                  </span>
+                  <p className="text-sm font-mono font-semibold text-foreground mt-1">
+                    {COMPANY.udyam}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Reveal>
       </Section>
 
       <Section className="!pt-0">

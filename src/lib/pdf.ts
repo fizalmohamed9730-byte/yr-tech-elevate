@@ -447,23 +447,24 @@ export async function downloadCertificate(data: {
     } catch {}
   }
 
-  // MSME Logo — top right corner
+  // MSME Logo + Udyam block — top right corner, inside inner border (12..285mm)
+  // Logo: x=242, width=15mm (right edge at 257). Text: x=259, max ~23mm (ends at ~282).
   if (msmeLogo) {
     try {
-      const msmeW = 12;
+      const msmeW = 15;
       const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
-      doc.addImage(msmeLogo, "PNG", 250, 13, msmeW, msmeH);
+      doc.addImage(msmeLogo, "PNG", 242, 12, msmeW, msmeH);
     } catch (err) {
       console.error("Failed to render MSME logo header on certificate", err);
     }
   }
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
+  doc.setFontSize(5.5);
   doc.setTextColor(80);
-  doc.text("Udyam Registration No:", 264, 17);
+  doc.text("Udyam Registration No:", 259, 16);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.text(`${COMPANY.udyam}`, 264, 21);
+  doc.setFontSize(6.5);
+  doc.text(`${COMPANY.udyam}`, 259, 20);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);

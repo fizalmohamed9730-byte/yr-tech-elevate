@@ -277,14 +277,15 @@ export async function generateCertificatePDFBuffer(data: {
     try { doc.image(logoBuf, pt(138.5), pt(14), { width: pt(20), height: pt(20) }); } catch {}
   }
 
-  // MSME Logo + Udyam Registration — top right corner
+  // MSME Logo + Udyam Registration — top right corner, inside inner border (pt(12)..pt(285))
+  // Logo: x=pt(242), width=pt(15). Text: x=pt(259), max ~pt(23) wide.
   if (msmeBuf) {
-    try { doc.image(msmeBuf, pt(250), pt(13), { width: pt(12) }); } catch {}
+    try { doc.image(msmeBuf, pt(242), pt(12), { width: pt(15) }); } catch {}
   }
-  doc.save().fontSize(6.5).font("Helvetica-Bold").fillColor(SIG_GRAY);
-  doc.text("Udyam Registration No:", pt(264), pt(17));
-  doc.fontSize(7).font("Helvetica").fillColor(SIG_GRAY);
-  doc.text(`${COMPANY.udyam}`, pt(264), pt(21));
+  doc.save().fontSize(5.5).font("Helvetica-Bold").fillColor(SIG_GRAY);
+  doc.text("Udyam Registration No:", pt(259), pt(16));
+  doc.fontSize(6.5).font("Helvetica").fillColor(SIG_GRAY);
+  doc.text(`${COMPANY.udyam}`, pt(259), pt(20));
   doc.restore();
 
   // Company name
