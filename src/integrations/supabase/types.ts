@@ -103,10 +103,6 @@ export type Database = {
           batch_id: string | null
           certificate_code: string | null
           certificate_issued_at: string | null
-          certificate_email_sent: boolean
-          certificate_email_sent_at: string | null
-          certificate_email_error: string | null
-          certificate_resend_message_id: string | null
           completed_at: string | null
           created_at: string
           domain_id: string
@@ -115,10 +111,6 @@ export type Database = {
           internship_code: string
           offer_issued_at: string | null
           offer_letter_code: string | null
-          offer_letter_email_sent: boolean
-          offer_letter_email_sent_at: string | null
-          offer_letter_email_error: string | null
-          offer_letter_resend_message_id: string | null
           progress_percent: number
           started_at: string | null
           status: Database["public"]["Enums"]["internship_status"]
@@ -129,10 +121,6 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
-          certificate_email_sent?: boolean
-          certificate_email_sent_at?: string | null
-          certificate_email_error?: string | null
-          certificate_resend_message_id?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id: string
@@ -141,10 +129,6 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
-          offer_letter_email_sent?: boolean
-          offer_letter_email_sent_at?: string | null
-          offer_letter_email_error?: string | null
-          offer_letter_resend_message_id?: string | null
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -155,10 +139,6 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
-          certificate_email_sent?: boolean
-          certificate_email_sent_at?: string | null
-          certificate_email_error?: string | null
-          certificate_resend_message_id?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id?: string
@@ -167,10 +147,6 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
-          offer_letter_email_sent?: boolean
-          offer_letter_email_sent_at?: string | null
-          offer_letter_email_error?: string | null
-          offer_letter_resend_message_id?: string | null
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]

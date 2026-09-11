@@ -117,7 +117,7 @@ function AdminPage() {
       const db = supabase as any;
       const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, offer_letter_email_sent, offer_letter_email_sent_at, offer_letter_email_error, offer_letter_resend_message_id, certificate_code, certificate_issued_at, certificate_email_sent, certificate_email_sent_at, certificate_email_error, certificate_resend_message_id, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -749,15 +749,13 @@ function AdminPage() {
         <td className="py-3 px-3 text-[var(--admin-text)]">{i.domain?.name}</td>
         <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.offer_letter_code ?? "-"}</td>
         <td className="py-3 px-3">
-          {i.offer_letter_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">Sent</span>
-          : i.offer_letter_email_error ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-500 border border-red-500/20">Failed</span>
-          : <span className="text-xs text-[var(--admin-text-muted)]">Not Sent</span>}
+          <span className="text-xs text-[var(--admin-text-muted)]">-</span>
         </td>
         <td className="py-3 px-3 space-x-1 whitespace-nowrap">
           <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)]" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id)).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
           <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({ studentId: i.student_id, fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", domainSlug: i.domain?.slug, internshipCode: i.internship_code, offerCode: i.offer_letter_code, startedAt: i.started_at, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
-          <Button size="sm" variant={i.offer_letter_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.offer_letter_email_sent ? "text-[var(--admin-text-secondary)]" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `ol-${i.id}`} onClick={() => handleSendOfferLetterEmail(i)}>
-            {sendingEmail === `ol-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : i.offer_letter_email_sent ? "Resend" : "Send"}
+          <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" disabled={sendingEmail === `ol-${i.id}`} onClick={() => handleSendOfferLetterEmail(i)}>
+            {sendingEmail === `ol-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
           </Button>
         </td>
       </tr>
@@ -807,11 +805,11 @@ function AdminPage() {
           <td className="py-3 px-3 text-[var(--admin-text)]">{i.domain?.name}</td>
           <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.certificate_code}</td>
           <td className="py-3 px-3 text-xs text-[var(--admin-text-secondary)]">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</td>
-          <td className="py-3 px-3">{i.certificate_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">Sent</span> : <span className="text-xs text-[var(--admin-text-muted)]">Not Sent</span>}</td>
+          <td className="py-3 px-3"><span className="text-xs text-[var(--admin-text-muted)]">-</span></td>
           <td className="py-3 px-3 space-x-1 whitespace-nowrap">
             <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })).catch(err => toast.error("Download failed"))}>Download</Button>
-            <Button size="sm" variant={i.certificate_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.certificate_email_sent ? "text-[var(--admin-text-secondary)]" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
-              {sendingEmail === `cert-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : i.certificate_email_sent ? "Resend" : "Send"}
+            <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
+              {sendingEmail === `cert-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
             </Button>
           </td>
         </tr>
