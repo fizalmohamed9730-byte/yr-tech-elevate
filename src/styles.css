@@ -63,6 +63,32 @@
 
 :root {
   --radius: 0.75rem;
+  --admin-page: #f0f4f8;
+  --admin-sidebar: #ffffff;
+  --admin-sidebar-border: #e2e8f0;
+  --admin-header: #ffffff;
+  --admin-header-border: #e2e8f0;
+  --admin-card: #ffffff;
+  --admin-card-border: #e2e8f0;
+  --admin-card-hover: #f1f5f9;
+  --admin-text: #0f172a;
+  --admin-text-secondary: #475569;
+  --admin-text-muted: #94a3b8;
+  --admin-input: #f1f5f9;
+  --admin-input-border: #e2e8f0;
+  --admin-input-placeholder: #94a3b8;
+  --admin-table-hover: #f8fafc;
+  --admin-nav-active-bg: #2563eb;
+  --admin-nav-hover-bg: #f1f5f9;
+  --admin-dialog: #ffffff;
+  --admin-dialog-border: #e2e8f0;
+  --admin-feedback-bg: #f1f5f9;
+  --admin-feedback-text: #334155;
+  --admin-loading-bg: #f0f4f8;
+  --admin-skeleton: #e2e8f0;
+  --admin-progress-bg: #e2e8f0;
+  --admin-select-bg: #ffffff;
+  --admin-badge-bg: #f1f5f9;
   --background: oklch(0.96 0.005 250);
   --foreground: oklch(0.17 0.025 255);
   --card: oklch(1 0 0);
@@ -103,6 +129,32 @@
 }
 
 .dark {
+  --admin-page: #0a1628;
+  --admin-sidebar: #0d1f3c;
+  --admin-sidebar-border: rgba(255,255,255,0.05);
+  --admin-header: rgba(13,31,60,0.4);
+  --admin-header-border: rgba(255,255,255,0.05);
+  --admin-card: #0d1f3c;
+  --admin-card-border: rgba(255,255,255,0.05);
+  --admin-card-hover: rgba(255,255,255,0.1);
+  --admin-text: #ffffff;
+  --admin-text-secondary: #94a3b8;
+  --admin-text-muted: #64748b;
+  --admin-input: rgba(255,255,255,0.05);
+  --admin-input-border: rgba(255,255,255,0.1);
+  --admin-input-placeholder: #64748b;
+  --admin-table-hover: rgba(255,255,255,0.02);
+  --admin-nav-active-bg: rgba(37,99,235,0.2);
+  --admin-nav-hover-bg: rgba(255,255,255,0.05);
+  --admin-dialog: #0d1f3c;
+  --admin-dialog-border: rgba(255,255,255,0.1);
+  --admin-feedback-bg: rgba(255,255,255,0.05);
+  --admin-feedback-text: #cbd5e1;
+  --admin-loading-bg: #0a1628;
+  --admin-skeleton: rgba(255,255,255,0.05);
+  --admin-progress-bg: rgba(255,255,255,0.1);
+  --admin-select-bg: rgba(255,255,255,0.05);
+  --admin-badge-bg: rgba(255,255,255,0.05);
   --background: oklch(0.12 0.015 262);
   --foreground: oklch(0.96 0.003 250);
   --card: oklch(0.16 0.025 262);

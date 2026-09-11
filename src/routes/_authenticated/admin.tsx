@@ -16,7 +16,7 @@ import {
   BarChart3, CheckSquare, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search,
   X, MailPlus, Download, MessageSquare, Star, Linkedin, LayoutDashboard,
   ClipboardList, Upload, Mail, CreditCard, Bell, Menu, LogOut, Clock, CheckCircle,
-  TrendingUp, Calendar, Megaphone
+  TrendingUp, Calendar, Megaphone, Sun, Moon
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { getTasksForSlug } from "@/lib/tasks";
 import { getInitials } from "@/lib/utils";
+import { useAdminTheme } from "@/hooks/use-admin-theme";
 
 type PdfModule = typeof import("@/lib/pdf");
 let _pdfMod: PdfModule | null = null;
@@ -94,6 +95,7 @@ function AdminPage() {
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { theme, toggleTheme, isDark } = useAdminTheme();
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<T[]> {
     try {
@@ -399,7 +401,7 @@ function AdminPage() {
     a.download = `YR-NOVATECH-students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
   }
 
-  if (checking) return <div className="dark min-h-screen bg-[#0a1628] flex items-center justify-center"><div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /><p className="mt-4 text-slate-400 text-sm">Loading dashboard...</p></div></div>;
+  if (checking) return <div className="dark min-h-screen bg-[var(--admin-loading-bg)] flex items-center justify-center"><div className="text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /><p className="mt-4 text-[var(--admin-text-secondary)] text-sm">Loading dashboard...</p></div></div>;
   if (!isAdmin) return null;
 
   const now = new Date();
@@ -409,24 +411,24 @@ function AdminPage() {
 
   function SidebarContent() {
     return (<>
-      <div className="p-5 border-b border-white/5">
+      <div className="p-5 border-b border-[var(--admin-sidebar-border)]">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">YR</div>
-          <div><div className="text-sm font-bold text-white tracking-tight">YR NOVATECH</div><div className="text-[10px] text-slate-500 uppercase tracking-widest">Innovate. Develop. Deliver</div></div>
+          <div><div className="text-sm font-bold text-[var(--admin-text)] tracking-tight">YR NOVATECH</div><div className="text-[10px] text-[var(--admin-text-muted)] uppercase tracking-widest">Innovate. Develop. Deliver</div></div>
         </div>
       </div>
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const count = item.badgeKey ? badgeCounts[item.badgeKey] ?? 0 : 0;
           return (<button key={item.id} onClick={() => { setActiveSection(item.id); setMobileSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${activeSection === item.id ? "bg-blue-600/20 text-blue-400 font-medium" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"}`}>
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${activeSection === item.id ? "bg-[var(--admin-nav-active-bg)] text-blue-500 font-medium" : "text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)] hover:bg-[var(--admin-nav-hover-bg)]"}`}>
             <item.icon className="h-4 w-4 shrink-0" /><span className="flex-1 text-left">{item.label}</span>
-            {count > 0 && <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-blue-500/20 text-blue-400 text-[11px] font-medium flex items-center justify-center">{count}</span>}
+            {count > 0 && <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-blue-500/20 text-blue-500 text-[11px] font-medium flex items-center justify-center">{count}</span>}
           </button>);
         })}
       </nav>
-      <div className="p-3 border-t border-white/5">
-        <button onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/auth" }))} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+      <div className="p-3 border-t border-[var(--admin-sidebar-border)]">
+        <button onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/auth" }))} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[var(--admin-text-secondary)] hover:text-red-400 hover:bg-red-500/10 transition-colors">
           <LogOut className="h-4 w-4" /><span>Logout</span>
         </button>
       </div>
@@ -434,24 +436,27 @@ function AdminPage() {
   }
 
   return (
-    <div className="dark">
-      <div className="flex h-screen bg-[#0a1628] overflow-hidden">
-        <aside className="hidden lg:flex flex-col w-[220px] bg-[#0d1f3c]/80 border-r border-white/5 shrink-0"><SidebarContent /></aside>
+    <div id="admin-root" className={isDark ? "dark" : "admin-light"}>
+      <div className="flex h-screen bg-[var(--admin-page)] overflow-hidden">
+        <aside className="hidden lg:flex flex-col w-[220px] bg-[var(--admin-sidebar)] border-r border-[var(--admin-sidebar-border)] shrink-0"><SidebarContent /></aside>
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="w-[260px] p-0 bg-[#0d1f3c] border-r border-white/5"><SheetTitle className="sr-only">Navigation</SheetTitle><SidebarContent /></SheetContent>
+          <SheetContent side="left" className="w-[260px] p-0 bg-[var(--admin-sidebar)] border-r border-[var(--admin-sidebar-border)]"><SheetTitle className="sr-only">Navigation</SheetTitle><SidebarContent /></SheetContent>
         </Sheet>
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-14 border-b border-white/5 bg-[#0d1f3c]/40 backdrop-blur-sm flex items-center px-4 lg:px-6 gap-4 shrink-0">
-            <button onClick={() => setMobileSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-white/5 text-slate-400"><Menu className="h-5 w-5" /></button>
-            <div className="flex-1 max-w-md"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input placeholder="Search interns, applications, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50" />
-              {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X className="h-4 w-4" /></button>}
+          <header className="h-14 border-b border-[var(--admin-header-border)] bg-[var(--admin-header)] backdrop-blur-sm flex items-center px-4 lg:px-6 gap-4 shrink-0">
+            <button onClick={() => setMobileSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--admin-nav-hover-bg)] text-[var(--admin-text-secondary)]"><Menu className="h-5 w-5" /></button>
+            <div className="flex-1 max-w-md"><div className="relative">              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--admin-text-muted)]" />
+              <input placeholder="Search interns, applications, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-[var(--admin-input)] border border-[var(--admin-input-border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--admin-text)] placeholder-[var(--admin-input-placeholder)] focus:outline-none focus:ring-1 focus:ring-blue-500/50" />
+              {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]"><X className="h-4 w-4" /></button>}
             </div></div>
-            <button className="relative p-2 rounded-lg hover:bg-white/5 text-slate-400"><Bell className="h-5 w-5" />
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-[var(--admin-nav-hover-bg)] text-[var(--admin-text-secondary)] transition-colors" aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}>
+              {isDark ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-blue-600" />}
+            </button>
+            <button className="relative p-2 rounded-lg hover:bg-[var(--admin-nav-hover-bg)] text-[var(--admin-text-secondary)]"><Bell className="h-5 w-5" />
               {enquiries.filter(e => e.status === "new").length > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">{enquiries.filter(e => e.status === "new").length}</span>}
             </button>
-            <div className="flex items-center gap-3 pl-3 border-l border-white/10">
-              <div className="text-right hidden sm:block"><div className="text-sm font-medium text-white">Admin</div><div className="text-[11px] text-slate-500">System Administrator</div></div>
+            <div className="flex items-center gap-3 pl-3 border-l border-[var(--admin-input-border)]">
+              <div className="text-right hidden sm:block"><div className="text-sm font-medium text-[var(--admin-text)]">Admin</div><div className="text-[11px] text-[var(--admin-text-muted)]">System Administrator</div></div>
               <Avatar className="h-9 w-9 border-2 border-blue-500/30"><AvatarFallback className="bg-blue-600 text-white text-sm font-semibold">AD</AvatarFallback></Avatar>
             </div>
           </header>
@@ -462,12 +467,12 @@ function AdminPage() {
 <div className="space-y-6">
   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div>
-      <h1 className="text-2xl font-bold text-white tracking-tight">Admin Dashboard</h1>
-      <p className="text-slate-400 text-sm mt-1">Welcome back! Here&apos;s what&apos;s happening with your internship program.</p>
+      <h1 className="text-2xl font-bold text-[var(--admin-text)] tracking-tight">Admin Dashboard</h1>
+      <p className="text-[var(--admin-text-secondary)] text-sm mt-1">Welcome back! Here&apos;s what&apos;s happening with your internship program.</p>
     </div>
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl px-4 py-3 flex items-center gap-3">
-      <Calendar className="h-5 w-5 text-blue-400" />
-      <div><div className="text-sm font-medium text-white">{dateStr}</div><div className="text-[11px] text-slate-500">{dayStr}, {timeStr}</div></div>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl px-4 py-3 flex items-center gap-3">
+      <Calendar className="h-5 w-5 text-blue-500" />
+      <div><div className="text-sm font-medium text-[var(--admin-text)]">{dateStr}</div><div className="text-[11px] text-[var(--admin-text-muted)]">{dayStr}, {timeStr}</div></div>
     </div>
   </div>
 
@@ -480,119 +485,119 @@ function AdminPage() {
       { label: "Pending Reviews", value: pendingSubs.length, icon: ClipboardList, bg: "bg-purple-500/10", ic: "text-purple-400", ring: "ring-purple-500/20" },
       { label: "Certificates Issued", value: certsIssued, icon: Award, bg: "bg-rose-500/10", ic: "text-rose-400", ring: "ring-rose-500/20" },
     ].map((stat) => (
-      <div key={stat.label} className="bg-[#0d1f3c] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+      <div key={stat.label} className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-4 hover:border-[var(--admin-card-hover)] transition-colors">
         <div className="flex items-center gap-3">
           <div className={`h-10 w-10 rounded-lg ${stat.bg} ring-1 ${stat.ring} flex items-center justify-center shrink-0`}><stat.icon className={`h-5 w-5 ${stat.ic}`} /></div>
-          <div className="min-w-0"><div className="text-[11px] text-slate-500 uppercase tracking-wider truncate">{stat.label}</div><div className="text-2xl font-bold text-white">{stat.value}</div></div>
+          <div className="min-w-0"><div className="text-[11px] text-[var(--admin-text-muted)] uppercase tracking-wider truncate">{stat.label}</div><div className="text-2xl font-bold text-[var(--admin-text)]">{stat.value}</div></div>
         </div>
       </div>
     ))}
   </div>
 
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div className="lg:col-span-2 bg-[#0d1f3c] border border-white/5 rounded-xl p-5">
+    <div className="lg:col-span-2 bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2"><TrendingUp className="h-4 w-4 text-blue-400" /> Registration Analytics</h3>
-        <span className="text-[11px] text-slate-500 bg-white/5 px-2.5 py-1 rounded-md">Last 6 Months</span>
+        <h3 className="text-sm font-semibold text-[var(--admin-text)] flex items-center gap-2"><TrendingUp className="h-4 w-4 text-blue-500" /> Registration Analytics</h3>
+        <span className="text-[11px] text-[var(--admin-text-muted)] bg-[var(--admin-input)] px-2.5 py-1 rounded-md">Last 6 Months</span>
       </div>
       <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={registrationData}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-          <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} />
-          <YAxis stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px" }} labelStyle={{ color: "#94a3b8" }} itemStyle={{ color: "#3b82f6" }} />
+        <LineChart data={registrationData}><CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} />
+          <XAxis dataKey="name" stroke={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"} fontSize={11} tickLine={false} />
+          <YAxis stroke={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"} fontSize={11} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ backgroundColor: isDark ? "#1e293b" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: "8px", fontSize: "12px", color: isDark ? "#ffffff" : "#0f172a" }} labelStyle={{ color: isDark ? "#94a3b8" : "#64748b" }} itemStyle={{ color: "#3b82f6" }} />
           <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: "#3b82f6", strokeWidth: 0, r: 4 }} activeDot={{ r: 6, strokeWidth: 2, stroke: "#3b82f6" }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5">
-      <h3 className="text-sm font-semibold text-white flex items-center gap-2 mb-4"><CheckCircle className="h-4 w-4 text-cyan-400" /> Completion Analytics</h3>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5">
+      <h3 className="text-sm font-semibold text-[var(--admin-text)] flex items-center gap-2 mb-4"><CheckCircle className="h-4 w-4 text-cyan-500" /> Completion Analytics</h3>
       <div className="relative">
         <ResponsiveContainer width="100%" height={220}>
           <PieChart><Pie data={completionData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
             {completionData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-          </Pie><Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px" }} /></PieChart>
+          </Pie><Tooltip contentStyle={{ backgroundColor: isDark ? "#1e293b" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: "8px", fontSize: "12px", color: isDark ? "#ffffff" : "#0f172a" }} /></PieChart>
         </ResponsiveContainer>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><div className="text-2xl font-bold text-white">{completionRate}%</div><div className="text-[10px] text-slate-500">Completion Rate</div></div></div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="text-center"><div className="text-2xl font-bold text-[var(--admin-text)]">{completionRate}%</div><div className="text-[10px] text-[var(--admin-text-muted)]">Completion Rate</div></div></div>
       </div>
       <div className="grid grid-cols-2 gap-2 mt-3">
-        {completionData.map((d) => (<div key={d.name} className="flex items-center gap-2 text-xs"><div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} /><span className="text-slate-400 truncate">{d.name}</span><span className="text-white font-medium ml-auto">{d.value}</span></div>))}
+        {completionData.map((d) => (<div key={d.name} className="flex items-center gap-2 text-xs"><div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} /><span className="text-[var(--admin-text-secondary)] truncate">{d.name}</span><span className="text-[var(--admin-text)] font-medium ml-auto">{d.value}</span></div>))}
       </div>
     </div>
   </div>
 
-  <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5">
-    <h3 className="text-sm font-semibold text-white flex items-center gap-2 mb-4"><BarChart3 className="h-4 w-4 text-purple-400" /> Domain-wise Student Statistics</h3>
+  <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5">
+    <h3 className="text-sm font-semibold text-[var(--admin-text)] flex items-center gap-2 mb-4"><BarChart3 className="h-4 w-4 text-purple-500" /> Domain-wise Student Statistics</h3>
     <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={domainData} barCategoryGap="20%"><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-        <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={10} tickLine={false} interval={0} />
-        <YAxis stroke="rgba(255,255,255,0.3)" fontSize={11} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "12px" }} formatter={(value: number, _name: string, props: any) => [value, props.payload.fullName]} />
+      <BarChart data={domainData} barCategoryGap="20%"><CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)"} vertical={false} />
+        <XAxis dataKey="name" stroke={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"} fontSize={10} tickLine={false} interval={0} />
+        <YAxis stroke={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"} fontSize={11} tickLine={false} axisLine={false} />
+        <Tooltip contentStyle={{ backgroundColor: isDark ? "#1e293b" : "#ffffff", border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`, borderRadius: "8px", fontSize: "12px", color: isDark ? "#ffffff" : "#0f172a" }} formatter={(value: number, _name: string, props: any) => [value, props.payload.fullName]} />
         <Bar dataKey="count" radius={[6, 6, 0, 0]}>{domainData.map((_, index) => (<Cell key={`cell-${index}`} fill={DOMAIN_COLORS[index % DOMAIN_COLORS.length]} />))}</Bar>
       </BarChart>
     </ResponsiveContainer>
   </div>
 
-  <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5">
+  <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Users className="h-4 w-4 text-blue-400" /> Recent Interns</h3>
-      <button onClick={() => setActiveSection("interns")} className="text-xs text-blue-400 hover:text-blue-300 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View All</button>
+      <h3 className="text-sm font-semibold text-[var(--admin-text)] flex items-center gap-2"><Users className="h-4 w-4 text-blue-500" /> Recent Interns</h3>
+      <button onClick={() => setActiveSection("interns")} className="text-xs text-blue-500 hover:text-blue-600 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View All</button>
     </div>
     <div className="overflow-x-auto -mx-5 px-5">
-      <table className="w-full text-sm"><thead><tr className="border-b border-white/5">
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Name</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase hidden md:table-cell">Email</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase hidden lg:table-cell">ID</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase hidden xl:table-cell">College</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase hidden xl:table-cell">Year</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Domain</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase hidden md:table-cell">Duration</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Status</th>
-        <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Progress</th>
-        <th className="text-right py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Actions</th>
+      <table className="w-full text-sm"><thead><tr className="border-b border-[var(--admin-card-border)]">
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Name</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase hidden md:table-cell">Email</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase hidden lg:table-cell">ID</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase hidden xl:table-cell">College</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase hidden xl:table-cell">Year</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Domain</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase hidden md:table-cell">Duration</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Status</th>
+        <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Progress</th>
+        <th className="text-right py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Actions</th>
       </tr></thead><tbody>
         {recentInterns.map((intern) => {
           const s = intern.student; const ta = approvedCountByStudent.get(intern.student_id) ?? 0;
           const tt = intern.duration === "1 Month" ? 3 : intern.duration === "2 Months" ? 4 : 5;
           const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
-          return (<tr key={intern.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-            <td className="py-3 px-3"><div className="flex items-center gap-2.5"><Avatar className="h-8 w-8 shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-400 text-xs font-medium">{getInitials(s?.full_name)}</AvatarFallback></Avatar><span className="text-white font-medium whitespace-nowrap">{s?.full_name ?? "-"}</span></div></td>
-            <td className="py-3 px-3 text-slate-400 text-xs max-w-[140px] truncate hidden md:table-cell">{s?.email}</td>
-            <td className="py-3 px-3 font-mono text-xs text-slate-400 hidden lg:table-cell">{intern.internship_code}</td>
-            <td className="py-3 px-3 text-slate-400 text-xs max-w-[120px] truncate hidden xl:table-cell">{s?.college ?? "-"}</td>
-            <td className="py-3 px-3 text-slate-400 text-xs hidden xl:table-cell">{s?.year ?? "-"}</td>
-            <td className="py-3 px-3"><span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">{intern.domain?.name ?? "-"}</span></td>
-            <td className="py-3 px-3 text-slate-400 text-xs hidden md:table-cell">{intern.duration ?? "-"}</td>
+          return (<tr key={intern.id} className="border-b border-[var(--admin-card-border)] hover:bg-[var(--admin-table-hover)] transition-colors">
+            <td className="py-3 px-3"><div className="flex items-center gap-2.5"><Avatar className="h-8 w-8 shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs font-medium">{getInitials(s?.full_name)}</AvatarFallback></Avatar><span className="text-[var(--admin-text)] font-medium whitespace-nowrap">{s?.full_name ?? "-"}</span></div></td>
+            <td className="py-3 px-3 text-[var(--admin-text-secondary)] text-xs max-w-[140px] truncate hidden md:table-cell">{s?.email}</td>
+            <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)] hidden lg:table-cell">{intern.internship_code}</td>
+            <td className="py-3 px-3 text-[var(--admin-text-secondary)] text-xs max-w-[120px] truncate hidden xl:table-cell">{s?.college ?? "-"}</td>
+            <td className="py-3 px-3 text-[var(--admin-text-secondary)] text-xs hidden xl:table-cell">{s?.year ?? "-"}</td>
+            <td className="py-3 px-3"><span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">{intern.domain?.name ?? "-"}</span></td>
+            <td className="py-3 px-3 text-[var(--admin-text-secondary)] text-xs hidden md:table-cell">{intern.duration ?? "-"}</td>
             <td className="py-3 px-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[intern.status] ?? ""}`}>{intern.status}</span></td>
-            <td className="py-3 px-3"><div className="flex items-center gap-2"><Progress value={pr} className="h-1.5 w-16 bg-white/10" /><span className="text-xs text-slate-400 whitespace-nowrap">{pr}%</span></div></td>
+            <td className="py-3 px-3"><div className="flex items-center gap-2"><Progress value={pr} className="h-1.5 w-16 bg-[var(--admin-progress-bg)]" /><span className="text-xs text-[var(--admin-text-secondary)] whitespace-nowrap">{pr}%</span></div></td>
             <td className="py-3 px-3"><div className="flex items-center gap-1 justify-end">
-              <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-white/10"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
-                <DialogContent className="max-w-lg bg-[#0d1f3c] border-white/10"><DialogHeader><DialogTitle className="text-white">{s?.full_name ?? "Student"}</DialogTitle></DialogHeader>
+              <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)] hover:bg-[var(--admin-nav-hover-bg)]"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
+                <DialogContent className="max-w-lg bg-[var(--admin-dialog)] border-[var(--admin-dialog-border)]"><DialogHeader><DialogTitle className="text-[var(--admin-text)]">{s?.full_name ?? "Student"}</DialogTitle></DialogHeader>
                   <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
-                    <div className="border border-white/5 rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-slate-500">Personal</h4><div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-slate-500">Name:</span> <span className="text-white">{s?.full_name ?? "-"}</span></div>
-                      <div><span className="text-slate-500">Email:</span> <span className="text-white">{s?.email}</span></div>
-                      <div><span className="text-slate-500">Phone:</span> <span className="text-white">{s?.phone ?? "-"}</span></div>
-                      <div><span className="text-slate-500">Year:</span> <span className="text-white">{s?.year ?? "-"}</span></div>
-                      <div><span className="text-slate-500">College:</span> <span className="text-white">{s?.college ?? "-"}</span></div>
-                      <div><span className="text-slate-500">Dept:</span> <span className="text-white">{s?.department ?? "-"}</span></div>
+                    <div className="border border-[var(--admin-card-border)] rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-[var(--admin-text-muted)]">Personal</h4><div className="grid grid-cols-2 gap-2">
+                      <div><span className="text-[var(--admin-text-muted)]">Name:</span> <span className="text-[var(--admin-text)]">{s?.full_name ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Email:</span> <span className="text-[var(--admin-text)]">{s?.email}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Phone:</span> <span className="text-[var(--admin-text)]">{s?.phone ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Year:</span> <span className="text-[var(--admin-text)]">{s?.year ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">College:</span> <span className="text-[var(--admin-text)]">{s?.college ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Dept:</span> <span className="text-[var(--admin-text)]">{s?.department ?? "-"}</span></div>
                     </div></div>
-                    <div className="border border-white/5 rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-slate-500">Internship</h4><div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-slate-500">ID:</span> <span className="text-white font-mono">{intern.internship_code}</span></div>
-                      <div><span className="text-slate-500">Domain:</span> <span className="text-white">{intern.domain?.name ?? "-"}</span></div>
-                      <div><span className="text-slate-500">Duration:</span> <span className="text-white">{intern.duration ?? "-"}</span></div>
-                      <div><span className="text-slate-500">Status:</span> <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ml-1 ${STATUS_COLORS[intern.status] ?? ""}`}>{intern.status}</span></div>
-                      <div><span className="text-slate-500">Progress:</span> <span className="text-white">{ta}/{tt} tasks</span></div>
-                      <div><span className="text-slate-500">Offer:</span> <span className="text-white font-mono text-xs">{intern.offer_letter_code ?? "Not issued"}</span></div>
-                      <div><span className="text-slate-500">Certificate:</span> <span className="text-white font-mono text-xs">{intern.certificate_code ?? "Not issued"}</span></div>
+                    <div className="border border-[var(--admin-card-border)] rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-[var(--admin-text-muted)]">Internship</h4><div className="grid grid-cols-2 gap-2">
+                      <div><span className="text-[var(--admin-text-muted)]">ID:</span> <span className="text-[var(--admin-text)] font-mono">{intern.internship_code}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Domain:</span> <span className="text-[var(--admin-text)]">{intern.domain?.name ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Duration:</span> <span className="text-[var(--admin-text)]">{intern.duration ?? "-"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Status:</span> <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ml-1 ${STATUS_COLORS[intern.status] ?? ""}`}>{intern.status}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Progress:</span> <span className="text-[var(--admin-text)]">{ta}/{tt} tasks</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Offer:</span> <span className="text-[var(--admin-text)] font-mono text-xs">{intern.offer_letter_code ?? "Not issued"}</span></div>
+                      <div><span className="text-[var(--admin-text-muted)]">Certificate:</span> <span className="text-[var(--admin-text)] font-mono text-xs">{intern.certificate_code ?? "Not issued"}</span></div>
                     </div></div>
                   </div>
                 </DialogContent>
               </Dialog>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-white/10"><Edit3 className="h-3.5 w-3.5" /></Button>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)] hover:bg-[var(--admin-nav-hover-bg)]"><Edit3 className="h-3.5 w-3.5" /></Button>
             </div></td>
           </tr>);
         })}
-        {recentInterns.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate-500 text-sm">No interns found</td></tr>}
+        {recentInterns.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-[var(--admin-text-muted)] text-sm">No interns found</td></tr>}
       </tbody></table>
     </div>
   </div>
@@ -603,105 +608,105 @@ function AdminPage() {
 {activeSection === "interns" && (
 <div className="space-y-4">
   <div className="flex flex-wrap items-center gap-3">
-    <h2 className="text-lg font-semibold text-white">Student Directory ({enrichedStudents.length})</h2>
-    <Button size="sm" variant="outline" onClick={() => reload()} className="ml-auto border-white/10 text-slate-300 hover:bg-white/5"><RotateCw className="h-3 w-3 mr-1" /> Refresh</Button>
-    <Button size="sm" variant="outline" onClick={exportStudentsCSV} className="border-white/10 text-slate-300 hover:bg-white/5"><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
+    <h2 className="text-lg font-semibold text-[var(--admin-text)]">Student Directory ({enrichedStudents.length})</h2>
+    <Button size="sm" variant="outline" onClick={() => reload()} className="ml-auto border-[var(--admin-input-border)] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-nav-hover-bg)]"><RotateCw className="h-3 w-3 mr-1" /> Refresh</Button>
+    <Button size="sm" variant="outline" onClick={exportStudentsCSV} className="border-[var(--admin-input-border)] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-nav-hover-bg)]"><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
   </div>
   <div className="flex flex-wrap items-center gap-3">
-    <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white"><option value="all">All Domains</option>{domains.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white"><option value="all">All Status</option><option value="pending">Pending</option><option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
-    <select value={filterDuration} onChange={(e) => setFilterDuration(e.target.value)} className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white"><option value="all">All Durations</option><option value="1 Month">1 Month</option><option value="2 Months">2 Months</option><option value="3 Months">3 Months</option></select>
+    <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className="h-9 rounded-lg border border-[var(--admin-input-border)] bg-[var(--admin-select-bg)] px-3 text-sm text-[var(--admin-text)]"><option value="all">All Domains</option>{domains.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 rounded-lg border border-[var(--admin-input-border)] bg-[var(--admin-select-bg)] px-3 text-sm text-[var(--admin-text)]"><option value="all">All Status</option><option value="pending">Pending</option><option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+    <select value={filterDuration} onChange={(e) => setFilterDuration(e.target.value)} className="h-9 rounded-lg border border-[var(--admin-input-border)] bg-[var(--admin-select-bg)] px-3 text-sm text-[var(--admin-text)]"><option value="all">All Durations</option><option value="1 Month">1 Month</option><option value="2 Months">2 Months</option><option value="3 Months">3 Months</option></select>
   </div>
-  <div className="bg-[#0d1f3c] border border-white/5 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/5">
-    <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Photo</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">College</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Duration</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Progress</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Actions</th>
+  <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--admin-card-border)]">
+    <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Photo</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">College</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Duration</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Progress</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Actions</th>
   </tr></thead><tbody>
     {enrichedStudents.map((s) => {
       const i = s.internship; const ta = approvedCountByStudent.get(s.id) ?? 0;
       const tt = i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0;
       const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
-      return (<tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-        <td className="py-3 px-3">{s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10" /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-400 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>
-        <td className="py-3 px-3 text-white font-medium whitespace-nowrap">{s.full_name ?? "-"}</td>
-        <td className="py-3 px-3 font-mono text-xs text-slate-400">{i?.internship_code ?? "-"}</td>
-        <td className="py-3 px-3 text-xs text-slate-400 max-w-[120px] truncate">{s.email}</td>
-        <td className="py-3 px-3 text-xs text-slate-400 max-w-[120px] truncate">{s.college ?? "-"}</td>
-        <td className="py-3 px-3"><span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">{s.resolvedDomain || "-"}</span></td>
-        <td className="py-3 px-3 text-xs text-slate-400">{i?.duration ?? "-"}</td>
-        <td className="py-3 px-3">{i ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[i.status] ?? ""}`}>{i.status}</span> : <span className="text-xs text-slate-500">No app</span>}</td>
-        <td className="py-3 px-3">{i ? <div className="flex items-center gap-2"><Progress value={pr} className="h-1.5 w-14 bg-white/10" /><span className="text-xs text-slate-400">{ta}/{tt}</span></div> : <span className="text-xs text-slate-500">-</span>}</td>
+      return (<tr key={s.id} className="border-b border-[var(--admin-card-border)] hover:bg-[var(--admin-table-hover)]">
+        <td className="py-3 px-3">{s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-[var(--admin-input-border)]" /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>
+        <td className="py-3 px-3 text-[var(--admin-text)] font-medium whitespace-nowrap">{s.full_name ?? "-"}</td>
+        <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i?.internship_code ?? "-"}</td>
+        <td className="py-3 px-3 text-xs text-[var(--admin-text-secondary)] max-w-[120px] truncate">{s.email}</td>
+        <td className="py-3 px-3 text-xs text-[var(--admin-text-secondary)] max-w-[120px] truncate">{s.college ?? "-"}</td>
+        <td className="py-3 px-3"><span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">{s.resolvedDomain || "-"}</span></td>
+        <td className="py-3 px-3 text-xs text-[var(--admin-text-secondary)]">{i?.duration ?? "-"}</td>
+        <td className="py-3 px-3">{i ? <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[i.status] ?? ""}`}>{i.status}</span> : <span className="text-xs text-[var(--admin-text-muted)]">No app</span>}</td>
+        <td className="py-3 px-3">{i ? <div className="flex items-center gap-2"><Progress value={pr} className="h-1.5 w-14 bg-[var(--admin-progress-bg)]" /><span className="text-xs text-[var(--admin-text-secondary)]">{ta}/{tt}</span></div> : <span className="text-xs text-[var(--admin-text-muted)]">-</span>}</td>
         <td className="py-3 px-3"><div className="flex items-center gap-1">
-          <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-white/10"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
-            <DialogContent className="max-w-lg bg-[#0d1f3c] border-white/10"><DialogHeader><DialogTitle className="text-white">{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
+          <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)] hover:bg-[var(--admin-nav-hover-bg)]"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
+            <DialogContent className="max-w-lg bg-[var(--admin-dialog)] border-[var(--admin-dialog-border)]"><DialogHeader><DialogTitle className="text-[var(--admin-text)]">{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
               <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
-                <div className="border border-white/5 rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-slate-500">Personal</h4><div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-slate-500">Name:</span> <span className="text-white">{s.full_name ?? "-"}</span></div><div><span className="text-slate-500">Email:</span> <span className="text-white">{s.email}</span></div>
-                  <div><span className="text-slate-500">Phone:</span> <span className="text-white">{s.phone ?? "-"}</span></div><div><span className="text-slate-500">Year:</span> <span className="text-white">{s.year ?? "-"}</span></div>
-                  <div><span className="text-slate-500">College:</span> <span className="text-white">{s.college ?? "-"}</span></div><div><span className="text-slate-500">Dept:</span> <span className="text-white">{s.department ?? "-"}</span></div>
+                <div className="border border-[var(--admin-card-border)] rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-[var(--admin-text-muted)]">Personal</h4><div className="grid grid-cols-2 gap-2">
+                  <div><span className="text-[var(--admin-text-muted)]">Name:</span> <span className="text-[var(--admin-text)]">{s.full_name ?? "-"}</span></div><div><span className="text-[var(--admin-text-muted)]">Email:</span> <span className="text-[var(--admin-text)]">{s.email}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Phone:</span> <span className="text-[var(--admin-text)]">{s.phone ?? "-"}</span></div><div><span className="text-[var(--admin-text-muted)]">Year:</span> <span className="text-[var(--admin-text)]">{s.year ?? "-"}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">College:</span> <span className="text-[var(--admin-text)]">{s.college ?? "-"}</span></div><div><span className="text-[var(--admin-text-muted)]">Dept:</span> <span className="text-[var(--admin-text)]">{s.department ?? "-"}</span></div>
                 </div></div>
-                <div className="border border-white/5 rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-slate-500">Internship</h4><div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-slate-500">ID:</span> <span className="text-white font-mono">{i?.internship_code ?? "-"}</span></div><div><span className="text-slate-500">Domain:</span> <span className="text-white">{s.resolvedDomain || "-"}</span></div>
-                  <div><span className="text-slate-500">Duration:</span> <span className="text-white">{i?.duration ?? "-"}</span></div>
-                  <div><span className="text-slate-500">Status:</span> <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ml-1 ${STATUS_COLORS[i?.status] ?? ""}`}>{i?.status ?? "-"}</span></div>
-                  <div><span className="text-slate-500">Progress:</span> <span className="text-white">{ta}/{tt} tasks</span></div>
-                  <div><span className="text-slate-500">Offer:</span> <span className="text-white font-mono text-xs">{i?.offer_letter_code ?? "Not issued"}</span></div>
-                  <div><span className="text-slate-500">Certificate:</span> <span className="text-white font-mono text-xs">{i?.certificate_code ?? "Not issued"}</span></div>
+                <div className="border border-[var(--admin-card-border)] rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-[var(--admin-text-muted)]">Internship</h4><div className="grid grid-cols-2 gap-2">
+                  <div><span className="text-[var(--admin-text-muted)]">ID:</span> <span className="text-[var(--admin-text)] font-mono">{i?.internship_code ?? "-"}</span></div><div><span className="text-[var(--admin-text-muted)]">Domain:</span> <span className="text-[var(--admin-text)]">{s.resolvedDomain || "-"}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Duration:</span> <span className="text-[var(--admin-text)]">{i?.duration ?? "-"}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Status:</span> <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ml-1 ${STATUS_COLORS[i?.status] ?? ""}`}>{i?.status ?? "-"}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Progress:</span> <span className="text-[var(--admin-text)]">{ta}/{tt} tasks</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Offer:</span> <span className="text-[var(--admin-text)] font-mono text-xs">{i?.offer_letter_code ?? "Not issued"}</span></div>
+                  <div><span className="text-[var(--admin-text-muted)]">Certificate:</span> <span className="text-[var(--admin-text)] font-mono text-xs">{i?.certificate_code ?? "Not issued"}</span></div>
                 </div></div>
-                {(s.github_url || s.linkedin_url) && <div className="border border-white/5 rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-slate-500">Links</h4>
-                  {s.github_url && <div><span className="text-slate-500">GitHub:</span> <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">{s.github_url}</a></div>}
-                  {s.linkedin_url && <div><span className="text-slate-500">LinkedIn:</span> <a href={s.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">{s.linkedin_url}</a></div>}
+                {(s.github_url || s.linkedin_url) && <div className="border border-[var(--admin-card-border)] rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-[var(--admin-text-muted)]">Links</h4>
+                  {s.github_url && <div><span className="text-[var(--admin-text-muted)]">GitHub:</span> <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">{s.github_url}</a></div>}
+                  {s.linkedin_url && <div><span className="text-[var(--admin-text-muted)]">LinkedIn:</span> <a href={s.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">{s.linkedin_url}</a></div>}
                 </div>}
               </div>
             </DialogContent>
           </Dialog>
-          {i?.status === "pending" && <><Button size="sm" className="h-7 px-2 bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => updateStatus(i.id, "active")}>Approve</Button><Button size="sm" variant="outline" className="h-7 px-2 text-xs border-white/10 text-slate-300" onClick={() => updateStatus(i.id, "cancelled")}>Reject</Button></>}
+          {i?.status === "pending" && <><Button size="sm" className="h-7 px-2 bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => updateStatus(i.id, "active")}>Approve</Button><Button size="sm" variant="outline" className="h-7 px-2 text-xs border-[var(--admin-input-border)] text-[var(--admin-text-secondary)]" onClick={() => updateStatus(i.id, "cancelled")}>Reject</Button></>}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => removeStudent(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div></td>
       </tr>);
     })}
-    {enrichedStudents.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate-500 text-sm">No students registered yet</td></tr>}
+    {enrichedStudents.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-[var(--admin-text-muted)] text-sm">No students registered yet</td></tr>}
   </tbody></table></div></div>
 </div>
 )}
 
 {/* ============ APPLICATIONS ============ */}
 {activeSection === "applications" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white">Internship Applications</h2>
-  <div className="bg-[#0d1f3c] border border-white/5 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/5">
-    <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Student</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Domain & Duration</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Actions</th>
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Internship Applications</h2>
+  <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--admin-card-border)]">
+    <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Student</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Domain & Duration</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Actions</th>
   </tr></thead><tbody>
-    {internships.map((i) => (<tr key={i.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-      <td className="py-3 px-3 font-mono text-xs text-slate-400">{i.internship_code}</td>
-      <td className="py-3 px-3"><div className="text-white font-medium">{i.student?.full_name ?? "-"}</div><div className="text-xs text-slate-500">{i.student?.email}</div></td>
-      <td className="py-3 px-3"><div className="text-white">{i.domain?.name}</div><div className="text-xs text-slate-500">{i.duration}</div></td>
+    {internships.map((i) => (<tr key={i.id} className="border-b border-[var(--admin-card-border)] hover:bg-[var(--admin-table-hover)]">
+      <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.internship_code}</td>
+      <td className="py-3 px-3"><div className="text-[var(--admin-text)] font-medium">{i.student?.full_name ?? "-"}</div><div className="text-xs text-[var(--admin-text-muted)]">{i.student?.email}</div></td>
+      <td className="py-3 px-3"><div className="text-[var(--admin-text)]">{i.domain?.name}</div><div className="text-xs text-[var(--admin-text-muted)]">{i.duration}</div></td>
       <td className="py-3 px-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[i.status] ?? ""}`}>{i.status}</span></td>
-      <td className="py-3 px-3 space-x-1">{i.status === "pending" && <><Button size="sm" className="h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => updateStatus(i.id, "active")}>Approve</Button><Button size="sm" variant="outline" className="h-7 border-white/10 text-slate-300" onClick={() => updateStatus(i.id, "cancelled")}>Reject</Button></>}{i.status !== "pending" && <span className="text-xs text-slate-500">-</span>}</td>
+      <td className="py-3 px-3 space-x-1">{i.status === "pending" && <><Button size="sm" className="h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => updateStatus(i.id, "active")}>Approve</Button><Button size="sm" variant="outline" className="h-7 border-[var(--admin-input-border)] text-[var(--admin-text-secondary)]" onClick={() => updateStatus(i.id, "cancelled")}>Reject</Button></>}{i.status !== "pending" && <span className="text-xs text-[var(--admin-text-muted)]">-</span>}</td>
     </tr>))}
-    {internships.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-500 text-sm">No applications yet</td></tr>}
+    {internships.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-[var(--admin-text-muted)] text-sm">No applications yet</td></tr>}
   </tbody></table></div></div>
 </div>
 )}
 
 {/* ============ TASKS ============ */}
 {activeSection === "tasks" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white">Student Task Submissions</h2>
-  {submissions.length === 0 && <p className="text-sm text-slate-500 text-center py-8 bg-[#0d1f3c] border border-white/5 rounded-xl">No submissions yet</p>}
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Student Task Submissions</h2>
+  {submissions.length === 0 && <p className="text-sm text-[var(--admin-text-muted)] text-center py-8 bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl">No submissions yet</p>}
   {submissions.map((s) => {
     const tasks = getTasksForSlug(s.internship?.domain?.slug);
     const taskMeta = tasks.find((t) => t.no === s.task_no);
-    return (<div key={s.id} className="bg-[#0d1f3c] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+    return (<div key={s.id} className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-4 hover:border-[var(--admin-card-hover)] transition-colors">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap"><span className="font-mono text-xs text-slate-500">{s.internship?.internship_code} | Task {s.task_no}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[s.status] ?? ""}`}>{s.status}</span></div>
-          <div className="font-semibold mt-1 text-white">{taskMeta?.title ?? `Task ${s.task_no}`}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{s.internship?.student?.full_name} | {s.internship?.domain?.name}</div>
+          <div className="flex items-center gap-2 flex-wrap"><span className="font-mono text-xs text-[var(--admin-text-muted)]">{s.internship?.internship_code} | Task {s.task_no}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[s.status] ?? ""}`}>{s.status}</span></div>
+          <div className="font-semibold mt-1 text-[var(--admin-text)]">{taskMeta?.title ?? `Task ${s.task_no}`}</div>
+          <div className="text-xs text-[var(--admin-text-muted)] mt-0.5">{s.internship?.student?.full_name} | {s.internship?.domain?.name}</div>
           <div className="flex gap-3 mt-2 text-xs flex-wrap">
-            {s.task_no === 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
-            {s.github_url && <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
-            {s.task_no !== 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
-            {s.drive_url && <a href={s.drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
+            {s.task_no === 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
+            {s.github_url && <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
+            {s.task_no !== 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
+            {s.drive_url && <a href={s.drive_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
           </div>
-          {s.notes && <p className="text-xs mt-2 text-slate-500">{s.notes}</p>}
-          {s.feedback && <p className="text-xs mt-2 p-2 bg-white/5 rounded-lg text-slate-300"><b className="text-slate-400">Feedback:</b> {s.feedback}</p>}
+          {s.notes && <p className="text-xs mt-2 text-[var(--admin-text-muted)]">{s.notes}</p>}
+          {s.feedback && <p className="text-xs mt-2 p-2 bg-[var(--admin-feedback-bg)] rounded-lg text-[var(--admin-feedback-text)]"><b className="text-[var(--admin-text-secondary)]">Feedback:</b> {s.feedback}</p>}
         </div>
         <ReviewDialog onReview={(status, fb) => reviewSubmission(s.id, status, fb)} />
       </div>
@@ -712,17 +717,17 @@ function AdminPage() {
 
 {/* ============ SUBMISSIONS ============ */}
 {activeSection === "submissions" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white">Project Submissions</h2>
-  {projectSubmissions.length === 0 && <p className="text-sm text-slate-500 text-center py-8 bg-[#0d1f3c] border border-white/5 rounded-xl">No project submissions yet</p>}
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Project Submissions</h2>
+  {projectSubmissions.length === 0 && <p className="text-sm text-[var(--admin-text-muted)] text-center py-8 bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl">No project submissions yet</p>}
   {projectSubmissions.map((ps) => (
-    <div key={ps.id} className="bg-[#0d1f3c] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+    <div key={ps.id} className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-4 hover:border-[var(--admin-card-hover)] transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-white">{ps.project?.title}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[ps.status] ?? ""}`}>{ps.status}</span></div>
-          <div className="text-xs text-slate-500 mt-1">{ps.student?.full_name} | {ps.student?.email}</div>
-          {ps.github_url && <a href={ps.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline text-xs inline-flex items-center gap-1 mt-1"><Github className="h-3 w-3" />GitHub</a>}
-          {ps.notes && <p className="text-xs mt-2 text-slate-500">{ps.notes}</p>}
-          {ps.feedback && <p className="text-xs mt-2 p-2 bg-white/5 rounded-lg text-slate-300"><b className="text-slate-400">Feedback:</b> {ps.feedback}</p>}
+          <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-[var(--admin-text)]">{ps.project?.title}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[ps.status] ?? ""}`}>{ps.status}</span></div>
+          <div className="text-xs text-[var(--admin-text-muted)] mt-1">{ps.student?.full_name} | {ps.student?.email}</div>
+          {ps.github_url && <a href={ps.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline text-xs inline-flex items-center gap-1 mt-1"><Github className="h-3 w-3" />GitHub</a>}
+          {ps.notes && <p className="text-xs mt-2 text-[var(--admin-text-muted)]">{ps.notes}</p>}
+          {ps.feedback && <p className="text-xs mt-2 p-2 bg-[var(--admin-feedback-bg)] rounded-lg text-[var(--admin-feedback-text)]"><b className="text-[var(--admin-text-secondary)]">Feedback:</b> {ps.feedback}</p>}
         </div>
         {ps.status === "pending" && <ReviewDialog onReview={(status, fb) => reviewProjectSubmission(ps.id, status as any, fb)} />}
       </div>
@@ -733,56 +738,56 @@ function AdminPage() {
 
 {/* ============ OFFER LETTERS ============ */}
 {activeSection === "offers" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white">Offer Letters</h2>
-  <div className="bg-[#0d1f3c] border border-white/5 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/5">
-    <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Offer Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Email Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Actions</th>
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Offer Letters</h2>
+  <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--admin-card-border)]">
+    <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Offer Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Email Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Actions</th>
   </tr></thead><tbody>
     {internships.filter(i => i.status === "active" || i.status === "completed").map((i) => (
-      <tr key={i.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-        <td className="py-3 px-3 font-mono text-xs text-slate-400">{i.internship_code}</td>
-        <td className="py-3 px-3 text-white font-medium">{i.student?.full_name}</td>
-        <td className="py-3 px-3 text-white">{i.domain?.name}</td>
-        <td className="py-3 px-3 font-mono text-xs text-slate-400">{i.offer_letter_code ?? "-"}</td>
+      <tr key={i.id} className="border-b border-[var(--admin-card-border)] hover:bg-[var(--admin-table-hover)]">
+        <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.internship_code}</td>
+        <td className="py-3 px-3 text-[var(--admin-text)] font-medium">{i.student?.full_name}</td>
+        <td className="py-3 px-3 text-[var(--admin-text)]">{i.domain?.name}</td>
+        <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.offer_letter_code ?? "-"}</td>
         <td className="py-3 px-3">
-          {i.offer_letter_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Sent</span>
-          : i.offer_letter_email_error ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400 border border-red-500/20">Failed</span>
-          : <span className="text-xs text-slate-500">Not Sent</span>}
+          {i.offer_letter_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">Sent</span>
+          : i.offer_letter_email_error ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-500 border border-red-500/20">Failed</span>
+          : <span className="text-xs text-[var(--admin-text-muted)]">Not Sent</span>}
         </td>
         <td className="py-3 px-3 space-x-1 whitespace-nowrap">
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-300 hover:text-white" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id)).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-400 hover:text-blue-300" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({ studentId: i.student_id, fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", domainSlug: i.domain?.slug, internshipCode: i.internship_code, offerCode: i.offer_letter_code, startedAt: i.started_at, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
-          <Button size="sm" variant={i.offer_letter_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.offer_letter_email_sent ? "text-slate-300" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `ol-${i.id}`} onClick={() => handleSendOfferLetterEmail(i)}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--admin-text-secondary)] hover:text-[var(--admin-text)]" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id)).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({ studentId: i.student_id, fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", domainSlug: i.domain?.slug, internshipCode: i.internship_code, offerCode: i.offer_letter_code, startedAt: i.started_at, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
+          <Button size="sm" variant={i.offer_letter_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.offer_letter_email_sent ? "text-[var(--admin-text-secondary)]" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `ol-${i.id}`} onClick={() => handleSendOfferLetterEmail(i)}>
             {sendingEmail === `ol-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : i.offer_letter_email_sent ? "Resend" : "Send"}
           </Button>
         </td>
       </tr>
     ))}
-    {internships.filter(i => i.status === "active" || i.status === "completed").length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-500 text-sm">No issued offer letters yet</td></tr>}
+    {internships.filter(i => i.status === "active" || i.status === "completed").length === 0 && <tr><td colSpan={6} className="text-center py-8 text-[var(--admin-text-muted)] text-sm">No issued offer letters yet</td></tr>}
   </tbody></table></div></div>
 </div>
 )}
 
 {/* ============ ID CARDS ============ */}
 {activeSection === "idcards" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white">ID Cards</h2>
-  <p className="text-sm text-slate-400">Download intern ID cards for active interns.</p>
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)]">ID Cards</h2>
+  <p className="text-sm text-[var(--admin-text-secondary)]">Download intern ID cards for active interns.</p>
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     {internships.filter(i => i.status === "active").map((i) => (
-      <div key={i.id} className="bg-[#0d1f3c] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+      <div key={i.id} className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-4 hover:border-[var(--admin-card-hover)] transition-colors">
         <div className="flex items-center gap-3 mb-3">
-          <Avatar className="h-10 w-10"><AvatarFallback className="bg-blue-600/20 text-blue-400 text-sm">{getInitials(i.student?.full_name)}</AvatarFallback></Avatar>
-          <div><div className="text-white font-medium">{i.student?.full_name ?? "-"}</div><div className="text-xs text-slate-500 font-mono">{i.internship_code}</div></div>
+          <Avatar className="h-10 w-10"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-sm">{getInitials(i.student?.full_name)}</AvatarFallback></Avatar>
+          <div><div className="text-[var(--admin-text)] font-medium">{i.student?.full_name ?? "-"}</div><div className="text-xs text-[var(--admin-text-muted)] font-mono">{i.internship_code}</div></div>
         </div>
-        <div className="text-xs text-slate-400 space-y-1 mb-3">
-          <div>Domain: <span className="text-white">{i.domain?.name ?? "-"}</span></div>
-          <div>Duration: <span className="text-white">{i.duration ?? "-"}</span></div>
+        <div className="text-xs text-[var(--admin-text-secondary)] space-y-1 mb-3">
+          <div>Domain: <span className="text-[var(--admin-text)]">{i.domain?.name ?? "-"}</span></div>
+          <div>Duration: <span className="text-[var(--admin-text)]">{i.duration ?? "-"}</span></div>
         </div>
         <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => getPdf().then(m => m.downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl: i.student?.avatar_url, email: i.student?.email, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>
           <CreditCard className="h-3 w-3 mr-1" /> Download ID Card
         </Button>
       </div>
     ))}
-    {internships.filter(i => i.status === "active").length === 0 && <div className="col-span-full text-center py-8 text-slate-500 text-sm bg-[#0d1f3c] border border-white/5 rounded-xl">No active interns</div>}
+    {internships.filter(i => i.status === "active").length === 0 && <div className="col-span-full text-center py-8 text-[var(--admin-text-muted)] text-sm bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl">No active interns</div>}
   </div>
 </div>
 )}
@@ -790,22 +795,22 @@ function AdminPage() {
 {/* ============ CERTIFICATES ============ */}
 {activeSection === "certificates" && (
 <div className="space-y-6">
-  <h2 className="text-lg font-semibold text-white">Certificates</h2>
+  <h2 className="text-lg font-semibold text-[var(--admin-text)]">Certificates</h2>
   {internships.filter(i => i.certificate_code).length > 0 && (
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/5">
-      <th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Certificate Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Issued</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-slate-500 uppercase">Actions</th>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-[var(--admin-card-border)]">
+      <th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Certificate Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Issued</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-[var(--admin-text-muted)] uppercase">Actions</th>
     </tr></thead><tbody>
       {internships.filter(i => i.certificate_code).map((i) => (
-        <tr key={i.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-          <td className="py-3 px-3 font-mono text-xs text-slate-400">{i.internship_code}</td>
-          <td className="py-3 px-3 text-white font-medium">{i.student?.full_name}</td>
-          <td className="py-3 px-3 text-white">{i.domain?.name}</td>
-          <td className="py-3 px-3 font-mono text-xs text-slate-400">{i.certificate_code}</td>
-          <td className="py-3 px-3 text-xs text-slate-400">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</td>
-          <td className="py-3 px-3">{i.certificate_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Sent</span> : <span className="text-xs text-slate-500">Not Sent</span>}</td>
+        <tr key={i.id} className="border-b border-[var(--admin-card-border)] hover:bg-[var(--admin-table-hover)]">
+          <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.internship_code}</td>
+          <td className="py-3 px-3 text-[var(--admin-text)] font-medium">{i.student?.full_name}</td>
+          <td className="py-3 px-3 text-[var(--admin-text)]">{i.domain?.name}</td>
+          <td className="py-3 px-3 font-mono text-xs text-[var(--admin-text-secondary)]">{i.certificate_code}</td>
+          <td className="py-3 px-3 text-xs text-[var(--admin-text-secondary)]">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</td>
+          <td className="py-3 px-3">{i.certificate_email_sent ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">Sent</span> : <span className="text-xs text-[var(--admin-text-muted)]">Not Sent</span>}</td>
           <td className="py-3 px-3 space-x-1 whitespace-nowrap">
-            <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-400 hover:text-blue-300" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })).catch(err => toast.error("Download failed"))}>Download</Button>
-            <Button size="sm" variant={i.certificate_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.certificate_email_sent ? "text-slate-300" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
+            <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })).catch(err => toast.error("Download failed"))}>Download</Button>
+            <Button size="sm" variant={i.certificate_email_sent ? "ghost" : "default"} className={`h-7 text-xs ${i.certificate_email_sent ? "text-[var(--admin-text-secondary)]" : "bg-blue-600 hover:bg-blue-700 text-white"}`} disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
               {sendingEmail === `cert-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : i.certificate_email_sent ? "Resend" : "Send"}
             </Button>
           </td>
@@ -814,12 +819,12 @@ function AdminPage() {
     </tbody></table></div></div>
   )}
   {internships.filter(i => i.status === "completed" && !i.certificate_code).length > 0 && (
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-white">Eligible for Certificate</h3>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-3">
+      <h3 className="text-sm font-semibold text-[var(--admin-text)]">Eligible for Certificate</h3>
       {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
-        return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-white/5 last:border-0">
-          <div><span className="text-white font-medium">{i.student?.full_name}</span><span className="text-xs text-slate-500 ml-2">{i.internship_code}</span><span className="text-xs text-slate-500 ml-2">{i.domain?.name}</span></div>
+        return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-[var(--admin-card-border)] last:border-0">
+          <div><span className="text-[var(--admin-text)] font-medium">{i.student?.full_name}</span><span className="text-xs text-[var(--admin-text-muted)] ml-2">{i.internship_code}</span><span className="text-xs text-[var(--admin-text-muted)] ml-2">{i.domain?.name}</span></div>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => issueCertificate(i.id)}><Award className="h-3 w-3 mr-1" /> Issue Certificate</Button>
         </div>);
       })}
@@ -830,17 +835,17 @@ function AdminPage() {
 
 {/* ============ FEEDBACK ============ */}
 {activeSection === "feedback" && (
-<div className="space-y-4"><h2 className="text-lg font-semibold text-white flex items-center gap-2"><MessageSquare className="h-5 w-5 text-blue-400" /> Student Feedback</h2>
-  {feedbackList.length === 0 && <p className="text-sm text-slate-500 text-center py-8 bg-[#0d1f3c] border border-white/5 rounded-xl">No feedback submitted yet.</p>}
+<div className="space-y-4"><h2 className="text-lg font-semibold text-[var(--admin-text)] flex items-center gap-2"><MessageSquare className="h-5 w-5 text-blue-500" /> Student Feedback</h2>
+  {feedbackList.length === 0 && <p className="text-sm text-[var(--admin-text-muted)] text-center py-8 bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl">No feedback submitted yet.</p>}
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {feedbackList.map((fb) => (
-      <div key={fb.id} className="bg-[#0d1f3c] border border-white/5 rounded-xl p-4 space-y-2 hover:border-white/10 transition-colors">
+      <div key={fb.id} className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-4 space-y-2 hover:border-[var(--admin-card-hover)] transition-colors">
         <div className="flex items-center justify-between">
-          <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`h-3.5 w-3.5 ${i < fb.rating ? "fill-amber-400 text-amber-400" : "text-slate-600"}`} />))}</div>
-          <span className="text-xs text-slate-500">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+          <div className="flex gap-0.5">            {Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`h-3.5 w-3.5 ${i < fb.rating ? "fill-amber-400 text-amber-400" : "text-[var(--admin-text-muted)]"}`} />))}</div>
+          <span className="text-xs text-[var(--admin-text-muted)]">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
         </div>
-        <p className="text-sm text-slate-300">{fb.message}</p>
-        <div className="text-xs text-slate-500">{fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "-"})</div>
+        <p className="text-sm text-[var(--admin-feedback-text)]">{fb.message}</p>
+        <div className="text-xs text-[var(--admin-text-muted)]">{fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "-"})</div>
       </div>
     ))}
   </div>
@@ -849,22 +854,22 @@ function AdminPage() {
 
 {/* ============ ANNOUNCEMENTS ============ */}
 {activeSection === "announcements" && (
-<div className="space-y-6"><h2 className="text-lg font-semibold text-white">Announcements</h2>
+<div className="space-y-6"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Announcements</h2>
   <div className="grid gap-6 lg:grid-cols-2">
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-4 h-fit">
-      <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Megaphone className="h-4 w-4 text-blue-400" /> New Announcement</h3>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-4 h-fit">
+      <h3 className="text-sm font-semibold text-[var(--admin-text)] flex items-center gap-2"><Megaphone className="h-4 w-4 text-blue-500" /> New Announcement</h3>
       <form onSubmit={handleAnnouncementSubmit} className="space-y-4">
-        <div><Label htmlFor="ann-title" className="text-slate-400">Title</Label><Input id="ann-title" name="title" placeholder="Important update..." required className="bg-white/5 border-white/10 text-white placeholder-slate-500" /></div>
-        <div><Label htmlFor="ann-body" className="text-slate-400">Message</Label><Textarea id="ann-body" name="body" rows={4} placeholder="Details for students..." className="bg-white/5 border-white/10 text-white placeholder-slate-500" /></div>
+        <div><Label htmlFor="ann-title" className="text-[var(--admin-text-secondary)]">Title</Label><Input id="ann-title" name="title" placeholder="Important update..." required className="bg-[var(--admin-input)] border-[var(--admin-input-border)] text-[var(--admin-text)] placeholder-[var(--admin-input-placeholder)]" /></div>
+        <div><Label htmlFor="ann-body" className="text-[var(--admin-text-secondary)]">Message</Label><Textarea id="ann-body" name="body" rows={4} placeholder="Details for students..." className="bg-[var(--admin-input)] border-[var(--admin-input-border)] text-[var(--admin-text)] placeholder-[var(--admin-input-placeholder)]" /></div>
         <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">Publish</Button>
       </form>
     </div>
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-white">Posted Announcements</h3>
-      {announcements.length === 0 && <p className="text-sm text-slate-500 text-center py-6">No announcements yet</p>}
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-3">
+      <h3 className="text-sm font-semibold text-[var(--admin-text)]">Posted Announcements</h3>
+      {announcements.length === 0 && <p className="text-sm text-[var(--admin-text-muted)] text-center py-6">No announcements yet</p>}
       {announcements.map((a) => (
-        <div key={a.id} className="border border-white/5 rounded-lg p-3 flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0"><h5 className="text-white font-medium">{a.title}</h5>{a.body && <p className="text-sm text-slate-400 mt-1">{a.body}</p>}<p className="text-xs text-slate-500 mt-2">{new Date(a.created_at).toLocaleDateString()}</p></div>
+        <div key={a.id} className="border border-[var(--admin-card-border)] rounded-lg p-3 flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0"><h5 className="text-[var(--admin-text)] font-medium">{a.title}</h5>{a.body && <p className="text-sm text-[var(--admin-text-secondary)] mt-1">{a.body}</p>}<p className="text-xs text-[var(--admin-text-muted)] mt-2">{new Date(a.created_at).toLocaleDateString()}</p></div>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => deleteAnnouncement(a.id)}><X className="h-3.5 w-3.5" /></Button>
         </div>
       ))}
@@ -875,32 +880,32 @@ function AdminPage() {
 
 {/* ============ ANALYTICS ============ */}
 {activeSection === "analytics" && (
-<div className="space-y-6"><h2 className="text-lg font-semibold text-white">Analytics Overview</h2>
+<div className="space-y-6"><h2 className="text-lg font-semibold text-[var(--admin-text)]">Analytics Overview</h2>
   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-3">
-      <h4 className="text-sm font-medium text-slate-400 flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-400"/> Application Funnel</h4>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-3">
+      <h4 className="text-sm font-medium text-[var(--admin-text-secondary)] flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> Application Funnel</h4>
       <div className="space-y-2 pt-2">
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Registered Students:</span><span className="font-bold text-white">{profiles.length}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Total Internships:</span><span className="font-bold text-white">{internships.length}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Pending Approvals:</span><span className="font-bold text-amber-400">{pendingApps}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Active Interns:</span><span className="font-bold text-blue-400">{activeCount}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Completed:</span><span className="font-bold text-emerald-400">{completedCount}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Registered Students:</span><span className="font-bold text-[var(--admin-text)]">{profiles.length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Total Internships:</span><span className="font-bold text-[var(--admin-text)]">{internships.length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Pending Approvals:</span><span className="font-bold text-amber-500">{pendingApps}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Active Interns:</span><span className="font-bold text-blue-500">{activeCount}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Completed:</span><span className="font-bold text-emerald-500">{completedCount}</span></div>
       </div>
     </div>
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-3">
-      <h4 className="text-sm font-medium text-slate-400 flex items-center gap-1"><CheckSquare className="h-4 w-4 text-blue-400"/> Task Submissions</h4>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-3">
+      <h4 className="text-sm font-medium text-[var(--admin-text-secondary)] flex items-center gap-1"><CheckSquare className="h-4 w-4 text-blue-500"/> Task Submissions</h4>
       <div className="space-y-2 pt-2">
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Total:</span><span className="font-bold text-white">{submissions.length}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Approved:</span><span className="font-bold text-emerald-400">{submissions.filter(s => s.status === "approved").length}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Pending Review:</span><span className="font-bold text-amber-400">{pendingSubs.length}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Rejected/Resubmit:</span><span className="font-bold text-red-400">{submissions.filter(s => s.status === "rejected" || s.status === "resubmit").length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Total:</span><span className="font-bold text-[var(--admin-text)]">{submissions.length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Approved:</span><span className="font-bold text-emerald-500">{submissions.filter(s => s.status === "approved").length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Pending Review:</span><span className="font-bold text-amber-500">{pendingSubs.length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Rejected/Resubmit:</span><span className="font-bold text-red-500">{submissions.filter(s => s.status === "rejected" || s.status === "resubmit").length}</span></div>
       </div>
     </div>
-    <div className="bg-[#0d1f3c] border border-white/5 rounded-xl p-5 space-y-3">
-      <h4 className="text-sm font-medium text-slate-400 flex items-center gap-1"><Award className="h-4 w-4 text-blue-400"/> Certificates</h4>
+    <div className="bg-[var(--admin-card)] border border-[var(--admin-card-border)] rounded-xl p-5 space-y-3">
+      <h4 className="text-sm font-medium text-[var(--admin-text-secondary)] flex items-center gap-1"><Award className="h-4 w-4 text-blue-500"/> Certificates</h4>
       <div className="space-y-2 pt-2">
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Issued:</span><span className="font-bold text-emerald-400">{certsIssued}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-slate-400">Eligible (Not Issued):</span><span className="font-bold text-amber-400">{internships.filter(i => i.status === "completed" && !i.certificate_code).length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Issued:</span><span className="font-bold text-emerald-500">{certsIssued}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-[var(--admin-text-secondary)]">Eligible (Not Issued):</span><span className="font-bold text-amber-500">{internships.filter(i => i.status === "completed" && !i.certificate_code).length}</span></div>
       </div>
     </div>
   </div>
@@ -921,13 +926,13 @@ function ReviewDialog({ onReview }: { onReview: (s: "approved" | "rejected" | "r
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs">Review</Button></DialogTrigger>
-      <DialogContent className="bg-[#0d1f3c] border-white/10">
-        <DialogHeader><DialogTitle className="text-white">Review submission</DialogTitle></DialogHeader>
+      <DialogContent className="bg-[var(--admin-dialog)] border-[var(--admin-dialog-border)]">
+        <DialogHeader><DialogTitle className="text-[var(--admin-text)]">Review submission</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div><Label className="text-slate-400">Feedback (optional)</Label><Textarea rows={3} value={fb} onChange={(e) => setFb(e.target.value)} className="bg-white/5 border-white/10 text-white placeholder-slate-500" /></div>
+          <div><Label className="text-[var(--admin-text-secondary)]">Feedback (optional)</Label><Textarea rows={3} value={fb} onChange={(e) => setFb(e.target.value)} className="bg-[var(--admin-input)] border-[var(--admin-input-border)] text-[var(--admin-text)] placeholder-[var(--admin-input-placeholder)]" /></div>
           <div className="flex gap-2">
             <Button onClick={() => go("approved")} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
-            <Button onClick={() => go("resubmit")} variant="outline" className="flex-1 border-white/10 text-slate-300">Resubmit</Button>
+            <Button onClick={() => go("resubmit")} variant="outline" className="flex-1 border-[var(--admin-input-border)] text-[var(--admin-text-secondary)]">Resubmit</Button>
             <Button onClick={() => go("rejected")} variant="destructive" className="flex-1">Reject</Button>
           </div>
         </div>
