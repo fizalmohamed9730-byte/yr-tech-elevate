@@ -103,6 +103,10 @@ export type Database = {
           batch_id: string | null
           certificate_code: string | null
           certificate_issued_at: string | null
+          certificate_email_sent: boolean
+          certificate_email_sent_at: string | null
+          certificate_email_error: string | null
+          certificate_resend_message_id: string | null
           completed_at: string | null
           created_at: string
           domain_id: string
@@ -111,6 +115,10 @@ export type Database = {
           internship_code: string
           offer_issued_at: string | null
           offer_letter_code: string | null
+          offer_letter_email_sent: boolean
+          offer_letter_email_sent_at: string | null
+          offer_letter_email_error: string | null
+          offer_letter_resend_message_id: string | null
           progress_percent: number
           started_at: string | null
           status: Database["public"]["Enums"]["internship_status"]
@@ -121,6 +129,10 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
+          certificate_email_sent?: boolean
+          certificate_email_sent_at?: string | null
+          certificate_email_error?: string | null
+          certificate_resend_message_id?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id: string
@@ -129,6 +141,10 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
+          offer_letter_email_sent?: boolean
+          offer_letter_email_sent_at?: string | null
+          offer_letter_email_error?: string | null
+          offer_letter_resend_message_id?: string | null
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -139,6 +155,10 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
+          certificate_email_sent?: boolean
+          certificate_email_sent_at?: string | null
+          certificate_email_error?: string | null
+          certificate_resend_message_id?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id?: string
@@ -147,6 +167,10 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
+          offer_letter_email_sent?: boolean
+          offer_letter_email_sent_at?: string | null
+          offer_letter_email_error?: string | null
+          offer_letter_resend_message_id?: string | null
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -373,6 +397,108 @@ export type Database = {
           rating?: number
           message?: string
           created_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          file_url: string | null
+          deadline: string | null
+          difficulty: string
+          created_by: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string
+          file_url?: string | null
+          deadline?: string | null
+          difficulty?: string
+          created_by?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string
+          file_url?: string | null
+          deadline?: string | null
+          difficulty?: string
+          created_by?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      project_domains: {
+        Row: {
+          project_id: string
+          domain_id: string
+        }
+        Insert: {
+          project_id: string
+          domain_id: string
+        }
+        Update: {
+          project_id?: string
+          domain_id?: string
+        }
+        Relationships: []
+      }
+      project_submissions: {
+        Row: {
+          id: string
+          project_id: string
+          student_id: string
+          file_url: string | null
+          github_url: string | null
+          notes: string | null
+          status: string
+          feedback: string | null
+          submitted_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          student_id: string
+          file_url?: string | null
+          github_url?: string | null
+          notes?: string | null
+          status?: string
+          feedback?: string | null
+          submitted_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          student_id?: string
+          file_url?: string | null
+          github_url?: string | null
+          notes?: string | null
+          status?: string
+          feedback?: string | null
+          submitted_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
