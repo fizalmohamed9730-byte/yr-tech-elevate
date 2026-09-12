@@ -269,16 +269,11 @@ function AdminPage() {
   const completionRate = useMemo(() => Math.round((completedCount / (internships.length || 1)) * 100), [internships, completedCount]);
 
   async function issueCertificate(internshipId: string) {
-    const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
-    const now = new Date().toISOString();
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await (supabase as any).from("internships").update({
-      certificate_code: code,
-      certificate_issued_at: now,
-      certificate_released_by: u.user?.id ?? null,
-      certificate_released_at: now,
-    }).eq("id", internshipId);
+    const { data: result, error } = await (supabase as any).rpc("issue_certificate", { p_internship_id: internshipId });
     if (error) return toast.error("Failed to issue certificate: " + error.message);
+    if (result?.error) return toast.error(result.error);
+    const code = result?.certificate_code ?? "issued";
+    const now = result?.issued_at ?? new Date().toISOString();
     toast.success("Certificate issued: " + code);
     reload();
     const intern = internships.find((i) => i.id === internshipId);

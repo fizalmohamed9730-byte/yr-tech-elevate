@@ -194,6 +194,40 @@ DROP TRIGGER IF EXISTS internships_set_updated_at ON public.internships;
 CREATE TRIGGER internships_set_updated_at BEFORE UPDATE ON public.internships
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+DROP POLICY IF EXISTS "Students update own internship" ON public.internships;
+CREATE POLICY "Students update own internship" ON public.internships
+  FOR UPDATE TO authenticated
+  USING (student_id = auth.uid())
+  WITH CHECK (student_id = auth.uid());
+
+CREATE OR REPLACE FUNCTION public.protect_certificate_fields()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    IF NEW.certificate_code IS DISTINCT FROM OLD.certificate_code THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_code';
+    END IF;
+    IF NEW.certificate_issued_at IS DISTINCT FROM OLD.certificate_issued_at THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_issued_at';
+    END IF;
+    IF NEW.certificate_released_by IS DISTINCT FROM OLD.certificate_released_by THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_released_by';
+    END IF;
+    IF NEW.certificate_released_at IS DISTINCT FROM OLD.certificate_released_at THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_released_at';
+    END IF;
+    IF NEW.progress_percent IS DISTINCT FROM OLD.progress_percent THEN
+      RAISE EXCEPTION 'Students cannot modify progress_percent';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS protect_certificate_fields ON public.internships;
+CREATE TRIGGER protect_certificate_fields
+  BEFORE UPDATE ON public.internships
+  FOR EACH ROW EXECUTE FUNCTION public.protect_certificate_fields();
+
 -- ------------------------- 8. EXTEND columns -------------------------
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS college text,
@@ -322,6 +356,55 @@ END $$;
 DROP TRIGGER IF EXISTS internships_issue_offer ON public.internships;
 CREATE TRIGGER internships_issue_offer BEFORE UPDATE ON public.internships
   FOR EACH ROW EXECUTE FUNCTION public.issue_offer_letter();
+
+CREATE OR REPLACE FUNCTION public.issue_certificate(p_internship_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id uuid;
+  v_internship record;
+  v_approved int;
+  v_required int;
+  v_code text;
+BEGIN
+  v_admin_id := auth.uid();
+  IF NOT public.has_role(v_admin_id, 'admin') THEN
+    RAISE EXCEPTION 'Only admins can issue certificates';
+  END IF;
+  SELECT * INTO v_internship FROM public.internships WHERE id = p_internship_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Internship not found';
+  END IF;
+  IF v_internship.certificate_code IS NOT NULL THEN
+    RETURN jsonb_build_object('error', 'Certificate already issued: ' || v_internship.certificate_code);
+  END IF;
+  SELECT count(*) INTO v_approved
+    FROM public.submissions
+    WHERE internship_id = p_internship_id AND status = 'approved';
+  v_required := CASE
+    WHEN v_internship.duration = '1 Month' THEN 3
+    WHEN v_internship.duration = '2 Months' THEN 4
+    ELSE 5
+  END;
+  IF v_approved < v_required THEN
+    RAISE EXCEPTION 'Cannot issue certificate: % of % required tasks approved', v_approved, v_required;
+  END IF;
+  v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
+  UPDATE public.internships
+    SET certificate_code     = v_code,
+        certificate_issued_at = now(),
+        certificate_released_by = v_admin_id,
+        certificate_released_at = now()
+  WHERE id = p_internship_id;
+  RETURN jsonb_build_object(
+    'success', true,
+    'certificate_code', v_code,
+    'issued_at', now()::text,
+    'released_by', v_admin_id::text
+  );
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.issue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.issue_certificate(uuid) TO authenticated;
 
 -- ------------------------- 11. Storage buckets + policies -------------------------
 INSERT INTO storage.buckets (id, name, public) VALUES
@@ -681,5 +764,7 @@ REVOKE EXECUTE ON FUNCTION public.promote_to_admin(text) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.recalc_internship_progress() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.issue_offer_letter() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.issue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.issue_certificate(uuid) TO authenticated;
 REVOKE EXECUTE ON FUNCTION public.generate_internship_code() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.auto_confirm_student_emails() FROM PUBLIC, anon, authenticated;

@@ -178,6 +178,8 @@ function Dashboard() {
 
   // Certificate eligibility: only when admin has released it (certificate_code exists)
   const completedTaskCount = tasks.filter((t) => submissionByNo.has(t.no)).length;
+  const approvedTaskCount = tasks.filter((t) => submissionByNo.get(t.no)?.status === "approved").length;
+  const allRequiredApproved = approvedTaskCount >= durationTasksCount;
 
   function isTaskUnlocked(taskNo: number): boolean {
     if (taskNo === 1) return true;
@@ -262,8 +264,8 @@ function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
               <h2 className="text-lg md:text-xl font-semibold">Progress</h2>
               <div className="text-sm text-muted-foreground flex flex-col md:flex-row md:space-x-4 gap-1 md:gap-0">
-                <span>{completedTaskCount} / {durationTasksCount} tasks submitted</span>
-                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - completedTaskCount)} tasks remaining</span>
+                <span>{approvedTaskCount} / {durationTasksCount} tasks approved</span>
+                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - approvedTaskCount)} tasks remaining</span>
               </div>
             </div>
             <Progress value={internship.progress_percent} />
@@ -315,7 +317,7 @@ function Dashboard() {
               <div>
                 <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are submitted.
+                  Your YR NOVATECH internship certificate is available after all required tasks ({durationTasksCount}) are approved by Admin and the certificate is released.
                 </p>
               </div>
               <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>
@@ -505,8 +507,10 @@ function Dashboard() {
                 <span>Certificate Status:</span>
                 {internship.certificate_code ? (
                   <Badge className="bg-emerald-600">Unlocked</Badge>
+                ) : allRequiredApproved ? (
+                  <Badge className="bg-amber-500">Pending Admin Release</Badge>
                 ) : (
-                  <Badge variant="outline">Locked ({completedTaskCount} / {durationTasksCount} Tasks Submitted)</Badge>
+                  <Badge variant="outline">Locked ({approvedTaskCount} / {durationTasksCount} Tasks Approved)</Badge>
                 )}
               </div>
               {internship.certificate_code && (
@@ -517,9 +521,15 @@ function Dashboard() {
               )}
             </div>
 
-            {!internship.certificate_code && (
+            {!internship.certificate_code && !allRequiredApproved && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                Submit all {durationTasksCount} tasks and wait for the admin to approve them and release your certificate.
+                Complete all {durationTasksCount} tasks and get them approved by Admin. Certificate will remain locked until Admin releases it.
+              </div>
+            )}
+
+            {!internship.certificate_code && allRequiredApproved && (
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                All required tasks are approved! Your certificate is pending Admin release.
               </div>
             )}
 
