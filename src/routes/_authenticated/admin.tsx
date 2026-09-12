@@ -66,6 +66,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
   pending: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  pending_review: "bg-amber-500/15 text-amber-400 border-amber-500/20",
   completed: "bg-blue-500/15 text-blue-400 border-blue-500/20",
   cancelled: "bg-red-500/15 text-red-400 border-red-500/20",
   approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
@@ -228,7 +229,7 @@ function AdminPage() {
     return list;
   }, [profiles, internships, domains, searchTerm, filterDomain, filterStatus, filterDuration]);
 
-  const pendingSubs = submissions.filter((s) => s.status === "pending" || s.status === "resubmit");
+  const pendingSubs = submissions.filter((s) => s.status === "pending" || s.status === "pending_review" || s.status === "resubmit");
   const activeCount = internships.filter((i) => i.status === "active").length;
   const completedCount = internships.filter((i) => i.status === "completed").length;
   const pendingApps = internships.filter((i) => i.status === "pending").length;
@@ -270,7 +271,13 @@ function AdminPage() {
   async function issueCertificate(internshipId: string) {
     const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
     const now = new Date().toISOString();
-    const { error } = await (supabase as any).from("internships").update({ certificate_code: code, certificate_issued_at: now }).eq("id", internshipId);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await (supabase as any).from("internships").update({
+      certificate_code: code,
+      certificate_issued_at: now,
+      certificate_released_by: u.user?.id ?? null,
+      certificate_released_at: now,
+    }).eq("id", internshipId);
     if (error) return toast.error("Failed to issue certificate: " + error.message);
     toast.success("Certificate issued: " + code);
     reload();

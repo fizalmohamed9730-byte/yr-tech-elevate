@@ -162,32 +162,6 @@ function Dashboard() {
 
   useEffect(() => { load(); }, []);
 
-  // Auto-issue certificate when all required tasks are submitted (no admin approval needed)
-  useEffect(() => {
-    if (!internship?.id || internship.certificate_code || !internship.domain?.slug) return;
-    if (submissions.length === 0) return;
-
-    const allTasks = getTasksForSlug(internship.domain.slug);
-    const requiredCount = internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5;
-    const requiredTasks = allTasks.slice(0, requiredCount);
-    const subByNo = new Map(submissions.map((sub: any) => [sub.task_no, sub]));
-    const completedCount = requiredTasks.filter((t: any) => subByNo.has(t.no)).length;
-
-    if (completedCount === requiredCount && requiredCount > 0) {
-      (async () => {
-        const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
-        const now = new Date().toISOString();
-        const { error } = await (supabase as any).from("internships").update({
-          certificate_code: code,
-          certificate_issued_at: now,
-        }).eq("id", internship.id);
-        if (!error) {
-          setInternship((prev: any) => ({ ...prev, certificate_code: code, certificate_issued_at: now }));
-        }
-      })();
-    }
-  }, [internship?.id, internship?.certificate_code, internship?.domain?.slug, submissions]);
-
   if (loading) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   if (!internship) return (
     <div className="container mx-auto max-w-xl py-20 text-center">
@@ -202,9 +176,8 @@ function Dashboard() {
   const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
   const isApproved = internship.status === "active" || internship.status === "completed";
 
-  // Certificate eligibility: based on SUBMITTED tasks, not approved
+  // Certificate eligibility: only when admin has released it (certificate_code exists)
   const completedTaskCount = tasks.filter((t) => submissionByNo.has(t.no)).length;
-  const allTasksCompleted = completedTaskCount === durationTasksCount && durationTasksCount > 0;
 
   function isTaskUnlocked(taskNo: number): boolean {
     if (taskNo === 1) return true;
@@ -342,7 +315,7 @@ function Dashboard() {
               <div>
                 <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are submitted.
+                  Your YR NOVATECH internship certificate of completion is generated automatically after the admin approves all required tasks ({durationTasksCount}) and releases the certificate.
                 </p>
               </div>
               <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>
@@ -524,7 +497,7 @@ function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
             
             <p className="text-sm text-muted-foreground">
-              Your certificate becomes eligible after all required tasks ({durationTasksCount}) are submitted. The certificate is automatically issued once all requirements are met.
+              Your certificate is unlocked only after the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
             </p>
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
@@ -546,7 +519,7 @@ function Dashboard() {
 
             {!internship.certificate_code && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                Submit all {durationTasksCount} required internship tasks to unlock your certificate.
+                Submit all {durationTasksCount} tasks and wait for the admin to approve them and release your certificate.
               </div>
             )}
 
@@ -797,7 +770,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
         : (fd.get("project") as string) || null,
       drive_url: (fd.get("drive") as string) || null,
       notes: (fd.get("notes") as string) || null,
-      status: "pending",
+      status: "pending_review",
       feedback: null,
       submitted_at: new Date().toISOString(),
     };
