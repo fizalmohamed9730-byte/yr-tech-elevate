@@ -82,6 +82,20 @@ function Dashboard() {
       }
       setInternship(internship);
 
+      // Fallback: always fetch domain separately if the join didn't provide it
+      if (internship?.domain_id && (!internship.domain?.name || !internship.domain?.slug)) {
+        try {
+          const { data: domainRow } = await (supabase as any)
+            .from("domains").select("name, slug").eq("id", internship.domain_id).maybeSingle();
+          if (domainRow?.name && domainRow?.slug) {
+            internship = { ...internship, domain: { name: domainRow.name, slug: domainRow.slug } };
+            setInternship(internship);
+          }
+        } catch (err: any) {
+          console.warn("[dashboard] fallback domain fetch:", err?.message);
+        }
+      }
+
       if (internship?.id) {
         const { data: s } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
         setSubmissions(s ?? []);
@@ -148,6 +162,32 @@ function Dashboard() {
 
   useEffect(() => { load(); }, []);
 
+  // Auto-issue certificate when all required tasks are submitted (no admin approval needed)
+  useEffect(() => {
+    if (!internship?.id || internship.certificate_code || !internship.domain?.slug) return;
+    if (submissions.length === 0) return;
+
+    const allTasks = getTasksForSlug(internship.domain.slug);
+    const requiredCount = internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5;
+    const requiredTasks = allTasks.slice(0, requiredCount);
+    const subByNo = new Map(submissions.map((sub: any) => [sub.task_no, sub]));
+    const completedCount = requiredTasks.filter((t: any) => subByNo.has(t.no)).length;
+
+    if (completedCount === requiredCount && requiredCount > 0) {
+      (async () => {
+        const code = "YRNT-CERT-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+        const now = new Date().toISOString();
+        const { error } = await (supabase as any).from("internships").update({
+          certificate_code: code,
+          certificate_issued_at: now,
+        }).eq("id", internship.id);
+        if (!error) {
+          setInternship((prev: any) => ({ ...prev, certificate_code: code, certificate_issued_at: now }));
+        }
+      })();
+    }
+  }, [internship?.id, internship?.certificate_code, internship?.domain?.slug, submissions]);
+
   if (loading) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   if (!internship) return (
     <div className="container mx-auto max-w-xl py-20 text-center">
@@ -161,6 +201,10 @@ function Dashboard() {
   const tasks = getTasksForSlug(internship.domain?.slug).slice(0, durationTasksCount);
   const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
   const isApproved = internship.status === "active" || internship.status === "completed";
+
+  // Certificate eligibility: based on SUBMITTED tasks, not approved
+  const completedTaskCount = tasks.filter((t) => submissionByNo.has(t.no)).length;
+  const allTasksCompleted = completedTaskCount === durationTasksCount && durationTasksCount > 0;
 
   function isTaskUnlocked(taskNo: number): boolean {
     if (taskNo === 1) return true;
@@ -232,20 +276,21 @@ function Dashboard() {
 
         {/* Tab 1: Dashboard */}
         <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-5">
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
+            <Stat label="Internship ID" value={internship.internship_code} mono />
+            <Stat label="College" value={(profile as any).college || "-"} />
+            <Stat label="Academic Year" value={(profile as any).academic_year || "-"} />
             <Stat label="Domain" value={internship.domain?.name ?? "-"} />
             <Stat label="Duration" value={internship.duration || "1 Month"} />
-            <Stat label="Internship ID" value={internship.internship_code} mono />
             <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"} className="text-xs">{internship.status}</Badge>} />
-            <Stat label="Progress" value={`${internship.progress_percent}%`} />
           </div>
 
           <Card className="p-4 md:p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
               <h2 className="text-lg md:text-xl font-semibold">Progress</h2>
               <div className="text-sm text-muted-foreground flex flex-col md:flex-row md:space-x-4 gap-1 md:gap-0">
-                <span>{submissions.filter(s=>s.status==='approved').length} / {durationTasksCount} tasks approved</span>
-                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - submissions.filter(s=>s.status==='approved').length)} tasks remaining</span>
+                <span>{completedTaskCount} / {durationTasksCount} tasks submitted</span>
+                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - completedTaskCount)} tasks remaining</span>
               </div>
             </div>
             <Progress value={internship.progress_percent} />
@@ -297,7 +342,7 @@ function Dashboard() {
               <div>
                 <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are reviewed and approved by the admin.
+                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are submitted.
                 </p>
               </div>
               <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>
@@ -325,6 +370,11 @@ function Dashboard() {
                   internship={internship}
                 />
               ))}
+              {tasks.length === 0 && (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  No tasks found. Domain slug: <code className="bg-muted px-1 rounded">{internship.domain?.slug ?? "undefined"}</code>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>
@@ -474,16 +524,16 @@ function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
             
             <p className="text-sm text-muted-foreground">
-              Your certificate becomes eligible only after all required tasks ({durationTasksCount}) are submitted, approved by the admin, and your internship is marked as completed. The admin will issue your certificate once all requirements are met.
+              Your certificate becomes eligible after all required tasks ({durationTasksCount}) are submitted. The certificate is automatically issued once all requirements are met.
             </p>
 
             <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Certificate Status:</span>
                 {internship.certificate_code ? (
-                  <Badge className="bg-emerald-600">Issued</Badge>
+                  <Badge className="bg-emerald-600">Unlocked</Badge>
                 ) : (
-                  <Badge variant="outline">Locked ({submissions.filter(s=>s.status==='approved').length} / {durationTasksCount} Tasks Approved)</Badge>
+                  <Badge variant="outline">Locked ({completedTaskCount} / {durationTasksCount} Tasks Submitted)</Badge>
                 )}
               </div>
               {internship.certificate_code && (
@@ -496,7 +546,7 @@ function Dashboard() {
 
             {!internship.certificate_code && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                Complete and receive approval for all {durationTasksCount} required internship tasks to unlock your certificate.
+                Submit all {durationTasksCount} required internship tasks to unlock your certificate.
               </div>
             )}
 
