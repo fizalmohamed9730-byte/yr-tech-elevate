@@ -315,7 +315,7 @@ function Dashboard() {
               <div>
                 <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your YR NOVATECH internship certificate of completion is generated automatically after the admin approves all required tasks ({durationTasksCount}) and releases the certificate.
+                  Your YR NOVATECH internship certificate of completion is generated automatically after all required tasks ({durationTasksCount}) are submitted.
                 </p>
               </div>
               <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>

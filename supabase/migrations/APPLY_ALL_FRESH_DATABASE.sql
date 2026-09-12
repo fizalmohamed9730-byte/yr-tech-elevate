@@ -222,7 +222,9 @@ ALTER TABLE public.internships
   ADD COLUMN IF NOT EXISTS certificate_email_sent boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS certificate_email_sent_at timestamptz,
   ADD COLUMN IF NOT EXISTS certificate_email_error text,
-  ADD COLUMN IF NOT EXISTS certificate_resend_message_id text;
+  ADD COLUMN IF NOT EXISTS certificate_resend_message_id text,
+  ADD COLUMN IF NOT EXISTS certificate_released_by uuid,
+  ADD COLUMN IF NOT EXISTS certificate_released_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS internships_one_per_student ON public.internships(student_id);
 
@@ -235,8 +237,8 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   project_url text,
   drive_url text,
   notes text,
-  status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','approved','rejected','resubmit')),
+  status text NOT NULL DEFAULT 'pending_review'
+    CHECK (status IN ('pending_review','pending','approved','rejected','resubmit')),
   feedback text,
   submitted_at timestamptz NOT NULL DEFAULT now(),
   reviewed_at timestamptz,
@@ -256,13 +258,15 @@ CREATE POLICY "Students view own submissions" ON public.submissions
 DROP POLICY IF EXISTS "Students insert own submissions" ON public.submissions;
 CREATE POLICY "Students insert own submissions" ON public.submissions
   FOR INSERT TO authenticated
-  WITH CHECK (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = internship_id AND i.student_id = auth.uid()));
+  WITH CHECK (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = internship_id AND i.student_id = auth.uid())
+    AND status = 'pending_review');
 DROP POLICY IF EXISTS "Students update own pending submissions" ON public.submissions;
 CREATE POLICY "Students update own pending submissions" ON public.submissions
   FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = internship_id AND i.student_id = auth.uid())
-         AND status IN ('pending','resubmit','rejected'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = internship_id AND i.student_id = auth.uid()));
+         AND status IN ('resubmit', 'rejected'))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = internship_id AND i.student_id = auth.uid())
+    AND status = 'pending_review');
 DROP POLICY IF EXISTS "Admins manage submissions" ON public.submissions;
 CREATE POLICY "Admins manage submissions" ON public.submissions
   FOR ALL TO authenticated
@@ -288,13 +292,15 @@ BEGIN
   v_required := CASE WHEN v_duration = '1 Month' THEN 3 WHEN v_duration = '2 Months' THEN 4 ELSE 5 END;
   UPDATE public.internships
     SET progress_percent = LEAST(ROUND((v_approved::float / v_required::float) * 100), 100),
-        status = CASE WHEN v_approved >= v_required THEN 'completed'::public.internship_status ELSE status END,
-        completed_at = CASE WHEN v_approved >= v_required AND completed_at IS NULL THEN now() ELSE completed_at END,
-        certificate_code = CASE WHEN v_approved >= 1 AND certificate_code IS NULL
-          THEN 'YRN-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8)) ELSE certificate_code END,
-        certificate_issued_at = CASE WHEN v_approved >= 1 AND certificate_issued_at IS NULL
-          THEN now() ELSE certificate_issued_at END
-  WHERE id = v_iid;
+        status = CASE
+          WHEN v_approved >= v_required AND status != 'completed' THEN 'completed'::public.internship_status
+          ELSE status
+        END,
+        completed_at = CASE
+          WHEN v_approved >= v_required AND completed_at IS NULL THEN now()
+          ELSE completed_at
+        END
+    WHERE id = v_iid;
   RETURN NEW;
 END $$;
 
