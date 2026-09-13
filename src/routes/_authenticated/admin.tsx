@@ -129,7 +129,7 @@ function AdminPage() {
     try {
       const db = supabase as any;
       const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, avatar_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
@@ -236,8 +236,11 @@ function AdminPage() {
       const q = searchTerm.toLowerCase();
       list = list.filter((s) =>
         (s.full_name ?? "").toLowerCase().includes(q) || (s.email ?? "").toLowerCase().includes(q) ||
-        (s.college ?? "").toLowerCase().includes(q) || (s.internship?.internship_code ?? "").toLowerCase().includes(q) ||
-        (s.resolvedDomain ?? "").toLowerCase().includes(q)
+        (s.college ?? "").toLowerCase().includes(q) || (s.year ?? "").toLowerCase().includes(q) ||
+        (s.internship?.internship_code ?? "").toLowerCase().includes(q) ||
+        (s.resolvedDomain ?? "").toLowerCase().includes(q) ||
+        (s.internship?.duration ?? "").toLowerCase().includes(q) ||
+        (s.internship?.status ?? "").toLowerCase().includes(q)
       );
     }
     if (filterDomain !== "all") list = list.filter((s) => s.internship?.domain_id === filterDomain);
@@ -680,9 +683,17 @@ function AdminPage() {
     <Button size="sm" variant="outline" onClick={exportStudentsCSV} className="border-(--admin-input-border) text-(--admin-text-secondary) hover:bg-(--admin-nav-hover-bg)"><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
   </div>
   <div className="flex flex-wrap items-center gap-3">
+    <div className="relative flex-1 min-w-[200px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-(--admin-text-muted)" />
+      <input placeholder="Search by name, email, ID, domain..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full h-9 rounded-lg border border-(--admin-input-border) bg-(--admin-select-bg) pl-9 pr-4 text-sm text-(--admin-text) placeholder-(--admin-text-muted) focus:outline-none focus:ring-1 focus:ring-blue-500/50" />
+      {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-(--admin-text-muted) hover:text-(--admin-text)"><X className="h-3.5 w-3.5" /></button>}
+    </div>
     <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className="h-9 rounded-lg border border-(--admin-input-border) bg-(--admin-select-bg) px-3 text-sm text-(--admin-text)"><option value="all">All Domains</option>{domains.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
     <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-9 rounded-lg border border-(--admin-input-border) bg-(--admin-select-bg) px-3 text-sm text-(--admin-text)"><option value="all">All Status</option><option value="pending">Pending</option><option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
     <select value={filterDuration} onChange={(e) => setFilterDuration(e.target.value)} className="h-9 rounded-lg border border-(--admin-input-border) bg-(--admin-select-bg) px-3 text-sm text-(--admin-text)"><option value="all">All Durations</option><option value="1 Month">1 Month</option><option value="2 Months">2 Months</option><option value="3 Months">3 Months</option></select>
+    {(searchTerm || filterDomain !== "all" || filterStatus !== "all" || filterDuration !== "all") && (
+      <Button size="sm" variant="ghost" className="h-9 px-3 text-xs text-(--admin-text-secondary) hover:bg-(--admin-nav-hover-bg)" onClick={() => { setSearchTerm(""); setFilterDomain("all"); setFilterStatus("all"); setFilterDuration("all"); }}><X className="h-3 w-3 mr-1" /> Clear Filters</Button>
+    )}
   </div>
   <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
     <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Photo</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">College</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Duration</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Progress</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
@@ -705,6 +716,7 @@ function AdminPage() {
           <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-(--admin-text-secondary) hover:text-(--admin-text) hover:bg-(--admin-nav-hover-bg)"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
             <DialogContent className="max-w-lg bg-(--admin-dialog) border-(--admin-dialog-border)"><DialogHeader><DialogTitle className="text-(--admin-text)">{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
               <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
+                {s.avatar_url && <div className="flex justify-center"><img src={s.avatar_url} alt={s.full_name ?? ""} className="w-20 h-20 rounded-full object-cover border-2 border-(--admin-card-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
                 <div className="border border-(--admin-card-border) rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-(--admin-text-muted)">Personal</h4><div className="grid grid-cols-2 gap-2">
                   <div><span className="text-(--admin-text-muted)">Name:</span> <span className="text-(--admin-text)">{s.full_name ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Email:</span> <span className="text-(--admin-text)">{s.email}</span></div>
                   <div><span className="text-(--admin-text-muted)">Phone:</span> <span className="text-(--admin-text)">{s.phone ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Year:</span> <span className="text-(--admin-text)">{s.year ?? "-"}</span></div>
@@ -730,7 +742,7 @@ function AdminPage() {
         </div></td>
       </tr>);
     })}
-    {enrichedStudents.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-(--admin-text-muted) text-sm">No students registered yet</td></tr>}
+    {enrichedStudents.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-(--admin-text-muted) text-sm">{(searchTerm || filterDomain !== "all" || filterStatus !== "all" || filterDuration !== "all") ? "No interns found matching the selected filters." : "No students registered yet"}</td></tr>}
   </tbody></table></div></div>
 </div>
 )}
