@@ -128,7 +128,7 @@ function AdminPage() {
     try {
       const db = supabase as any;
       const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
@@ -846,7 +846,13 @@ function AdminPage() {
           <div>Domain: <span className="text-(--admin-text)">{i.domain?.name ?? "-"}</span></div>
           <div>Duration: <span className="text-(--admin-text)">{i.duration ?? "-"}</span></div>
         </div>
-        <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => getPdf().then(m => m.downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl: i.student?.avatar_url, email: i.student?.email, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>
+        <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={async () => {
+          let photoDataUrl: string | undefined = i.student?.avatar_url;
+          if (!photoDataUrl && i.student_id) {
+            try { const { data } = await supabase.from("profiles").select("avatar_url").eq("id", i.student_id).maybeSingle(); photoDataUrl = data?.avatar_url ?? undefined; } catch {}
+          }
+          getPdf().then(m => m.downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl, email: i.student?.email, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")));
+        }}>
           <CreditCard className="h-3 w-3 mr-1" /> Download ID Card
         </Button>
       </div>
