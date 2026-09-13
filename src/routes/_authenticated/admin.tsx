@@ -214,11 +214,11 @@ function AdminPage() {
     const map = new Map<string, number>();
     for (const sub of submissions) {
       if (sub.status !== "approved") continue;
-      const internship = internshipByStudent.get(sub.internship_id);
-      if (internship?.student_id) map.set(internship.student_id, (map.get(internship.student_id) ?? 0) + 1);
+      const studentId = sub.internship?.student_id;
+      if (studentId) map.set(studentId, (map.get(studentId) ?? 0) + 1);
     }
     return map;
-  }, [submissions, internshipByStudent]);
+  }, [submissions]);
 
   const enrichedStudents = useMemo(() => {
     function resolveDomainName(internship: any): string {
