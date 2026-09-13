@@ -49,24 +49,31 @@ function Dashboard() {
 
   async function load() {
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
+      const { data: u, error: authErr } = await supabase.auth.getUser();
+      if (authErr) {
+        console.error("[dashboard] auth error:", authErr.message, authErr);
+        return;
+      }
+      if (!u.user) {
+        console.warn("[dashboard] no authenticated user");
+        return;
+      }
 
-      // Fetch profile + internship in parallel
-      const [{ data: p }, { data: i }] = await Promise.all([
+      const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
         supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
+
+      if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
+      if (iErr) console.error("[dashboard] internships query error:", iErr.code, iErr.message, iErr.details, iErr.hint);
+
       setProfile(p);
       setPhoto(p?.avatar_url ?? null);
 
       let internship = i;
-      // Legacy users (registered before the offer-letter migration) have a
-      // "pending" internship with no offer code, so they can't download their
-      // offer letter. Auto-activate on load - the DB trigger issues the code.
       if (internship?.id && !internship.offer_letter_code) {
         try {
-          const { data: upd } = await (supabase as any)
+          const { data: upd, error: updErr } = await (supabase as any)
             .from("internships")
             .update({
               status: "active",
@@ -75,6 +82,7 @@ function Dashboard() {
             .eq("id", internship.id)
             .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
+          if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) internship = upd;
         } catch (err: any) {
           console.warn("[dashboard] auto-activate internship:", err?.message);
@@ -82,11 +90,11 @@ function Dashboard() {
       }
       setInternship(internship);
 
-      // Fallback: always fetch domain separately if the join didn't provide it
       if (internship?.domain_id && (!internship.domain?.name || !internship.domain?.slug)) {
         try {
-          const { data: domainRow } = await (supabase as any)
+          const { data: domainRow, error: dErr } = await (supabase as any)
             .from("domains").select("name, slug").eq("id", internship.domain_id).maybeSingle();
+          if (dErr) console.warn("[dashboard] domain fallback error:", dErr.code, dErr.message);
           if (domainRow?.name && domainRow?.slug) {
             internship = { ...internship, domain: { name: domainRow.name, slug: domainRow.slug } };
             setInternship(internship);
@@ -97,7 +105,8 @@ function Dashboard() {
       }
 
       if (internship?.id) {
-        const { data: s } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
+        const { data: s, error: sErr } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
+        if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message, sErr.details, sErr.hint);
         setSubmissions(s ?? []);
       }
     } catch (err: any) {
@@ -632,11 +641,12 @@ function FeedbackPanel({ profile }: { profile: any }) {
   useEffect(() => {
     if (!profile?.id) return;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("feedback")
         .select("id, user_id, rating, message, created_at")
         .eq("user_id", profile.id)
         .order("created_at", { ascending: false });
+      if (error) console.error("[feedback] load error:", error.code, error.message, error.details, error.hint);
       setExistingFeedback(data ?? []);
     })();
   }, [profile?.id]);
@@ -657,12 +667,13 @@ function FeedbackPanel({ profile }: { profile: any }) {
       setSubmitted(true);
       setMessage("");
       setRating(0);
-      const { data } = await supabase
+      const { data: refreshed, error: refreshErr } = await supabase
         .from("feedback")
         .select("id, user_id, rating, message, created_at")
         .eq("user_id", profile.id)
         .order("created_at", { ascending: false });
-      setExistingFeedback(data ?? []);
+      if (refreshErr) console.error("[feedback] re-fetch error:", refreshErr.code, refreshErr.message);
+      setExistingFeedback(refreshed ?? []);
     } catch (err: any) {
       toast.error("Failed to submit feedback: " + (err?.message ?? "Unknown error"));
     } finally {

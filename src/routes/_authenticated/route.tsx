@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-const AUTH_TIMEOUT_MS = 4000;
+const AUTH_TIMEOUT_MS = 15000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
@@ -23,8 +23,12 @@ async function resolveUser() {
     if (!error && data.user) {
       return data.user;
     }
+    if (error) {
+      console.error("[auth] getUser error:", error.message, error);
+    }
   } catch (err: any) {
     if (err?.name === "Redirect" || err?.isRedirect) throw err;
+    console.error("[auth] getUser timeout or network error:", err?.message);
   }
 
   // Fallback: read session from localStorage (no network call)
@@ -58,7 +62,10 @@ export const Route = createFileRoute("/_authenticated")({
         AUTH_TIMEOUT_MS,
       );
       const roles: string[] = rolesQuery.error
-        ? []
+        ? (() => {
+            console.error("[auth] user_roles query error:", rolesQuery.error.code, rolesQuery.error.message, rolesQuery.error.details);
+            return [];
+          })()
         : (rolesQuery.data ?? []).map((x: any) => x.role);
 
       role = roles.includes("admin")
@@ -68,9 +75,11 @@ export const Route = createFileRoute("/_authenticated")({
           : null;
     } catch (err: any) {
       if (err?.name === "Redirect" || err?.isRedirect) throw err;
+      console.error("[auth] user_roles query timeout or network error:", err?.message);
     }
 
     if (!role) {
+      console.warn("[auth] no role found for user:", user.id, "- redirecting to /auth");
       throw redirect({ to: "/auth" });
     }
 

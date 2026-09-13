@@ -103,13 +103,23 @@ function AdminPage() {
     try {
       const { data, error } = await builder as any;
       if (error) {
-        console.error(`[admin] ${label} query error:`, error);
+        console.error(`[admin] ${label} query error:`, {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          status: error.status,
+        });
         toast.error(`Failed to load ${label}: ${error.message}`);
         return [];
       }
       return (data ?? []) as T[];
     } catch (err: any) {
-      console.error(`[admin] ${label} query threw:`, err);
+      console.error(`[admin] ${label} query threw:`, {
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+      });
       return [];
     }
   }
@@ -157,9 +167,14 @@ function AdminPage() {
     let mounted = true;
     (async () => {
       try {
-        const { data: u } = await supabase.auth.getUser();
+        const { data: u, error: uErr } = await supabase.auth.getUser();
+        if (uErr) {
+          console.error("[admin] auth error:", uErr.message, uErr);
+          return;
+        }
         if (!u.user || !mounted) return;
-        const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+        const { data: roles, error: rErr } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+        if (rErr) console.error("[admin] user_roles error:", rErr.code, rErr.message, rErr.details, rErr.hint);
         const admin = (roles ?? []).some((r: any) => r.role === "admin");
         if (!mounted) return;
         setIsAdmin(admin);
