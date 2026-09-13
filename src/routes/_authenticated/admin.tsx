@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -268,12 +269,34 @@ function AdminPage() {
   const recentInterns = useMemo(() => [...internships].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5), [internships]);
   const completionRate = useMemo(() => Math.round((completedCount / (internships.length || 1)) * 100), [internships, completedCount]);
 
+  const notifications = useMemo(() => {
+    type NotifItem = { id: string; type: string; title: string; description: string; timestamp: string; icon: any; color: string; section?: Section };
+    const items: NotifItem[] = [];
+    for (const sub of pendingSubs) {
+      items.push({ id: `sub-${sub.id}`, type: "submission", title: "Task Submission", description: `${sub.internship?.student?.full_name ?? "Intern"} submitted Task ${sub.task_no} for review`, timestamp: sub.submitted_at, icon: Upload, color: "text-amber-500", section: "tasks" });
+    }
+    for (const enquiry of enquiries.filter((e) => e.status === "new")) {
+      items.push({ id: `enq-${enquiry.id}`, type: "enquiry", title: "New Enquiry", description: `${enquiry.name}: ${(enquiry.message ?? "").slice(0, 60)}${(enquiry.message ?? "").length > 60 ? "..." : ""}`, timestamp: enquiry.created_at, icon: Mail, color: "text-blue-500" });
+    }
+    for (const ann of announcements.slice(0, 5)) {
+      items.push({ id: `ann-${ann.id}`, type: "announcement", title: "Announcement", description: ann.title, timestamp: ann.created_at, icon: Megaphone, color: "text-purple-500", section: "announcements" });
+    }
+    const recentInterns = internships.filter((i) => { const created = new Date(i.created_at).getTime(); return Date.now() - created < 86400000; }).slice(0, 5);
+    for (const intern of recentInterns) {
+      items.push({ id: `reg-${intern.id}`, type: "registration", title: "New Registration", description: `${intern.student?.full_name ?? "New intern"} registered for ${intern.domain?.name ?? ""}`, timestamp: intern.created_at, icon: Users, color: "text-emerald-500", section: "interns" });
+    }
+    return items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [pendingSubs, enquiries, announcements, internships]);
+
+  const unreadCount = pendingSubs.length + enquiries.filter((e) => e.status === "new").length;
+
   async function issueCertificate(internshipId: string) {
-    const { data: result, error } = await (supabase as any).rpc("issue_certificate", { p_internship_id: internshipId });
+    const { data: result, error } = await supabase.rpc("issue_certificate", { p_internship_id: internshipId });
+    const res = result as any;
     if (error) return toast.error("Failed to issue certificate: " + error.message);
-    if (result?.error) return toast.error(result.error);
-    const code = result?.certificate_code ?? "issued";
-    const now = result?.issued_at ?? new Date().toISOString();
+    if (res?.error) return toast.error(res.error);
+    const code = res?.certificate_code ?? "issued";
+    const now = res?.issued_at ?? new Date().toISOString();
     toast.success("Certificate issued: " + code);
     reload();
     const intern = internships.find((i) => i.id === internshipId);
@@ -454,9 +477,35 @@ function AdminPage() {
             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-(--admin-nav-hover-bg) text-(--admin-text-secondary) transition-colors" aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}>
               {isDark ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-blue-600" />}
             </button>
-            <button className="relative p-2 rounded-lg hover:bg-(--admin-nav-hover-bg) text-(--admin-text-secondary)"><Bell className="h-5 w-5" />
-              {enquiries.filter(e => e.status === "new").length > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">{enquiries.filter(e => e.status === "new").length}</span>}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="relative p-2 rounded-lg hover:bg-(--admin-nav-hover-bg) text-(--admin-text-secondary) transition-colors">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto bg-(--admin-card) border-(--admin-card-border) p-0">
+                <div className="p-3 border-b border-(--admin-card-border) flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-(--admin-text)">Notifications</h3>
+                  {unreadCount > 0 && <span className="text-[10px] text-blue-500 font-medium">{unreadCount} unread</span>}
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-(--admin-text-muted)">No notifications</div>
+                ) : (
+                  notifications.slice(0, 20).map((n) => (
+                    <DropdownMenuItem key={n.id} className="flex items-start gap-3 p-3 cursor-pointer hover:bg-(--admin-nav-hover-bg) focus:bg-(--admin-nav-hover-bg) border-b border-(--admin-card-border) last:border-0 rounded-none" onClick={() => { if (n.section) setActiveSection(n.section); }}>
+                      <n.icon className={`h-4 w-4 mt-0.5 shrink-0 ${n.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-(--admin-text)">{n.title}</div>
+                        <div className="text-xs text-(--admin-text-muted) truncate">{n.description}</div>
+                        <div className="text-[10px] text-(--admin-text-muted) mt-1">{new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+                {notifications.length > 20 && <div className="p-2 text-center text-[11px] text-(--admin-text-muted)">+ {notifications.length - 20} more</div>}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="flex items-center gap-3 pl-3 border-l border-(--admin-input-border)">
               <div className="text-right hidden sm:block"><div className="text-sm font-medium text-(--admin-text)">Admin</div><div className="text-[11px] text-(--admin-text-muted)">System Administrator</div></div>
               <Avatar className="h-9 w-9 border-2 border-blue-500/30"><AvatarFallback className="bg-blue-600 text-white text-sm font-semibold">AD</AvatarFallback></Avatar>

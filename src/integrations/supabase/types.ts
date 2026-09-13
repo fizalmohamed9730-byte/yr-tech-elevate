@@ -103,6 +103,8 @@ export type Database = {
           batch_id: string | null
           certificate_code: string | null
           certificate_issued_at: string | null
+          certificate_released_at: string | null
+          certificate_released_by: string | null
           completed_at: string | null
           created_at: string
           domain_id: string
@@ -121,6 +123,8 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
+          certificate_released_at?: string | null
+          certificate_released_by?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id: string
@@ -139,6 +143,8 @@ export type Database = {
           batch_id?: string | null
           certificate_code?: string | null
           certificate_issued_at?: string | null
+          certificate_released_at?: string | null
+          certificate_released_by?: string | null
           completed_at?: string | null
           created_at?: string
           domain_id?: string
@@ -489,6 +495,12 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      issue_certificate: {
+        Args: {
+          p_internship_id: string
+        }
+        Returns: Json
       }
       promote_to_admin: {
         Args: {
