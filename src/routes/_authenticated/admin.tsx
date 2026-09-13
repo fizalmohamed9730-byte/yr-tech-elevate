@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage
 });
 
-type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "feedback" | "analytics" | "announcements";
+type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "feedback" | "enquiries" | "analytics" | "announcements";
 
 const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -60,6 +60,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] 
   { id: "idcards", label: "ID Cards", icon: CreditCard },
   { id: "certificates", label: "Certificates", icon: Award },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
+  { id: "enquiries", label: "Enquiries", icon: Mail, badgeKey: "enquiries" },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -252,7 +253,7 @@ function AdminPage() {
   const pendingProjectSubs = projectSubmissions.filter((s) => s.status === "pending");
   const certsIssued = internships.filter((i) => i.certificate_code).length;
 
-  const badgeCounts: Record<string, number> = { applications: pendingApps, tasks: pendingSubs.length, submissions: pendingProjectSubs.length };
+  const badgeCounts: Record<string, number> = { applications: pendingApps, tasks: pendingSubs.length, submissions: pendingProjectSubs.length, enquiries: enquiries.filter((e) => e.status === "new").length };
 
   const registrationData = useMemo(() => {
     const mc: Record<string, number> = {};
@@ -291,7 +292,7 @@ function AdminPage() {
       items.push({ id: `sub-${sub.id}`, type: "submission", title: "Task Submission", description: `${sub.internship?.student?.full_name ?? "Intern"} submitted Task ${sub.task_no} for review`, timestamp: sub.submitted_at, icon: Upload, color: "text-amber-500", section: "tasks" });
     }
     for (const enquiry of enquiries.filter((e) => e.status === "new")) {
-      items.push({ id: `enq-${enquiry.id}`, type: "enquiry", title: "New Enquiry", description: `${enquiry.name}: ${(enquiry.message ?? "").slice(0, 60)}${(enquiry.message ?? "").length > 60 ? "..." : ""}`, timestamp: enquiry.created_at, icon: Mail, color: "text-blue-500" });
+      items.push({ id: `enq-${enquiry.id}`, type: "enquiry", title: "New Enquiry", description: `${enquiry.name}: ${(enquiry.message ?? "").slice(0, 60)}${(enquiry.message ?? "").length > 60 ? "..." : ""}`, timestamp: enquiry.created_at, icon: Mail, color: "text-blue-500", section: "enquiries" });
     }
     for (const ann of announcements.slice(0, 5)) {
       items.push({ id: `ann-${ann.id}`, type: "announcement", title: "Announcement", description: ann.title, timestamp: ann.created_at, icon: Megaphone, color: "text-purple-500", section: "announcements" });
@@ -941,6 +942,44 @@ function AdminPage() {
         <div key={a.id} className="border border-(--admin-card-border) rounded-lg p-3 flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0"><h5 className="text-(--admin-text) font-medium">{a.title}</h5>{a.body && <p className="text-sm text-(--admin-text-secondary) mt-1">{a.body}</p>}<p className="text-xs text-(--admin-text-muted) mt-2">{new Date(a.created_at).toLocaleDateString()}</p></div>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => deleteAnnouncement(a.id)}><X className="h-3.5 w-3.5" /></Button>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+)}
+
+{/* ============ ENQUIRIES ============ */}
+{activeSection === "enquiries" && (
+<div className="space-y-6"><h2 className="text-lg font-semibold text-(--admin-text)">Enquiries</h2>
+  <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-sm font-semibold text-(--admin-text) flex items-center gap-2"><Mail className="h-4 w-4 text-blue-500" /> All Enquiries ({enquiries.length})</h3>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-(--admin-text-muted)">{enquiries.filter(e => e.status === "new").length} unread</span>
+      </div>
+    </div>
+    {enquiries.length === 0 && <p className="text-sm text-(--admin-text-muted) text-center py-8">No enquiries yet</p>}
+    <div className="space-y-3">
+      {enquiries.map((enq) => (
+        <div key={enq.id} className={`border rounded-lg p-4 transition-colors ${enq.status === "new" ? "border-blue-500/30 bg-blue-500/5" : "border-(--admin-card-border)"}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-(--admin-text) font-medium">{enq.name}</span>
+                <span className="text-xs text-(--admin-text-muted) font-mono">{enq.email}</span>
+                {enq.status === "new" && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/20">New</span>}
+                {enq.status === "read" && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Read</span>}
+                {enq.status === "archived" && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-500/15 text-gray-400 border border-gray-500/20">Archived</span>}
+              </div>
+              <p className="text-sm text-(--admin-text-secondary) mt-1 whitespace-pre-wrap">{enq.message}</p>
+              <p className="text-xs text-(--admin-text-muted) mt-2">{new Date(enq.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {enq.status === "new" && <Button size="sm" variant="outline" className="text-xs h-7 border-(--admin-input-border) text-(--admin-text-secondary) hover:text-(--admin-text)" onClick={() => updateEnquiryStatus(enq.id, "read")}>Mark Read</Button>}
+              {enq.status !== "archived" && <Button size="sm" variant="ghost" className="text-xs h-7 text-(--admin-text-muted) hover:text-(--admin-text)" onClick={() => updateEnquiryStatus(enq.id, "archived")}>Archive</Button>}
+            </div>
+          </div>
         </div>
       ))}
     </div>
