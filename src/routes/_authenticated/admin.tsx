@@ -27,12 +27,7 @@ import { getTasksForSlug } from "@/lib/tasks";
 import { getInitials } from "@/lib/utils";
 import { useAdminTheme } from "@/hooks/use-admin-theme";
 
-type PdfModule = typeof import("@/lib/pdf");
-let _pdfMod: PdfModule | null = null;
-async function getPdf(): Promise<PdfModule> {
-  if (!_pdfMod) _pdfMod = await import("@/lib/pdf");
-  return _pdfMod;
-}
+import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, uploadOfferLetterToStorage, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { sendOfferLetterEmail, sendCertificateEmail } from "@/routes/-email.serverfn";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -401,7 +396,7 @@ function AdminPage() {
     if (status === "active") {
       const ud: any = updatedData;
       const sp = profiles.find((p) => p.id === ud.student_id);
-      (async () => { try { const { uploadOfferLetterToStorage } = await import("@/lib/pdf"); await uploadOfferLetterToStorage({ studentId: ud.student_id, fullName: sp?.full_name ?? "Intern", domain: ud.domain?.name ?? "", domainSlug: ud.domain?.slug, internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at, duration: ud.duration }); toast.success("Offer letter PDF stored"); } catch (err: any) { toast.error("Failed to store PDF: " + err.message); } })();
+      (async () => { try { await uploadOfferLetterToStorage({ studentId: ud.student_id, fullName: sp?.full_name ?? "Intern", domain: ud.domain?.name ?? "", domainSlug: ud.domain?.slug, internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at, duration: ud.duration }); toast.success("Offer letter PDF stored"); } catch (err: any) { toast.error("Failed to store PDF: " + err.message); } })();
       if (sp?.email) { (async () => { try { const r = await sendOfferLetterEmail({ data: { internshipId: id, email: sp.email, fullName: sp.full_name ?? "Intern", domain: ud.domain?.name ?? "", duration: ud.duration ?? "1 Month", internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at } }); if (r?.error) toast.error("Email failed: " + r.error); else toast.success("Offer letter emailed to " + sp.email); } catch (e: any) { toast.error("Email failed: " + (e?.message ?? "Unknown error")); } })(); }
     }
   }
@@ -858,8 +853,8 @@ function AdminPage() {
           <span className="text-xs text-(--admin-text-muted)">-</span>
         </td>
         <td className="py-3 px-3 space-x-1 whitespace-nowrap">
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-(--admin-text-secondary) hover:text-(--admin-text)" onClick={() => getPdf().then(m => m.viewOfferLetterFromStorage(i.student_id)).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadOfferLetterAnywhere({ studentId: i.student_id, fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", domainSlug: i.domain?.slug, internshipCode: i.internship_code, offerCode: i.offer_letter_code, startedAt: i.started_at, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-(--admin-text-secondary) hover:text-(--admin-text)" onClick={() => viewOfferLetterFromStorage(i.student_id).catch(err => toast.error("View failed: " + (err?.message ?? "Unknown error")))}>View</Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => downloadOfferLetterAnywhere({ studentId: i.student_id, fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", domainSlug: i.domain?.slug, internshipCode: i.internship_code, offerCode: i.offer_letter_code, startedAt: i.started_at, duration: i.duration }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}>Download</Button>
           <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" disabled={sendingEmail === `ol-${i.id}`} onClick={() => handleSendOfferLetterEmail(i)}>
             {sendingEmail === `ol-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
           </Button>
@@ -891,7 +886,7 @@ function AdminPage() {
           if (!photoDataUrl && i.student_id) {
             try { const { data } = await supabase.from("profiles").select("avatar_url").eq("id", i.student_id).maybeSingle(); photoDataUrl = data?.avatar_url ?? undefined; } catch {}
           }
-          getPdf().then(m => m.downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl, email: i.student?.email, duration: i.duration })).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")));
+          downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl, email: i.student?.email, duration: i.duration }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")));
         }}>
           <CreditCard className="h-3 w-3 mr-1" /> Download ID Card
         </Button>
@@ -919,7 +914,7 @@ function AdminPage() {
           <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</td>
           <td className="py-3 px-3"><span className="text-xs text-(--admin-text-muted)">-</span></td>
           <td className="py-3 px-3 space-x-1 whitespace-nowrap">
-            <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => getPdf().then(m => m.downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration })).catch(err => toast.error("Download failed"))}>Download</Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration }).catch(err => { console.error("[certificate-download]", err); toast.error("Download failed") })}>Download</Button>
             <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
               {sendingEmail === `cert-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
             </Button>
