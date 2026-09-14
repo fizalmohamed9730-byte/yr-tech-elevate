@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,10 @@ function AdminPage() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { theme, toggleTheme, isDark } = useAdminTheme();
+  const reloadInProgress = useRef(false);
+  const toastedErrors = useRef(new Set<string>());
+  const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>({});
+  const profilePhotosLoaded = useRef(false);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<T[]> {
     try {
@@ -111,9 +115,14 @@ function AdminPage() {
           hint: error.hint,
           status: error.status,
         });
-        toast.error(`Failed to load ${label}: ${error.message}`);
+        if (!toastedErrors.current.has(label)) {
+          toastedErrors.current.add(label);
+          toast.error(`Failed to load ${label}: ${error.message}`);
+          setTimeout(() => toastedErrors.current.delete(label), 30000);
+        }
         return [];
       }
+      toastedErrors.current.delete(label);
       return (data ?? []) as T[];
     } catch (err: any) {
       console.error(`[admin] ${label} query threw:`, {
@@ -125,11 +134,31 @@ function AdminPage() {
     }
   }
 
+  const loadProfilePhotos = useCallback(async (profilesList: any[]) => {
+    if (profilePhotosLoaded.current || profilesList.length === 0) return;
+    try {
+      const ids = profilesList.map((p: any) => p.id);
+      const { data } = await supabase.from("profiles").select("id, avatar_url").in("id", ids);
+      if (data && data.length > 0) {
+        const photos: Record<string, string> = {};
+        for (const row of data) {
+          if (row.avatar_url) photos[row.id] = row.avatar_url;
+        }
+        setProfilePhotos(photos);
+      }
+      profilePhotosLoaded.current = true;
+    } catch {
+      profilePhotosLoaded.current = true;
+    }
+  }, []);
+
   async function reload() {
+    if (reloadInProgress.current) return;
+    reloadInProgress.current = true;
     try {
       const db = supabase as any;
       const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, avatar_url, created_at").order("created_at", { ascending: false })),
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
@@ -159,8 +188,11 @@ function AdminPage() {
       const internshipMap = new Map<string, any>();
       for (const int of i) internshipMap.set(int.id, int);
       setSubmissions(rawSubs.map((sub: any) => ({ ...sub, internship: internshipMap.get(sub.internship_id) ?? null })));
+      loadProfilePhotos(p);
     } catch (err: any) {
       console.error("[admin] reload error:", err);
+    } finally {
+      reloadInProgress.current = false;
     }
   }
 
@@ -703,7 +735,7 @@ function AdminPage() {
       const tt = i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0;
       const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
       return (<tr key={s.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
-        <td className="py-3 px-3">{s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-(--admin-input-border)" /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>
+        <td className="py-3 px-3">{(profilePhotos[s.id] || s.avatar_url) ? <img src={profilePhotos[s.id] || s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-(--admin-input-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>
         <td className="py-3 px-3 text-(--admin-text) font-medium whitespace-nowrap">{s.full_name ?? "-"}</td>
         <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i?.internship_code ?? "-"}</td>
         <td className="py-3 px-3 text-xs text-(--admin-text-secondary) max-w-[120px] truncate">{s.email}</td>
@@ -716,7 +748,7 @@ function AdminPage() {
           <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-(--admin-text-secondary) hover:text-(--admin-text) hover:bg-(--admin-nav-hover-bg)"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
             <DialogContent className="max-w-lg bg-(--admin-dialog) border-(--admin-dialog-border)"><DialogHeader><DialogTitle className="text-(--admin-text)">{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
               <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
-                {s.avatar_url && <div className="flex justify-center"><img src={s.avatar_url} alt={s.full_name ?? ""} className="w-20 h-20 rounded-full object-cover border-2 border-(--admin-card-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+                {(profilePhotos[s.id] || s.avatar_url) && <div className="flex justify-center"><img src={profilePhotos[s.id] || s.avatar_url} alt={s.full_name ?? ""} className="w-20 h-20 rounded-full object-cover border-2 border-(--admin-card-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
                 <div className="border border-(--admin-card-border) rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-(--admin-text-muted)">Personal</h4><div className="grid grid-cols-2 gap-2">
                   <div><span className="text-(--admin-text-muted)">Name:</span> <span className="text-(--admin-text)">{s.full_name ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Email:</span> <span className="text-(--admin-text)">{s.email}</span></div>
                   <div><span className="text-(--admin-text-muted)">Phone:</span> <span className="text-(--admin-text)">{s.phone ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Year:</span> <span className="text-(--admin-text)">{s.year ?? "-"}</span></div>
