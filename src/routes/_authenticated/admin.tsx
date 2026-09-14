@@ -33,12 +33,7 @@ async function getPdf(): Promise<PdfModule> {
   if (!_pdfMod) _pdfMod = await import("@/lib/pdf");
   return _pdfMod;
 }
-type EmailModule = typeof import("@/routes/-email.serverfn");
-let _emailMod: EmailModule | null = null;
-async function getEmail(): Promise<EmailModule> {
-  if (!_emailMod) _emailMod = await import("@/routes/-email.serverfn");
-  return _emailMod;
-}
+import { sendOfferLetterEmail, sendCertificateEmail } from "@/routes/-email.serverfn";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
@@ -354,7 +349,7 @@ function AdminPage() {
     if (intern?.student?.email) {
       (async () => {
         try {
-          const emailResult = await (await getEmail()).sendCertificateEmail({ data: { internshipId, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, certificateCode: code, issuedAt: now } });
+          const emailResult = await sendCertificateEmail({ data: { internshipId, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, certificateCode: code, issuedAt: now } });
           if (emailResult?.error) toast.error("Email failed: " + emailResult.error);
           else toast.success("Certificate emailed to " + intern.student.email);
         } catch (emailErr: any) { toast.error("Email failed: " + (emailErr?.message ?? "Unknown error")); }
@@ -366,7 +361,7 @@ function AdminPage() {
     if (!intern.student?.email) return toast.error("No email found for this intern");
     setSendingEmail(`ol-${intern.id}`);
     try {
-      const result = await (await getEmail()).sendOfferLetterEmail({ data: { internshipId: intern.id, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, offerCode: intern.offer_letter_code, startedAt: intern.started_at } });
+      const result = await sendOfferLetterEmail({ data: { internshipId: intern.id, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, offerCode: intern.offer_letter_code, startedAt: intern.started_at } });
       if (result?.error) toast.error("Email failed: " + result.error);
       else { toast.success("Offer letter emailed successfully"); reload(); }
     } catch (err: any) { toast.error("Email failed: " + (err?.message ?? "Unknown error")); }
@@ -377,7 +372,7 @@ function AdminPage() {
     if (!intern.student?.email) return toast.error("No email found for this intern");
     setSendingEmail(`cert-${intern.id}`);
     try {
-      const result = await (await getEmail()).sendCertificateEmail({ data: { internshipId: intern.id, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, certificateCode: intern.certificate_code, issuedAt: intern.certificate_issued_at } });
+      const result = await sendCertificateEmail({ data: { internshipId: intern.id, email: intern.student.email, fullName: intern.student.full_name ?? "Intern", domain: intern.domain?.name ?? "", duration: intern.duration ?? "1 Month", internshipCode: intern.internship_code, certificateCode: intern.certificate_code, issuedAt: intern.certificate_issued_at } });
       if (result?.error) toast.error("Email failed: " + result.error);
       else { toast.success("Certificate emailed successfully"); reload(); }
     } catch (err: any) { toast.error("Email failed: " + (err?.message ?? "Unknown error")); }
@@ -407,7 +402,7 @@ function AdminPage() {
       const ud: any = updatedData;
       const sp = profiles.find((p) => p.id === ud.student_id);
       (async () => { try { const { uploadOfferLetterToStorage } = await import("@/lib/pdf"); await uploadOfferLetterToStorage({ studentId: ud.student_id, fullName: sp?.full_name ?? "Intern", domain: ud.domain?.name ?? "", domainSlug: ud.domain?.slug, internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at, duration: ud.duration }); toast.success("Offer letter PDF stored"); } catch (err: any) { toast.error("Failed to store PDF: " + err.message); } })();
-      if (sp?.email) { (async () => { try { const r = await (await getEmail()).sendOfferLetterEmail({ data: { internshipId: id, email: sp.email, fullName: sp.full_name ?? "Intern", domain: ud.domain?.name ?? "", duration: ud.duration ?? "1 Month", internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at } }); if (r?.error) toast.error("Email failed: " + r.error); else toast.success("Offer letter emailed to " + sp.email); } catch (e: any) { toast.error("Email failed: " + (e?.message ?? "Unknown error")); } })(); }
+      if (sp?.email) { (async () => { try { const r = await sendOfferLetterEmail({ data: { internshipId: id, email: sp.email, fullName: sp.full_name ?? "Intern", domain: ud.domain?.name ?? "", duration: ud.duration ?? "1 Month", internshipCode: ud.internship_code, offerCode: ud.offer_letter_code, startedAt: ud.started_at } }); if (r?.error) toast.error("Email failed: " + r.error); else toast.success("Offer letter emailed to " + sp.email); } catch (e: any) { toast.error("Email failed: " + (e?.message ?? "Unknown error")); } })(); }
     }
   }
 
