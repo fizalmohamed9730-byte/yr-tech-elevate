@@ -103,14 +103,12 @@ export async function generateOfferLetterPDF(data: {
 }): Promise<jsPDF> {
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   
-  // Preload logo, seal, signature, MSME logo, and partner logos
-  const [logo, seal, signature, msmeLogo, vinixLogo, skyrovixLogo] = await Promise.all([
+  // Preload logo, seal, signature, MSME logo
+  const [logo, seal, signature, msmeLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
     loadImage(signatureUrl),
-    loadImage(msmeLogoUrl),
-    loadImage(vinixLogoUrl),
-    loadImage(skyrovixLogoUrl)
+    loadImage(msmeLogoUrl)
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -123,81 +121,46 @@ export async function generateOfferLetterPDF(data: {
   doc.setLineWidth(0.2);
   doc.rect(11.2, 11.2, 187.6, 274.6);
 
-  // --- 1. HEADER ---
-  // Layout: [SKYROVIX] [YR NOVATECH + tagline] [VINIX]    [MSME + UDYAM/CONTACT]
-  const headerY = 13;
-
-  // Measure YR NOVATECH text width for precise centering
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  const companyNameW = doc.getTextWidth("YR NOVATECH");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  const taglineW = doc.getTextWidth("INNOVATE • DEVELOP • DELIVER");
-  const textBlockW = Math.max(companyNameW, taglineW);
-
-  // Measure logo sizes (preserve aspect ratio)
-  let skyW = 10, skyH = 10;
-  if (skyrovixLogo) {
-    skyW = 10 * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight);
-    if (skyW > 25) { skyW = 25; skyH = skyW * (skyrovixLogo.naturalHeight / skyrovixLogo.naturalWidth); } else { skyH = skyW * (skyrovixLogo.naturalHeight / skyrovixLogo.naturalWidth); }
-  }
-  let vinixW = 9, vinixH = 9;
-  if (vinixLogo) {
-    vinixW = 9 * (vinixLogo.naturalWidth / vinixLogo.naturalHeight);
-    if (vinixW > 20) { vinixW = 20; vinixH = vinixW * (vinixLogo.naturalHeight / vinixLogo.naturalWidth); } else { vinixH = vinixW * (vinixLogo.naturalHeight / vinixLogo.naturalWidth); }
+  // --- 1. HEADER LOGO & INFO ---
+  if (logo) {
+    try {
+      doc.addImage(logo, "PNG", 16, 16, 22, 15);
+    } catch (err) {
+      console.error("Failed to load logo on offer letter", err);
+    }
   }
 
-  // Center the branding group (Skyrovix + text + Vinix) in x=14..138
-  const brandingGap = 3;
-  const brandingGroupW = skyW + brandingGap + textBlockW + brandingGap + vinixW;
-  const brandingAreaEnd = 138;
-  const brandingStartX = Math.max(14, (brandingAreaEnd - brandingGroupW) / 2);
-
-  // Position each element
-  const skyX = brandingStartX;
-  const textCenterX = skyX + skyW + brandingGap + textBlockW / 2;
-  const vinixX = skyX + skyW + brandingGap + textBlockW + brandingGap;
-
-  // Draw Skyrovix logo
-  if (skyrovixLogo) {
-    try { doc.addImage(skyrovixLogo, "PNG", skyX, headerY, skyW, skyH); } catch {}
-  }
-
-  // Draw YR NOVATECH branding (centered in its text block)
+  // Centered Company Branding
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(37, 99, 235);
-  doc.text("YR NOVATECH", textCenterX, headerY + 10, { align: "center" });
+  doc.text("YR NOVATECH", 105, 24, { align: "center" });
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(100);
-  doc.text("INNOVATE • DEVELOP • DELIVER", textCenterX, headerY + 15, { align: "center" });
+  doc.text("INNOVATE • DEVELOP • DELIVER", 105, 29, { align: "center" });
 
-  // Draw Vinix logo
-  if (vinixLogo) {
-    try { doc.addImage(vinixLogo, "PNG", vinixX, headerY, vinixW, vinixH); } catch {}
-  }
-
-  // FAR RIGHT: MSME + Udyam/Contact (separate section)
-  const infoX = 142;
+  // MSME Logo + Udyam block — top right column
   if (msmeLogo) {
     try {
-      const msmeH = 10;
-      const msmeW = msmeH * (msmeLogo.naturalWidth / msmeLogo.naturalHeight);
-      doc.addImage(msmeLogo, "PNG", infoX, headerY, msmeW, msmeH);
-    } catch {}
+      const msmeW = 10;
+      const msmeH = msmeW * (msmeLogo.naturalHeight / msmeLogo.naturalWidth);
+      doc.addImage(msmeLogo, "PNG", 142, 13, msmeW, msmeH);
+    } catch (err) {
+      console.error("Failed to render MSME logo header on offer letter", err);
+    }
   }
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.setTextColor(80);
-  doc.text("Udyam Registration No:", infoX, headerY + 13);
-  doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
+  doc.setTextColor(80);
+  doc.text("Udyam Registration No:", 154, 17);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
   doc.setTextColor(100);
-  doc.text(`${COMPANY.udyam}`, infoX, headerY + 17);
-  doc.text("Email: yrnovatech@gmail.com", infoX, headerY + 21);
-  doc.text("Web: www.yrnovatech.online", infoX, headerY + 25);
+  doc.text(`${COMPANY.udyam}`, 154, 21);
+  doc.text("Email: yrnovatech@gmail.com", 154, 27);
+  doc.text("Web: www.yrnovatech.online", 154, 31);
 
   // Divider Line
   doc.setDrawColor(37, 99, 235);
