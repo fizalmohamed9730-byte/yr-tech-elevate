@@ -163,6 +163,21 @@ export async function generateOfferLetterPDF(data: {
   doc.text(`Email: ${COMPANY.email}`, 154, 27);
   doc.text(`Web: www.yrnovatech.online`, 154, 31);
 
+  // Partner logos — top header, flanking the company logo
+  try {
+    const partnerH = 8;
+    if (skyrovixLogo) {
+      const skyW = partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight);
+      doc.addImage(skyrovixLogo, "PNG", 13, 12, skyW, partnerH);
+    }
+    if (vinixLogo) {
+      const vW = partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight);
+      doc.addImage(vinixLogo, "PNG", 194 - vW, 12, vW, partnerH);
+    }
+  } catch (err) {
+    console.error("Failed to render partner logos on offer letter header", err);
+  }
+
   // Divider Line
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.5);
@@ -302,26 +317,6 @@ export async function generateOfferLetterPDF(data: {
     }
   } else {
     drawVectorSeal(doc, sealY);
-  }
-
-  // Partner logos at bottom center
-  try {
-    const partnerH = 6;
-    const partnerGap = 4;
-    const vinixW = vinixLogo ? partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight) : 0;
-    const skyrovixW = skyrovixLogo ? partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight) : 0;
-    const totalW = vinixW + partnerGap + skyrovixW;
-    let partnerX = (210 - totalW) / 2;
-    const partnerY = 272;
-    if (vinixLogo) {
-      doc.addImage(vinixLogo, "PNG", partnerX, partnerY, vinixW, partnerH);
-      partnerX += vinixW + partnerGap;
-    }
-    if (skyrovixLogo) {
-      doc.addImage(skyrovixLogo, "PNG", partnerX, partnerY, skyrovixW, partnerH);
-    }
-  } catch (err) {
-    console.error("Failed to render partner logos on offer letter", err);
   }
 
   return doc;
@@ -492,6 +487,21 @@ export async function downloadCertificate(data: {
   doc.setFontSize(6.5);
   doc.text(`${COMPANY.udyam}`, 259, 20);
 
+  // Partner logos — top header, left and right sides
+  try {
+    const partnerH = 10;
+    if (skyrovixLogo) {
+      const skyW = partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight);
+      doc.addImage(skyrovixLogo, "PNG", 14, 13, skyW, partnerH);
+    }
+    if (vinixLogo) {
+      const vW = partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight);
+      doc.addImage(vinixLogo, "PNG", 225 - vW, 13, vW, partnerH);
+    }
+  } catch (err) {
+    console.error("Failed to render partner logos on certificate header", err);
+  }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
   doc.setTextColor(37, 99, 235);
@@ -585,26 +595,6 @@ export async function downloadCertificate(data: {
   doc.setFontSize(9);
   doc.text(`Certificate ID: ${data.certificateCode}`, 20, 195);
   doc.text(`Internship ID: ${data.internshipCode}`, 148.5, 195, { align: "center" });
-
-  // Partner logos at bottom center
-  try {
-    const partnerH = 7;
-    const partnerGap = 6;
-    const vinixW = vinixLogo ? partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight) : 0;
-    const skyrovixW = skyrovixLogo ? partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight) : 0;
-    const totalW = vinixW + partnerGap + skyrovixW;
-    let partnerX = (297 - totalW) / 2;
-    const partnerY = 182;
-    if (vinixLogo) {
-      doc.addImage(vinixLogo, "PNG", partnerX, partnerY, vinixW, partnerH);
-      partnerX += vinixW + partnerGap;
-    }
-    if (skyrovixLogo) {
-      doc.addImage(skyrovixLogo, "PNG", partnerX, partnerY, skyrovixW, partnerH);
-    }
-  } catch (err) {
-    console.error("Failed to render partner logos on certificate", err);
-  }
 
   doc.save(`${COMPANY.name}-Certificate-${data.certificateCode}.pdf`);
 }

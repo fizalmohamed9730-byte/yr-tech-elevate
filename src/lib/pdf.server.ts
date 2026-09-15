@@ -232,32 +232,19 @@ export async function generateOfferLetterPDFBuffer(data: {
     drawVectorSeal(doc, pt(160), footerY + pt(14), pt(18));
   }
 
-  // Partner Logos — bottom center
+  // Partner logos — top header, flanking the company logo
   const partnerLogoH = pt(8);
-  const partnerGap = pt(6);
-  const partnerY = pt(276);
-  const partnerWidths: number[] = [];
+  if (skyrovixBuf) {
+    try {
+      const sInfo = doc.image(skyrovixBuf, pt(13), pt(12), { height: partnerLogoH, returnInfo: true } as any);
+    } catch {}
+  }
   if (vinixBuf) {
     try {
       const vInfo = doc.image(vinixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
-      partnerWidths.push((vInfo as any).width ?? pt(20));
-    } catch { partnerWidths.push(pt(20)); }
-  }
-  if (skyrovixBuf) {
-    try {
-      const sInfo = doc.image(skyrovixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
-      partnerWidths.push((sInfo as any).width ?? pt(20));
-    } catch { partnerWidths.push(pt(20)); }
-  }
-  if (partnerWidths.length === 2) {
-    const totalW = partnerWidths[0] + partnerGap + partnerWidths[1];
-    let px = (pt(190) - totalW) / 2 + pt(10);
-    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} px += partnerWidths[0] + partnerGap; }
-    if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
-  } else if (partnerWidths.length === 1) {
-    const px = (pt(190) - partnerWidths[0]) / 2 + pt(10);
-    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
-    else if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+      const vW = (vInfo as any).width ?? pt(20);
+      doc.image(vinixBuf, pt(194) - vW, pt(12), { height: partnerLogoH });
+    } catch {}
   }
 
   doc.end();
@@ -390,32 +377,19 @@ export async function generateCertificatePDFBuffer(data: {
   doc.text(`Internship ID: ${data.internshipCode}`, pt(0), pt(193), { width: 841.89, align: "center" });
   doc.restore();
 
-  // Partner Logos — bottom center, symmetric
+  // Partner logos — top header, left and right sides
   const partnerLogoH = pt(10);
-  const partnerGap = pt(8);
-  const partnerY = pt(182);
-  const partnerWidths: number[] = [];
+  if (skyrovixBuf) {
+    try {
+      doc.image(skyrovixBuf, pt(14), pt(13), { height: partnerLogoH });
+    } catch {}
+  }
   if (vinixBuf) {
     try {
       const vInfo = doc.image(vinixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
-      partnerWidths.push((vInfo as any).width ?? pt(25));
-    } catch { partnerWidths.push(pt(25)); }
-  }
-  if (skyrovixBuf) {
-    try {
-      const sInfo = doc.image(skyrovixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
-      partnerWidths.push((sInfo as any).width ?? pt(25));
-    } catch { partnerWidths.push(pt(25)); }
-  }
-  if (partnerWidths.length === 2) {
-    const totalW = partnerWidths[0] + partnerGap + partnerWidths[1];
-    let px = (841.89 - totalW) / 2;
-    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} px += partnerWidths[0] + partnerGap; }
-    if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
-  } else if (partnerWidths.length === 1) {
-    const px = (841.89 - partnerWidths[0]) / 2;
-    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
-    else if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+      const vW = (vInfo as any).width ?? pt(25);
+      doc.image(vinixBuf, pt(225) - vW, pt(13), { height: partnerLogoH });
+    } catch {}
   }
 
   doc.end();
