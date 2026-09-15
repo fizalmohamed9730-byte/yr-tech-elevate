@@ -17,7 +17,7 @@ import {
   BarChart3, CheckSquare, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search,
   X, MailPlus, Download, MessageSquare, Star, Linkedin, LayoutDashboard,
   ClipboardList, Upload, Mail, CreditCard, Bell, Menu, LogOut, Clock, CheckCircle,
-  TrendingUp, Calendar, Megaphone, Sun, Moon
+  TrendingUp, Calendar, Megaphone, Sun, Moon, TriangleAlert
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -90,11 +90,12 @@ function AdminPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { theme, toggleTheme, isDark } = useAdminTheme();
   const reloadInProgress = useRef(false);
-  const toastedErrors = useRef(new Set<string>());
   const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>({});
   const profilePhotosLoaded = useRef(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const lastReloadSucceeded = useRef(false);
 
-  async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<T[]> {
+  async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean }> {
     try {
       const { data, error } = await builder as any;
       if (error) {
@@ -105,22 +106,16 @@ function AdminPage() {
           hint: error.hint,
           status: error.status,
         });
-        if (!toastedErrors.current.has(label)) {
-          toastedErrors.current.add(label);
-          toast.error(`Failed to load ${label}: ${error.message}`);
-          setTimeout(() => toastedErrors.current.delete(label), 30000);
-        }
-        return [];
+        return { data: [], failed: true };
       }
-      toastedErrors.current.delete(label);
-      return (data ?? []) as T[];
+      return { data: (data ?? []) as T[], failed: false };
     } catch (err: any) {
       console.error(`[admin] ${label} query threw:`, {
         name: err?.name,
         message: err?.message,
         stack: err?.stack,
       });
-      return [];
+      return { data: [], failed: true };
     }
   }
 
@@ -145,9 +140,10 @@ function AdminPage() {
   async function reload() {
     if (reloadInProgress.current) return;
     reloadInProgress.current = true;
+    setLoadError(null);
     try {
       const db = supabase as any;
-      const [p, rawInterns, rawSubs, proj, rawPs, d, enq, ann, rawFb] = await Promise.all([
+      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
@@ -158,6 +154,16 @@ function AdminPage() {
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
       ]);
+
+      const p = pRes.data;
+      const rawInterns = rawInternsRes.data;
+      const rawSubs = rawSubsRes.data;
+      const proj = projRes.data;
+      const rawPs = rawPsRes.data;
+      const d = dRes.data;
+      const enq = enqRes.data;
+      const ann = annRes.data;
+      const rawFb = rawFbRes.data;
 
       const studentMap = new Map<string, any>();
       for (const profile of p) studentMap.set(profile.id, profile);
@@ -179,8 +185,21 @@ function AdminPage() {
       for (const int of i) internshipMap.set(int.id, int);
       setSubmissions(rawSubs.map((sub: any) => ({ ...sub, internship: internshipMap.get(sub.internship_id) ?? null })));
       loadProfilePhotos(p);
+
+      const failedCount = [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes].filter(r => r.failed).length;
+      if (failedCount === 9) {
+        setLoadError("Unable to connect to the server. Please try again.");
+        lastReloadSucceeded.current = false;
+      } else if (failedCount > 0) {
+        setLoadError(`Some data could not be loaded (${failedCount}/9 sections failed). Partial data is shown.`);
+        lastReloadSucceeded.current = true;
+      } else {
+        lastReloadSucceeded.current = true;
+      }
     } catch (err: any) {
       console.error("[admin] reload error:", err);
+      setLoadError("Unable to connect to the server. Please try again.");
+      lastReloadSucceeded.current = false;
     } finally {
       reloadInProgress.current = false;
     }
@@ -213,7 +232,9 @@ function AdminPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    const interval = setInterval(() => { reload(); }, 60000);
+    const interval = setInterval(() => {
+      if (lastReloadSucceeded.current) reload();
+    }, 60000);
     return () => clearInterval(interval);
   }, [isAdmin]);
 
@@ -553,6 +574,18 @@ function AdminPage() {
             </div>
           </header>
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+
+{loadError && (
+  <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2 text-red-400 text-sm">
+      <TriangleAlert className="h-4 w-4 shrink-0" />
+      <span>{loadError}</span>
+    </div>
+    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => { lastReloadSucceeded.current = true; reload(); }}>
+      <RotateCw className="h-3 w-3 mr-1" /> Retry
+    </Button>
+  </div>
+)}
 
 {/* ============ DASHBOARD ============ */}
 {activeSection === "dashboard" && (
