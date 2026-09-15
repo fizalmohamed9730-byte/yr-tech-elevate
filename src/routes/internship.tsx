@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { verifyInternship } from "./-verify-internship.serverfn";
 import {
   UserPlus,
   FileText,
@@ -16,6 +20,11 @@ import {
   Cpu,
   Terminal,
   Brain,
+  Search,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/internship")({
@@ -73,6 +82,34 @@ const workflow = [
 ];
 
 function Internship() {
+  const [internshipCode, setInternshipCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof verifyInternship>> | null>(null);
+  const [error, setError] = useState("");
+
+  async function handleVerify() {
+    const code = internshipCode.trim();
+    if (!code) {
+      setError("Please enter an Internship ID.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await verifyInternship({ data: { internshipCode: code } });
+      if (res.found) {
+        setResult(res);
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("Unable to verify Internship ID. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <>
       <Section className="text-center">
@@ -150,6 +187,120 @@ function Internship() {
             ))}
           </div>
         </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Verification"
+          title="Internship Verification"
+          description="Verify a YR NOVATECH internship using the Internship ID."
+        />
+        <Card className="max-w-lg mx-auto p-6 md:p-8 border border-border">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span>Enter the Internship ID to view verified details.</span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. YRN-ABC123"
+                value={internshipCode}
+                onChange={(e) => {
+                  setInternshipCode(e.target.value);
+                  setError("");
+                  setResult(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleVerify();
+                }}
+                disabled={loading}
+                className="flex-1 font-mono uppercase"
+              />
+              <Button
+                onClick={handleVerify}
+                disabled={loading || !internshipCode.trim()}
+                className="bg-gradient-primary text-primary-foreground"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                <span className="ml-2 hidden sm:inline">Verify</span>
+              </Button>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
+                <XCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {result && result.found && (
+              <div className="mt-2 space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Internship Verified</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Intern Name</span>
+                    <p className="font-medium mt-0.5">{result.internName}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Internship ID</span>
+                    <p className="font-mono font-medium mt-0.5">{result.internshipCode}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Domain</span>
+                    <p className="font-medium mt-0.5">{result.domain}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Duration</span>
+                    <p className="font-medium mt-0.5">{result.duration}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Status</span>
+                    <p className="mt-0.5">
+                      <Badge variant={result.status === "active" ? "default" : result.status === "completed" ? "secondary" : "outline"}>
+                        {result.status.charAt(0).toUpperCase() + result.status.slice(1)}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <span className="text-muted-foreground text-xs">Certificate Status</span>
+                    <p className="mt-0.5">
+                      {result.certificateIssued ? (
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">Issued</Badge>
+                      ) : (
+                        <Badge variant="outline">Not Yet Issued</Badge>
+                      )}
+                    </p>
+                  </div>
+                  {result.startedAt && (
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <span className="text-muted-foreground text-xs">Start Date</span>
+                      <p className="font-medium mt-0.5">{new Date(result.startedAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {result.completedAt && (
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <span className="text-muted-foreground text-xs">Completion Date</span>
+                      <p className="font-medium mt-0.5">{new Date(result.completedAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {result.certificateIssued && result.certificateCode && (
+                    <div className="rounded-lg bg-muted/50 p-3 sm:col-span-2">
+                      <span className="text-muted-foreground text-xs">Certificate Code</span>
+                      <p className="font-mono font-medium mt-0.5">{result.certificateCode}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
       </Section>
     </>
   );
