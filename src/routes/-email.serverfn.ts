@@ -32,7 +32,7 @@ const OFFER_LETTER_HTML = `<!DOCTYPE html>
       <p style="font-size:14px;margin:0 0 4px;"><strong>Regards,</strong></p>
       <p style="font-size:14px;margin:0 0 2px;"><strong>S. FIZAL MOHAMED</strong></p>
       <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Founder &amp; CEO, YR NOVATECH</p>
-      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
+      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
     </div>
   </div>
 </body>
@@ -65,7 +65,7 @@ const CERTIFICATE_HTML = `<!DOCTYPE html>
       <p style="font-size:14px;margin:0 0 4px;"><strong>Regards,</strong></p>
       <p style="font-size:14px;margin:0 0 2px;"><strong>S. FIZAL MOHAMED</strong></p>
       <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Founder &amp; CEO, YR NOVATECH</p>
-      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
+      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
     </div>
   </div>
 </body>

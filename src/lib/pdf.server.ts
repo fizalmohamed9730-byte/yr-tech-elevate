@@ -95,8 +95,10 @@ export async function generateOfferLetterPDFBuffer(data: {
   const sealBuf = loadAssetBuffer("company-seal.png");
   const sigBuf = loadAssetBuffer("fizal-mohamed-signature-transparent.png");
   const msmeBuf = loadAssetBuffer("msme-logo.png");
+  const vinixBuf = loadAssetBuffer("vinix-logo.png");
+  const skyrovixBuf = loadAssetBuffer("skyrovix-logo.png");
 
-  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}`);
+  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}, vinix=${!!vinixBuf}, skyrovix=${!!skyrovixBuf}`);
 
   // Border
   doc.save();
@@ -230,6 +232,34 @@ export async function generateOfferLetterPDFBuffer(data: {
     drawVectorSeal(doc, pt(160), footerY + pt(14), pt(18));
   }
 
+  // Partner Logos — bottom center
+  const partnerLogoH = pt(8);
+  const partnerGap = pt(6);
+  const partnerY = pt(276);
+  const partnerWidths: number[] = [];
+  if (vinixBuf) {
+    try {
+      const vInfo = doc.image(vinixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
+      partnerWidths.push((vInfo as any).width ?? pt(20));
+    } catch { partnerWidths.push(pt(20)); }
+  }
+  if (skyrovixBuf) {
+    try {
+      const sInfo = doc.image(skyrovixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
+      partnerWidths.push((sInfo as any).width ?? pt(20));
+    } catch { partnerWidths.push(pt(20)); }
+  }
+  if (partnerWidths.length === 2) {
+    const totalW = partnerWidths[0] + partnerGap + partnerWidths[1];
+    let px = (pt(190) - totalW) / 2 + pt(10);
+    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} px += partnerWidths[0] + partnerGap; }
+    if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+  } else if (partnerWidths.length === 1) {
+    const px = (pt(190) - partnerWidths[0]) / 2 + pt(10);
+    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+    else if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+  }
+
   doc.end();
   return finished;
 }
@@ -263,8 +293,10 @@ export async function generateCertificatePDFBuffer(data: {
   const sealBuf = loadAssetBuffer("company-seal.png");
   const sigBuf = loadAssetBuffer("fizal-mohamed-signature-transparent.png");
   const msmeBuf = loadAssetBuffer("msme-logo.png");
+  const vinixBuf = loadAssetBuffer("vinix-logo.png");
+  const skyrovixBuf = loadAssetBuffer("skyrovix-logo.png");
 
-  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}`);
+  console.log(`[pdf.server] Assets loaded: logo=${!!logoBuf}, seal=${!!sealBuf}, sig=${!!sigBuf}, msme=${!!msmeBuf}, vinix=${!!vinixBuf}, skyrovix=${!!skyrovixBuf}`);
 
   // Border
   doc.save();
@@ -357,6 +389,34 @@ export async function generateCertificatePDFBuffer(data: {
   doc.text(`Certificate ID: ${data.certificateCode}`, pt(20), pt(193));
   doc.text(`Internship ID: ${data.internshipCode}`, pt(0), pt(193), { width: 841.89, align: "center" });
   doc.restore();
+
+  // Partner Logos — bottom center, symmetric
+  const partnerLogoH = pt(10);
+  const partnerGap = pt(8);
+  const partnerY = pt(182);
+  const partnerWidths: number[] = [];
+  if (vinixBuf) {
+    try {
+      const vInfo = doc.image(vinixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
+      partnerWidths.push((vInfo as any).width ?? pt(25));
+    } catch { partnerWidths.push(pt(25)); }
+  }
+  if (skyrovixBuf) {
+    try {
+      const sInfo = doc.image(skyrovixBuf, 0, 0, { height: partnerLogoH, returnInfo: true } as any);
+      partnerWidths.push((sInfo as any).width ?? pt(25));
+    } catch { partnerWidths.push(pt(25)); }
+  }
+  if (partnerWidths.length === 2) {
+    const totalW = partnerWidths[0] + partnerGap + partnerWidths[1];
+    let px = (841.89 - totalW) / 2;
+    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} px += partnerWidths[0] + partnerGap; }
+    if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+  } else if (partnerWidths.length === 1) {
+    const px = (841.89 - partnerWidths[0]) / 2;
+    if (vinixBuf) { try { doc.image(vinixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+    else if (skyrovixBuf) { try { doc.image(skyrovixBuf, px, partnerY, { height: partnerLogoH }); } catch {} }
+  }
 
   doc.end();
   return finished;

@@ -7,4 +7,5 @@ export const COMPANY = {
   email: "yrnovatech07@gmail.com",
   website: "yrnovatech.online",
   instagram: "https://www.instagram.com/yrnovatech_official/",
+  linkedin: "https://www.linkedin.com/company/yr-novatech/",
 } as const;

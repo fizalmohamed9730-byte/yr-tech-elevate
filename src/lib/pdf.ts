@@ -5,6 +5,8 @@ import logoUrl from "@/assets/company-logo.png";
 import sealUrl from "@/assets/company-seal.png";
 import signatureUrl from "@/assets/fizal-mohamed-signature-transparent.png";
 import msmeLogoUrl from "@/assets/msme-logo.png";
+import vinixLogoUrl from "@/assets/vinix-logo.png";
+import skyrovixLogoUrl from "@/assets/skyrovix-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper to preload images safely in the browser
@@ -101,12 +103,14 @@ export async function generateOfferLetterPDF(data: {
 }): Promise<jsPDF> {
   const doc = new jsPDF({ format: "a4", unit: "mm" });
   
-  // Preload logo, seal, signature, and MSME logo images
-  const [logo, seal, signature, msmeLogo] = await Promise.all([
+  // Preload logo, seal, signature, MSME logo, and partner logos
+  const [logo, seal, signature, msmeLogo, vinixLogo, skyrovixLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
     loadImage(signatureUrl),
-    loadImage(msmeLogoUrl)
+    loadImage(msmeLogoUrl),
+    loadImage(vinixLogoUrl),
+    loadImage(skyrovixLogoUrl)
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -300,6 +304,26 @@ export async function generateOfferLetterPDF(data: {
     drawVectorSeal(doc, sealY);
   }
 
+  // Partner logos at bottom center
+  try {
+    const partnerH = 6;
+    const partnerGap = 4;
+    const vinixW = vinixLogo ? partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight) : 0;
+    const skyrovixW = skyrovixLogo ? partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight) : 0;
+    const totalW = vinixW + partnerGap + skyrovixW;
+    let partnerX = (210 - totalW) / 2;
+    const partnerY = 272;
+    if (vinixLogo) {
+      doc.addImage(vinixLogo, "PNG", partnerX, partnerY, vinixW, partnerH);
+      partnerX += vinixW + partnerGap;
+    }
+    if (skyrovixLogo) {
+      doc.addImage(skyrovixLogo, "PNG", partnerX, partnerY, skyrovixW, partnerH);
+    }
+  } catch (err) {
+    console.error("Failed to render partner logos on offer letter", err);
+  }
+
   return doc;
 }
 
@@ -423,12 +447,14 @@ export async function downloadCertificate(data: {
 }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   
-  // Preload logo, seal, signature, and MSME logo images
-  const [logo, seal, signature, msmeLogo] = await Promise.all([
+  // Preload logo, seal, signature, MSME logo, and partner logos
+  const [logo, seal, signature, msmeLogo, vinixLogo, skyrovixLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
     loadImage(signatureUrl),
-    loadImage(msmeLogoUrl)
+    loadImage(msmeLogoUrl),
+    loadImage(vinixLogoUrl),
+    loadImage(skyrovixLogoUrl)
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -559,6 +585,26 @@ export async function downloadCertificate(data: {
   doc.setFontSize(9);
   doc.text(`Certificate ID: ${data.certificateCode}`, 20, 195);
   doc.text(`Internship ID: ${data.internshipCode}`, 148.5, 195, { align: "center" });
+
+  // Partner logos at bottom center
+  try {
+    const partnerH = 7;
+    const partnerGap = 6;
+    const vinixW = vinixLogo ? partnerH * (vinixLogo.naturalWidth / vinixLogo.naturalHeight) : 0;
+    const skyrovixW = skyrovixLogo ? partnerH * (skyrovixLogo.naturalWidth / skyrovixLogo.naturalHeight) : 0;
+    const totalW = vinixW + partnerGap + skyrovixW;
+    let partnerX = (297 - totalW) / 2;
+    const partnerY = 182;
+    if (vinixLogo) {
+      doc.addImage(vinixLogo, "PNG", partnerX, partnerY, vinixW, partnerH);
+      partnerX += vinixW + partnerGap;
+    }
+    if (skyrovixLogo) {
+      doc.addImage(skyrovixLogo, "PNG", partnerX, partnerY, skyrovixW, partnerH);
+    }
+  } catch (err) {
+    console.error("Failed to render partner logos on certificate", err);
+  }
 
   doc.save(`${COMPANY.name}-Certificate-${data.certificateCode}.pdf`);
 }
