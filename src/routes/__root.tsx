@@ -82,6 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "YR NOVATECH - Innovate. Develop. Deliver." },
       { name: "description", content: "YR NOVATECH builds modern software and trains the next generation of engineers through hands-on, project-based internships." },
       { name: "author", content: "YR NOVATECH" },
+      { name: "google-adsense-account", content: "ca-pub-7591764247912152" },
       { property: "og:title", content: "YR NOVATECH - Innovate. Develop. Deliver." },
       { property: "og:description", content: "Software development, AI solutions, and project-based internships." },
       { property: "og:type", content: "website" },
