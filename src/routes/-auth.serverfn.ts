@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const confirmStudentEmail = createServerFn({ method: "POST" })
   .validator(z.object({ userId: z.string().uuid() }))
@@ -7,7 +8,6 @@ export const confirmStudentEmail = createServerFn({ method: "POST" })
     let confirmed = false;
     let errorMessage: string | null = null;
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
         email_confirm: true,
       });

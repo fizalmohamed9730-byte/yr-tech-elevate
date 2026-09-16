@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const verifyInternship = createServerFn({ method: "POST" })
   .validator(z.object({ internshipCode: z.string() }))
@@ -10,8 +11,6 @@ export const verifyInternship = createServerFn({ method: "POST" })
     }
 
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
       const { data: internship, error: internErr } = await supabaseAdmin
         .from("internships")
         .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, student_id, domain_id")
@@ -27,19 +26,26 @@ export const verifyInternship = createServerFn({ method: "POST" })
         return { found: false as const, error: "Internship ID not found." };
       }
 
-      const [domainResult, profileResult] = await Promise.all([
-        (async () => {
-          if (!internship.domain_id) return { data: null, error: null };
-          return supabaseAdmin.from("domains").select("name").eq("id", internship.domain_id).maybeSingle();
-        })(),
-        (async () => {
-          if (!internship.student_id) return { data: null, error: null };
-          return supabaseAdmin.from("profiles").select("full_name").eq("id", internship.student_id).maybeSingle();
-        })(),
-      ]);
+      let domainName = "N/A";
+      if (internship.domain_id) {
+        const { data: domain } = await supabaseAdmin
+          .from("domains")
+          .select("name")
+          .eq("id", internship.domain_id)
+          .maybeSingle();
+        domainName = domain?.name ?? "N/A";
+      }
 
-      const domainName = domainResult?.data?.name ?? "N/A";
-      const internName = profileResult?.data?.full_name ?? "N/A";
+      let internName = "N/A";
+      if (internship.student_id) {
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", internship.student_id)
+          .maybeSingle();
+        internName = profile?.full_name ?? "N/A";
+      }
+
       const certificateIssued = !!(internship.certificate_code && internship.certificate_released_at);
 
       return {
