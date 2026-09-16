@@ -181,8 +181,11 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           college: string | null
+          country: string | null
           created_at: string
           department: string | null
+          discovery_other: string | null
+          discovery_source: string | null
           duration: string | null
           email: string | null
           full_name: string | null
@@ -204,8 +207,11 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           college?: string | null
+          country?: string | null
           created_at?: string
           department?: string | null
+          discovery_other?: string | null
+          discovery_source?: string | null
           duration?: string | null
           email?: string | null
           full_name?: string | null
@@ -227,8 +233,11 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           college?: string | null
+          country?: string | null
           created_at?: string
           department?: string | null
+          discovery_other?: string | null
+          discovery_source?: string | null
           duration?: string | null
           email?: string | null
           full_name?: string | null

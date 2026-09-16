@@ -104,7 +104,8 @@ BEGIN
 
   INSERT INTO public.profiles (
     id, user_id, email, full_name, phone, college, department, year,
-    avatar_url, must_change_password, role, duration, selected_domain
+    avatar_url, must_change_password, role, duration, selected_domain,
+    country, discovery_source, discovery_other
   )
   VALUES (
     NEW.id,
@@ -119,7 +120,10 @@ BEGIN
     COALESCE((NEW.raw_user_meta_data->>'must_change_password')::boolean, false),
     v_role,
     COALESCE(NEW.raw_user_meta_data->>'duration', '1 Month'),
-    NULLIF(NEW.raw_user_meta_data->>'domain_id','')::uuid::text
+    NULLIF(NEW.raw_user_meta_data->>'domain_id','')::uuid::text,
+    NULLIF(NEW.raw_user_meta_data->>'country',''),
+    NULLIF(NEW.raw_user_meta_data->>'discovery_source',''),
+    NULLIF(NEW.raw_user_meta_data->>'discovery_other','')
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
@@ -128,7 +132,10 @@ BEGIN
     college = COALESCE(EXCLUDED.college, public.profiles.college),
     department = COALESCE(EXCLUDED.department, public.profiles.department),
     year = COALESCE(EXCLUDED.year, public.profiles.year),
-    role = EXCLUDED.role;
+    role = EXCLUDED.role,
+    country = COALESCE(EXCLUDED.country, public.profiles.country),
+    discovery_source = COALESCE(EXCLUDED.discovery_source, public.profiles.discovery_source),
+    discovery_other = COALESCE(EXCLUDED.discovery_other, public.profiles.discovery_other);
 
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, v_role)
   ON CONFLICT (user_id, role) DO NOTHING;

@@ -94,6 +94,8 @@ function AdminPage() {
   const profilePhotosLoaded = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const lastReloadSucceeded = useRef(false);
+  const [filterCountry, setFilterCountry] = useState("all");
+  const [filterDiscovery, setFilterDiscovery] = useState("all");
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean }> {
     try {
@@ -144,7 +146,7 @@ function AdminPage() {
     try {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
@@ -330,6 +332,68 @@ function AdminPage() {
 
   const recentInterns = useMemo(() => [...internships].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5), [internships]);
   const completionRate = useMemo(() => Math.round((completedCount / (internships.length || 1)) * 100), [internships, completedCount]);
+
+  const countryData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of profiles) {
+      const c = p.country || "Unknown";
+      counts[c] = (counts[c] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [profiles]);
+
+  const discoveryData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of profiles) {
+      const s = p.discovery_source || "Unknown";
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count, percent: Math.round((count / (profiles.length || 1)) * 100) }))
+      .sort((a, b) => b.count - a.count);
+  }, [profiles]);
+
+  const filteredProfiles = useMemo(() => {
+    let result = profiles;
+    if (filterCountry !== "all") result = result.filter((p) => p.country === filterCountry);
+    if (filterDiscovery !== "all") result = result.filter((p) => p.discovery_source === filterDiscovery);
+    return result;
+  }, [profiles, filterCountry, filterDiscovery]);
+
+  const filteredCountryData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of filteredProfiles) {
+      const c = p.country || "Unknown";
+      counts[c] = (counts[c] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredProfiles]);
+
+  const filteredDiscoveryData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of filteredProfiles) {
+      const s = p.discovery_source || "Unknown";
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    const total = filteredProfiles.length || 1;
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredProfiles]);
+
+  const uniqueCountries = useMemo(() => {
+    const set = new Set(profiles.map((p) => p.country).filter(Boolean));
+    return Array.from(set).sort();
+  }, [profiles]);
+
+  const uniqueDiscoverySources = useMemo(() => {
+    const set = new Set(profiles.map((p) => p.discovery_source).filter(Boolean));
+    return Array.from(set).sort();
+  }, [profiles]);
 
   const notifications = useMemo(() => {
     type NotifItem = { id: string; type: string; title: string; description: string; timestamp: string; icon: any; color: string; section?: Section };

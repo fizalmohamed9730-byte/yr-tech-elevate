@@ -28,6 +28,49 @@ const signInSchema = z.object({
   password: z.string().min(6).max(128),
 });
 
+const DISCOVERY_SOURCES = [
+  "Google Search",
+  "Instagram",
+  "LinkedIn",
+  "YouTube",
+  "Facebook",
+  "WhatsApp",
+  "Friend / Referral",
+  "College / University",
+  "YR NOVATECH Website",
+  "Internship Platform",
+  "Online Advertisement",
+  "Other",
+];
+
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria",
+  "Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin",
+  "Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso",
+  "Burundi","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China",
+  "Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic",
+  "Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador","Egypt","El Salvador",
+  "Equatorial Guinea","Eritrea","Estonia","Ethiopia","Fiji","Finland","France","Gabon",
+  "Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea",
+  "Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia",
+  "Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan",
+  "Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia",
+  "Lebanon","Lesotho","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malawi",
+  "Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Micronesia",
+  "Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia",
+  "Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea",
+  "North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea",
+  "Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia",
+  "Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa",
+  "San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles",
+  "Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa",
+  "South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland",
+  "Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tonga","Trinidad and Tobago",
+  "Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates",
+  "United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela",
+  "Vietnam","Yemen","Zambia","Zimbabwe",
+];
+
 const signUpSchema = z.object({
   fullName: z.string().trim().min(2, "Full name required").max(100),
   email: z.string().trim().email("Invalid email").max(255),
@@ -40,6 +83,9 @@ const signUpSchema = z.object({
   year: z.string().trim().min(1, "Year required"),
   domainId: z.string().uuid("Select a domain"),
   duration: z.string().min(1, "Select duration"),
+  country: z.string().min(1, "Please select your country."),
+  discoverySource: z.string().min(1, "Please tell us how you heard about YR NOVATECH."),
+  discoveryOther: z.string().optional(),
   password: z.string().min(6, "Password must be at least 6 characters").max(128),
   confirmPassword: z.string(),
 });
@@ -85,6 +131,10 @@ function AuthPage() {
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [domainsError, setDomainsError] = useState<string | null>(null);
   const [loadingDomains, setLoadingDomains] = useState(true);
+  const [countrySearch, setCountrySearch] = useState("");
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [discoverySource, setDiscoverySource] = useState("");
+  const countryRef = useRef<HTMLDivElement>(null);
   const recoveryModeActive = useRef(false);
   const navigating = useRef(false);
 
@@ -154,6 +204,16 @@ function AuthPage() {
 
     loadDomains();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -337,7 +397,11 @@ function AuthPage() {
     setSignUpEmail("");
 
     const fd = new FormData(e.currentTarget);
-    const parsed = signUpSchema.safeParse(Object.fromEntries(fd));
+    const raw = Object.fromEntries(fd);
+    const parsed = signUpSchema.safeParse({
+      ...raw,
+      discoveryOther: raw.discoveryOther || undefined,
+    });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     if (!domains.some((d) => d.id === parsed.data.domainId)) {
       return toast.error("Please select a valid domain.");
@@ -345,6 +409,10 @@ function AuthPage() {
 
     if (parsed.data.password !== parsed.data.confirmPassword) {
       return toast.error("Passwords do not match.");
+    }
+
+    if (parsed.data.discoverySource === "Other" && !parsed.data.discoveryOther?.trim()) {
+      return toast.error("Please specify how you heard about YR NOVATECH.");
     }
 
     setLoading(true);
@@ -366,6 +434,9 @@ function AuthPage() {
               domain_id: parsed.data.domainId,
               duration: parsed.data.duration,
               must_change_password: false,
+              country: parsed.data.country,
+              discovery_source: parsed.data.discoverySource,
+              discovery_other: parsed.data.discoverySource === "Other" ? (parsed.data.discoveryOther ?? "") : "",
             },
           },
         }),
@@ -705,6 +776,93 @@ function AuthPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Location Details */}
+                <div className="pt-2 pb-1">
+                  <h3 className="text-sm font-semibold text-foreground">Location Details</h3>
+                </div>
+                <div ref={countryRef} className="relative">
+                  <Label htmlFor="su-country">Country *</Label>
+                  <input
+                    id="su-country"
+                    name="country"
+                    type="hidden"
+                    value={countrySearch}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search countries..."
+                    value={countrySearch}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    onChange={(e) => {
+                      setCountrySearch(e.target.value);
+                      setShowCountryDropdown(true);
+                    }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    autoComplete="off"
+                  />
+                  {showCountryDropdown && (
+                    <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-input bg-background shadow-md">
+                      {COUNTRIES.filter((c) =>
+                        c.toLowerCase().includes(countrySearch.toLowerCase())
+                      ).length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">No countries found</div>
+                      ) : (
+                        COUNTRIES.filter((c) =>
+                          c.toLowerCase().includes(countrySearch.toLowerCase())
+                        ).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                              setCountrySearch(c);
+                              setShowCountryDropdown(false);
+                            }}
+                          >
+                            {c}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Discovery */}
+                <div className="pt-2 pb-1">
+                  <h3 className="text-sm font-semibold text-foreground">Discovery</h3>
+                </div>
+                <div>
+                  <Label htmlFor="su-discovery">How did you hear about YR NOVATECH? *</Label>
+                  <input name="discoverySource" type="hidden" value={discoverySource} required />
+                  <select
+                    id="su-discovery"
+                    value={discoverySource}
+                    onChange={(e) => setDiscoverySource(e.target.value)}
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Select</option>
+                    {DISCOVERY_SOURCES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {discoverySource === "Other" && (
+                  <div>
+                    <Label htmlFor="su-discovery-other">Please specify</Label>
+                    <Input
+                      id="su-discovery-other"
+                      name="discoveryOther"
+                      placeholder="How did you hear about us?"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="su-password">Password</Label>
                   <div className="relative">
