@@ -96,6 +96,7 @@ function AdminPage() {
   const lastReloadSucceeded = useRef(false);
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
+  const [discoveryData, setDiscoveryData] = useState<any[]>([]);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean }> {
     try {
@@ -145,8 +146,8 @@ function AdminPage() {
     setLoadError(null);
     try {
       const db = supabase as any;
-      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
+      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
@@ -155,6 +156,7 @@ function AdminPage() {
         safeQuery("enquiries", db.from("enquiries").select("id, name, email, message, status, created_at, read_at").order("created_at", { ascending: false })),
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
+        safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
       ]);
 
       const p = pRes.data;
@@ -182,6 +184,9 @@ function AdminPage() {
       setEnquiries(enq);
       setAnnouncements(ann);
       setFeedbackList(fb);
+
+      const discoveryRecords = discRes.failed ? [] : discRes.data;
+      setDiscoveryData(discoveryRecords);
 
       const internshipMap = new Map<string, any>();
       for (const int of i) internshipMap.set(int.id, int);
@@ -335,65 +340,65 @@ function AdminPage() {
 
   const countryData = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of profiles) {
-      const c = p.country || "Unknown";
+    for (const d of discoveryData) {
+      const c = d.country || "Unknown";
       counts[c] = (counts[c] || 0) + 1;
     }
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
-  }, [profiles]);
+  }, [discoveryData]);
 
-  const discoveryData = useMemo(() => {
+  const discoverySourceData = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of profiles) {
-      const s = p.discovery_source || "Unknown";
+    for (const d of discoveryData) {
+      const s = d.discovery_source || "Unknown";
       counts[s] = (counts[s] || 0) + 1;
     }
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count, percent: Math.round((count / (profiles.length || 1)) * 100) }))
+      .map(([name, count]) => ({ name, count, percent: Math.round((count / (discoveryData.length || 1)) * 100) }))
       .sort((a, b) => b.count - a.count);
-  }, [profiles]);
+  }, [discoveryData]);
 
-  const filteredProfiles = useMemo(() => {
-    let result = profiles;
-    if (filterCountry !== "all") result = result.filter((p) => p.country === filterCountry);
-    if (filterDiscovery !== "all") result = result.filter((p) => p.discovery_source === filterDiscovery);
+  const filteredDiscoveryRecords = useMemo(() => {
+    let result = discoveryData;
+    if (filterCountry !== "all") result = result.filter((d) => d.country === filterCountry);
+    if (filterDiscovery !== "all") result = result.filter((d) => d.discovery_source === filterDiscovery);
     return result;
-  }, [profiles, filterCountry, filterDiscovery]);
+  }, [discoveryData, filterCountry, filterDiscovery]);
 
   const filteredCountryData = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of filteredProfiles) {
-      const c = p.country || "Unknown";
+    for (const d of filteredDiscoveryRecords) {
+      const c = d.country || "Unknown";
       counts[c] = (counts[c] || 0) + 1;
     }
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
-  }, [filteredProfiles]);
+  }, [filteredDiscoveryRecords]);
 
   const filteredDiscoveryData = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of filteredProfiles) {
-      const s = p.discovery_source || "Unknown";
+    for (const d of filteredDiscoveryRecords) {
+      const s = d.discovery_source || "Unknown";
       counts[s] = (counts[s] || 0) + 1;
     }
-    const total = filteredProfiles.length || 1;
+    const total = filteredDiscoveryRecords.length || 1;
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) }))
       .sort((a, b) => b.count - a.count);
-  }, [filteredProfiles]);
+  }, [filteredDiscoveryRecords]);
 
   const uniqueCountries = useMemo(() => {
-    const set = new Set(profiles.map((p) => p.country).filter(Boolean));
+    const set = new Set(discoveryData.map((d) => d.country).filter(Boolean));
     return Array.from(set).sort();
-  }, [profiles]);
+  }, [discoveryData]);
 
   const uniqueDiscoverySources = useMemo(() => {
-    const set = new Set(profiles.map((p) => p.discovery_source).filter(Boolean));
+    const set = new Set(discoveryData.map((d) => d.discovery_source).filter(Boolean));
     return Array.from(set).sort();
-  }, [profiles]);
+  }, [discoveryData]);
 
   const notifications = useMemo(() => {
     type NotifItem = { id: string; type: string; title: string; description: string; timestamp: string; icon: any; color: string; section?: Section };
@@ -1198,7 +1203,7 @@ function AdminPage() {
     <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> Applicants by Country</h4>
     <p className="text-xs text-(--admin-text-secondary)">
       {filterCountry !== "all" || filterDiscovery !== "all"
-        ? `Showing ${filteredProfiles.length} of ${profiles.length} registrations`
+        ? `Showing ${filteredDiscoveryRecords.length} of ${discoveryData.length} registrations`
         : `Total: ${profiles.length} registrations`}
     </p>
     {filteredCountryData.length === 0 ? (
