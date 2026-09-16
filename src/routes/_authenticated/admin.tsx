@@ -1149,6 +1149,104 @@ function AdminPage() {
       </div>
     </div>
   </div>
+
+  {/* Filters */}
+  <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5">
+    <h4 className="text-sm font-medium text-(--admin-text-secondary) mb-3">Filters</h4>
+    <div className="flex flex-wrap gap-3">
+      <div className="space-y-1">
+        <label className="text-xs text-(--admin-text-secondary)">Country</label>
+        <select
+          value={filterCountry}
+          onChange={(e) => setFilterCountry(e.target.value)}
+          className="flex h-9 rounded-md border border-(--admin-input-border) bg-(--admin-input) px-3 text-sm text-(--admin-text)"
+        >
+          <option value="all">All Countries</option>
+          {uniqueCountries.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs text-(--admin-text-secondary)">Discovery Source</label>
+        <select
+          value={filterDiscovery}
+          onChange={(e) => setFilterDiscovery(e.target.value)}
+          className="flex h-9 rounded-md border border-(--admin-input-border) bg-(--admin-input) px-3 text-sm text-(--admin-text)"
+        >
+          <option value="all">All Sources</option>
+          {uniqueDiscoverySources.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+      {(filterCountry !== "all" || filterDiscovery !== "all") && (
+        <div className="flex items-end">
+          <button
+            onClick={() => { setFilterCountry("all"); setFilterDiscovery("all"); }}
+            className="text-xs text-blue-500 hover:underline h-9 flex items-center"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* Applicants by Country */}
+  <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
+    <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> Applicants by Country</h4>
+    <p className="text-xs text-(--admin-text-secondary)">
+      {filterCountry !== "all" || filterDiscovery !== "all"
+        ? `Showing ${filteredProfiles.length} of ${profiles.length} registrations`
+        : `Total: ${profiles.length} registrations`}
+    </p>
+    {filteredCountryData.length === 0 ? (
+      <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+    ) : (
+      <div className="space-y-2">
+        {filteredCountryData.slice(0, 10).map((item) => (
+          <div key={item.name} className="flex items-center gap-3">
+            <span className="text-sm text-(--admin-text) w-40 truncate" title={item.name}>{item.name}</span>
+            <div className="flex-1 h-5 bg-(--admin-input) rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all"
+                style={{ width: `${(item.count / (filteredCountryData[0]?.count || 1)) * 100}%` }}
+              />
+            </div>
+            <span className="text-sm font-bold text-(--admin-text) w-10 text-right">{item.count}</span>
+          </div>
+        ))}
+        {filteredCountryData.length > 10 && (
+          <p className="text-xs text-(--admin-text-secondary)">+ {filteredCountryData.length - 10} more countries</p>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* How Users Found YR NOVATECH */}
+  <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
+    <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> How Users Found YR NOVATECH</h4>
+    {filteredDiscoveryData.length === 0 ? (
+      <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+    ) : (
+      <div className="space-y-2">
+        {filteredDiscoveryData.map((item) => (
+          <div key={item.name} className="flex items-center gap-3">
+            <span className="text-sm text-(--admin-text) w-40 truncate" title={item.name}>{item.name}</span>
+            <div className="flex-1 h-5 bg-(--admin-input) rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all"
+                style={{ width: `${(item.count / (filteredDiscoveryData[0]?.count || 1)) * 100}%` }}
+              />
+            </div>
+            <span className="text-sm font-bold text-(--admin-text) w-10 text-right">{item.count}</span>
+            <span className="text-xs text-(--admin-text-secondary) w-12 text-right">{item.percent}%</span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
 </div>
 )}
 
