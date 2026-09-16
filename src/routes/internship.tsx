@@ -104,7 +104,7 @@ function Internship() {
         setError(res.error);
       }
     } catch {
-      setError("Unable to verify Internship ID. Please try again.");
+      setError("Verification service is temporarily unavailable. Please try again.");
     } finally {
       setLoading(false);
     }

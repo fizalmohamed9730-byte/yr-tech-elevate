@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-export const verifyInternship = createServerFn({ method: "GET" })
+export const verifyInternship = createServerFn({ method: "POST" })
   .validator(z.object({ internshipCode: z.string() }))
   .handler(async ({ data }) => {
     const code = data.internshipCode.trim().toUpperCase();
@@ -12,41 +12,34 @@ export const verifyInternship = createServerFn({ method: "GET" })
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-      const { data: internship, error } = await supabaseAdmin
+      const { data: internship, error: internErr } = await supabaseAdmin
         .from("internships")
-        .select(`
-          id,
-          internship_code,
-          status,
-          duration,
-          started_at,
-          completed_at,
-          certificate_code,
-          certificate_released_at,
-          student_id,
-          domain_id,
-          domains!internships_domain_id_fkey ( name )
-        `)
+        .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, student_id, domain_id")
         .eq("internship_code", code)
         .maybeSingle();
 
-      if (error) {
-        console.error("[verifyInternship] Query error:", error.message);
-        return { found: false as const, error: "Unable to verify Internship ID. Please try again." };
+      if (internErr) {
+        console.error("[verifyInternship] internships query error:", internErr.message, internErr.code, internErr.details);
+        return { found: false as const, error: "Verification service is temporarily unavailable. Please try again." };
       }
 
       if (!internship) {
         return { found: false as const, error: "Internship ID not found." };
       }
 
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("full_name")
-        .eq("id", internship.student_id)
-        .maybeSingle();
+      const [domainResult, profileResult] = await Promise.all([
+        (async () => {
+          if (!internship.domain_id) return { data: null, error: null };
+          return supabaseAdmin.from("domains").select("name").eq("id", internship.domain_id).maybeSingle();
+        })(),
+        (async () => {
+          if (!internship.student_id) return { data: null, error: null };
+          return supabaseAdmin.from("profiles").select("full_name").eq("id", internship.student_id).maybeSingle();
+        })(),
+      ]);
 
-      const domainName = (internship.domains as any)?.name ?? "N/A";
-      const internName = profile?.full_name ?? "N/A";
+      const domainName = domainResult?.data?.name ?? "N/A";
+      const internName = profileResult?.data?.full_name ?? "N/A";
       const certificateIssued = !!(internship.certificate_code && internship.certificate_released_at);
 
       return {
@@ -62,7 +55,7 @@ export const verifyInternship = createServerFn({ method: "GET" })
         certificateCode: certificateIssued ? internship.certificate_code : null,
       };
     } catch (err: any) {
-      console.error("[verifyInternship] Unexpected error:", err?.message ?? err);
-      return { found: false as const, error: "Unable to verify Internship ID. Please try again." };
+      console.error("[verifyInternship] Unexpected error:", err?.message ?? err, err?.stack);
+      return { found: false as const, error: "Verification service is temporarily unavailable. Please try again." };
     }
   });
