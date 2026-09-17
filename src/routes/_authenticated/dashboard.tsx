@@ -35,6 +35,7 @@ function Dashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [showForcePw, setShowForcePw] = useState(false);
   const [pwBusy, setPwBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Profile editing states
   const [saving, setSaving] = useState(false);
@@ -53,25 +54,48 @@ function Dashboard() {
       const { data: u, error: authErr } = await supabase.auth.getUser();
       if (authErr) {
         console.error("[dashboard] auth error:", authErr.message, authErr);
+        setLoadError("Authentication error: " + authErr.message);
         return;
       }
       if (!u.user) {
         console.warn("[dashboard] no authenticated user");
+        setLoadError("No authenticated user found.");
         return;
       }
 
+      // Step 1: Fetch profile and internship WITHOUT certificate_flow_version
+      // to avoid failing when that column doesn't exist yet in production.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
-      if (iErr) console.error("[dashboard] internships query error:", iErr.code, iErr.message, iErr.details, iErr.hint);
+      if (iErr) {
+        console.error("[dashboard] internships query error:", iErr.code, iErr.message, iErr.details, iErr.hint);
+        setLoadError("Failed to load internship data. Database error: " + (iErr.message ?? iErr.code ?? "unknown"));
+        setLoading(false);
+        return;
+      }
 
       setProfile(p);
       setPhoto(p?.avatar_url ?? null);
 
       let internship = i;
+
+      // Step 2: Fetch certificate_flow_version separately (tolerant of missing column)
+      if (internship?.id) {
+        try {
+          const { data: cfvData } = await (supabase as any)
+            .from("internships")
+            .select("certificate_flow_version")
+            .eq("id", internship.id)
+            .maybeSingle();
+          internship = { ...(internship as any), certificate_flow_version: cfvData?.certificate_flow_version ?? "legacy" };
+        } catch {
+          internship = { ...(internship as any), certificate_flow_version: "legacy" };
+        }
+      }
       if (internship?.id && !internship.offer_letter_code) {
         try {
           const { data: upd, error: updErr } = await (supabase as any)
@@ -81,10 +105,13 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
-          if (upd) internship = upd;
+          if (upd) {
+            // Preserve the certificate_flow_version we already fetched
+            internship = { ...upd, certificate_flow_version: (internship as any)?.certificate_flow_version ?? "legacy" };
+          }
         } catch (err: any) {
           console.warn("[dashboard] auto-activate internship:", err?.message);
         }
@@ -235,11 +262,19 @@ function Dashboard() {
   useEffect(() => { load(); }, []);
 
   if (loading) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  if (loadError) return (
+    <div className="container mx-auto max-w-xl py-20 text-center">
+      <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
+      <p className="text-muted-foreground mb-6">{loadError}</p>
+      <p className="text-muted-foreground mb-6">Please try refreshing the page. If this persists, contact support.</p>
+      <Button onClick={() => { setLoadError(null); setLoading(true); load(); }}>Retry</Button>
+    </div>
+  );
   if (!internship) return (
     <div className="container mx-auto max-w-xl py-20 text-center">
       <h1 className="text-2xl font-bold mb-2">No internship found</h1>
-      <p className="text-muted-foreground mb-6">Please register again to select your domain.</p>
-      <Button asChild><Link to="/auth">Go to registration</Link></Button>
+      <p className="text-muted-foreground mb-6">Your account does not have an active internship. If you believe this is an error, please contact support.</p>
+      <Button asChild><Link to="/auth">Go to login</Link></Button>
     </div>
   );
 
