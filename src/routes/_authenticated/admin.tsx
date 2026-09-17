@@ -126,17 +126,21 @@ function AdminPage() {
     if (profilePhotosLoaded.current || profilesList.length === 0) return;
     try {
       const ids = profilesList.map((p: any) => p.id);
-      const { data } = await supabase.from("profiles").select("id, avatar_url").in("id", ids);
-      if (data && data.length > 0) {
-        const photos: Record<string, string> = {};
-        for (const row of data) {
-          if (row.avatar_url) photos[row.id] = row.avatar_url;
+      const photos: Record<string, string> = {};
+      const CHUNK = 5;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data } = await supabase.from("profiles").select("id, avatar_url").in("id", chunk);
+        if (data && data.length > 0) {
+          for (const row of data) {
+            if (row.avatar_url) photos[row.id] = row.avatar_url;
+          }
         }
-        setProfilePhotos(photos);
       }
+      setProfilePhotos(photos);
       profilePhotosLoaded.current = true;
     } catch {
-      profilePhotosLoaded.current = true;
+      profilePhotosLoaded.current = false;
     }
   }, []);
 
@@ -147,7 +151,7 @@ function AdminPage() {
     try {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
-        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at, avatar_url").order("created_at", { ascending: false })),
+        safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
