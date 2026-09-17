@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <rect width="300" height="300" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+  <text x="150" y="140" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">Replace this file with</text>
+  <text x="150" y="160" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">the official UPI QR image</text>
+  <text x="150" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9ca3af">public/payment/certificate-upi-qr.png</text>
+</svg>

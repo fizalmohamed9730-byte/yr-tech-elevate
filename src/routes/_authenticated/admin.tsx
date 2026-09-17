@@ -38,9 +38,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage
 });
 
-type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "feedback" | "enquiries" | "analytics" | "announcements";
+type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "payments" | "feedback" | "enquiries" | "analytics" | "announcements";
 
-type SectionKey = "profiles" | "internships" | "submissions" | "projects" | "projectSubmissions" | "domains" | "enquiries" | "announcements" | "feedback" | "discovery";
+type SectionKey = "profiles" | "internships" | "submissions" | "projects" | "projectSubmissions" | "domains" | "enquiries" | "announcements" | "feedback" | "discovery" | "certificatePayments";
 type SectionError = { error: string | null; ts: number };
 
 const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] = [
@@ -52,6 +52,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] 
   { id: "offers", label: "Offer Letters", icon: Mail },
   { id: "idcards", label: "ID Cards", icon: CreditCard },
   { id: "certificates", label: "Certificates", icon: Award },
+  { id: "payments", label: "Payments", icon: CreditCard },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
   { id: "enquiries", label: "Enquiries", icon: Mail, badgeKey: "enquiries" },
   { id: "announcements", label: "Announcements", icon: Megaphone },
@@ -98,13 +99,15 @@ function AdminPage() {
   const [sectionErrors, setSectionErrors] = useState<Record<SectionKey, SectionError>>({
     profiles: { error: null, ts: 0 }, internships: { error: null, ts: 0 }, submissions: { error: null, ts: 0 },
     projects: { error: null, ts: 0 }, projectSubmissions: { error: null, ts: 0 }, domains: { error: null, ts: 0 },
-    enquiries: { error: null, ts: 0 }, announcements: { error: null, ts: 0 }, feedback: { error: null, ts: 0 },
+    enquiries: { error: null, ts: 0 }, announcements: { error: null, ts: 0 },     feedback: { error: null, ts: 0 },
     discovery: { error: null, ts: 0 },
+    certificatePayments: { error: null, ts: 0 },
   });
   const lastReloadSucceeded = useRef(false);
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
   const [discoveryData, setDiscoveryData] = useState<any[]>([]);
+  const [certificatePayments, setCertificatePayments] = useState<any[]>([]);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean; supabaseError?: { code?: string; message?: string; details?: string; hint?: string; status?: number } }> {
     try {
@@ -152,7 +155,7 @@ function AdminPage() {
     reloadInProgress.current = true;
     try {
       const db = supabase as any;
-      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
+      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
@@ -163,6 +166,7 @@ function AdminPage() {
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
+        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, transaction_id, status, submitted_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
       ]);
 
       // ── DEBUG: Discovery analytics diagnostic logging ──
@@ -221,6 +225,9 @@ function AdminPage() {
       const discoveryRecords = discRes.failed ? [] : discRes.data;
       setDiscoveryData(discoveryRecords);
 
+      const cpData = cpRes.failed ? [] : cpRes.data;
+      setCertificatePayments(cpData);
+
       const internshipMap = new Map<string, any>();
       for (const int of i) internshipMap.set(int.id, int);
       setSubmissions(rawSubs.map((sub: any) => ({ ...sub, internship: internshipMap.get(sub.internship_id) ?? null })));
@@ -237,6 +244,7 @@ function AdminPage() {
         enquiries: { error: enqRes.failed ? "Failed to load enquiries" : null, ts: Date.now() },
         announcements: { error: annRes.failed ? "Failed to load announcements" : null, ts: Date.now() },
         feedback: { error: rawFbRes.failed ? "Failed to load feedback" : null, ts: Date.now() },
+        certificatePayments: { error: cpRes.failed ? "Failed to load certificate payments" : null, ts: Date.now() },
         discovery: {
           error: (() => {
             if (!discRes.failed) return null;
@@ -487,6 +495,27 @@ function AdminPage() {
         } catch (emailErr: any) { toast.error("Email failed: " + (emailErr?.message ?? "Unknown error")); }
       })();
     }
+  }
+
+  async function verifyPayment(paymentId: string) {
+    const { error } = await (supabase as any)
+      .from("certificate_payments")
+      .update({ status: "paid", verified_at: new Date().toISOString(), verified_by: (await supabase.auth.getUser()).data.user?.id })
+      .eq("id", paymentId);
+    if (error) return toast.error("Failed to verify payment: " + error.message);
+    toast.success("Payment verified!");
+    reload();
+  }
+
+  async function rejectPayment(paymentId: string) {
+    const reason = window.prompt("Rejection reason (optional):");
+    const { error } = await (supabase as any)
+      .from("certificate_payments")
+      .update({ status: "rejected", rejection_reason: reason || null })
+      .eq("id", paymentId);
+    if (error) return toast.error("Failed to reject payment: " + error.message);
+    toast.success("Payment rejected.");
+    reload();
   }
 
   async function handleSendOfferLetterEmail(intern: any) {
@@ -1089,11 +1118,121 @@ function AdminPage() {
       <h3 className="text-sm font-semibold text-(--admin-text)">Eligible for Certificate</h3>
       {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
+        const paymentPaid = i.payment_required ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
+        const canIssue = i.payment_required ? paymentPaid : true;
         return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-(--admin-card-border) last:border-0">
-          <div><span className="text-(--admin-text) font-medium">{i.student?.full_name}</span><span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span><span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span></div>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => issueCertificate(i.id)}><Award className="h-3 w-3 mr-1" /> Issue Certificate</Button>
+          <div>
+            <span className="text-(--admin-text) font-medium">{i.student?.full_name}</span>
+            <span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span>
+            <span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span>
+            {i.payment_required && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
+          </div>
+          <Button size="sm" className={`text-xs text-white ${canIssue ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canIssue} onClick={() => issueCertificate(i.id)}>
+            <Award className="h-3 w-3 mr-1" /> Issue Certificate
+          </Button>
         </div>);
       })}
+    </div>
+  )}
+</div>
+)}
+
+{/* ============ CERTIFICATE PAYMENTS ============ */}
+{activeSection === "payments" && (
+<div className="space-y-6">
+  <h2 className="text-lg font-semibold text-(--admin-text)">Certificate Payments</h2>
+
+  {/* Pending Verification */}
+  {certificatePayments.filter((p: any) => p.status === "pending_verification").length > 0 && (
+    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-amber-500">Pending Verification ({certificatePayments.filter((p: any) => p.status === "pending_verification").length})</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Submitted</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
+        </tr></thead><tbody>
+          {certificatePayments.filter((p: any) => p.status === "pending_verification").map((p: any) => {
+            const intern = internships.find((i: any) => i.id === p.internship_id);
+            return (
+              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
+                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span><br/><span className="text-xs text-(--admin-text-muted)">{intern?.internship_code}</span></td>
+                <td className="py-3 px-3 text-(--admin-text)">{intern?.domain?.name ?? "-"}</td>
+                <td className="py-3 px-3 text-(--admin-text) font-semibold">&#8377;{p.amount}</td>
+                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{new Date(p.submitted_at).toLocaleDateString()}</td>
+                <td className="py-3 px-3 space-x-1 whitespace-nowrap">
+                  <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => verifyPayment(p.id)}>Verify</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-600" onClick={() => rejectPayment(p.id)}>Reject</Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody></table>
+      </div>
+    </div>
+  )}
+
+  {certificatePayments.filter((p: any) => p.status === "pending_verification").length === 0 && (
+    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 text-center">
+      <p className="text-sm text-(--admin-text-muted)">No pending certificate payments.</p>
+    </div>
+  )}
+
+  {/* Verified Payments */}
+  {certificatePayments.filter((p: any) => p.status === "paid").length > 0 && (
+    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-emerald-500">Verified ({certificatePayments.filter((p: any) => p.status === "paid").length})</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Verified</th>
+        </tr></thead><tbody>
+          {certificatePayments.filter((p: any) => p.status === "paid").map((p: any) => {
+            const intern = internships.find((i: any) => i.id === p.internship_id);
+            return (
+              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
+                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span></td>
+                <td className="py-3 px-3 text-(--admin-text)">&#8377;{p.amount}</td>
+                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.verified_at ? new Date(p.verified_at).toLocaleDateString() : "-"}</td>
+              </tr>
+            );
+          })}
+        </tbody></table>
+      </div>
+    </div>
+  )}
+
+  {/* Rejected Payments */}
+  {certificatePayments.filter((p: any) => p.status === "rejected").length > 0 && (
+    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-red-500">Rejected ({certificatePayments.filter((p: any) => p.status === "rejected").length})</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Reason</th>
+        </tr></thead><tbody>
+          {certificatePayments.filter((p: any) => p.status === "rejected").map((p: any) => {
+            const intern = internships.find((i: any) => i.id === p.internship_id);
+            return (
+              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
+                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span></td>
+                <td className="py-3 px-3 text-(--admin-text)">&#8377;{p.amount}</td>
+                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.rejection_reason || "-"}</td>
+              </tr>
+            );
+          })}
+        </tbody></table>
+      </div>
     </div>
   )}
 </div>

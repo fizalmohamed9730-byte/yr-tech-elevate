@@ -41,6 +41,12 @@ function Dashboard() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
 
+  // Certificate payment states
+  const [paymentRecord, setPaymentRecord] = useState<any>(null);
+  const [certificateFee, setCertificateFee] = useState<number>(0);
+  const [paymentTxId, setPaymentTxId] = useState("");
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
   async function load() {
     try {
       const { data: u, error: authErr } = await supabase.auth.getUser();
@@ -55,7 +61,7 @@ function Dashboard() {
 
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, payment_required, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -74,7 +80,7 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, payment_required, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) internship = upd;
@@ -102,11 +108,60 @@ function Dashboard() {
         const { data: s, error: sErr } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
         if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message, sErr.details, sErr.hint);
         setSubmissions(s ?? []);
+
+        // Load certificate payment data for this intern
+        const [{ data: payData }, { data: feeData }] = await Promise.all([
+          supabase.from("certificate_payments").select("id, internship_id, amount, currency, transaction_id, status, submitted_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
+          supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
+        ]);
+        setPaymentRecord(payData ?? null);
+        setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 0);
       }
     } catch (err: any) {
       console.error("[dashboard] load error:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitCertificatePayment() {
+    if (!internship?.id) return;
+    if (!paymentTxId.trim()) return toast.error("Please enter your Transaction / UTR ID");
+    if (paymentRecord?.status === "paid") return toast.error("Payment already verified");
+    setSubmittingPayment(true);
+    try {
+      if (paymentRecord?.status === "rejected") {
+        const { error } = await (supabase as any)
+          .from("certificate_payments")
+          .update({ transaction_id: paymentTxId.trim(), status: "pending_verification", rejection_reason: null })
+          .eq("id", paymentRecord.id);
+        if (error) {
+          console.error("[dashboard] payment retry error:", error.code, error.message);
+          return toast.error("Failed to submit payment: " + error.message);
+        }
+      } else {
+        const { error } = await (supabase as any)
+          .from("certificate_payments")
+          .upsert({
+            internship_id: internship.id,
+            amount: certificateFee,
+            currency: "INR",
+            transaction_id: paymentTxId.trim(),
+            status: "pending_verification",
+          }, { onConflict: "internship_id" });
+        if (error) {
+          console.error("[dashboard] payment submit error:", error.code, error.message);
+          return toast.error("Failed to submit payment: " + error.message);
+        }
+      }
+      toast.success("Payment submitted! Awaiting admin verification.");
+      setPaymentTxId("");
+      load();
+    } catch (err: any) {
+      console.error("[dashboard] payment submit threw:", err?.message);
+      toast.error("Failed to submit payment");
+    } finally {
+      setSubmittingPayment(false);
     }
   }
 
@@ -506,17 +561,20 @@ function Dashboard() {
         <TabsContent value="certificate">
           <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
             <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
-            
+
             <p className="text-sm text-muted-foreground">
-              Your certificate is unlocked only after the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
+              Your certificate is unlocked only after {internship.payment_required ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
             </p>
 
+            {/* Certificate Status Card */}
             <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Certificate Status:</span>
                 {internship.certificate_code ? (
-                  <Badge className="bg-emerald-600">Unlocked</Badge>
-                ) : allRequiredApproved ? (
+                  <Badge className="bg-emerald-600">Released</Badge>
+                ) : allRequiredApproved && !internship.payment_required ? (
+                  <Badge className="bg-amber-500">Pending Admin Release</Badge>
+                ) : allRequiredApproved && internship.payment_required && paymentRecord?.status === "paid" ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
                 ) : (
                   <Badge variant="outline">Locked ({approvedTaskCount} / {durationTasksCount} Tasks Approved)</Badge>
@@ -530,15 +588,110 @@ function Dashboard() {
               )}
             </div>
 
+            {/* Certificate Payment Section (new interns only) */}
+            {internship.payment_required && !internship.certificate_code && (
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  {paymentRecord?.status === "paid" ? (
+                    <><span className="text-emerald-500">&#10003;</span> Certificate Payment &mdash; Verified</>
+                  ) : paymentRecord?.status === "pending_verification" ? (
+                    <><span className="text-amber-500">&#8987;</span> Certificate Payment &mdash; Pending Verification</>
+                  ) : !allRequiredApproved ? (
+                    <><span className="text-muted-foreground">&#128274;</span> Certificate Payment &mdash; Locked</>
+                  ) : (
+                    <><span className="text-blue-500">&#128275;</span> Certificate Payment &mdash; Unlocked</>
+                  )}
+                </h3>
+
+                {/* State: Not all tasks approved */}
+                {!allRequiredApproved && (
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                    Complete and get approval for all {durationTasksCount} required internship tasks to unlock certificate payment.
+                  </div>
+                )}
+
+                {/* State: All tasks approved, payment not yet submitted */}
+                {allRequiredApproved && !paymentRecord && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                      All required tasks are approved! Complete the certificate payment to proceed.
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">UPI ID:</span>
+                        <span className="font-mono text-sm font-semibold">fizalabbas@sbi</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-center">
+                      <img src="/payment/certificate-upi-qr.svg" alt="UPI QR Code" className="w-48 h-48 border rounded-lg" />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">Scan &amp; Pay using any UPI app</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment-tx-id">Transaction / UTR ID</Label>
+                      <Input id="payment-tx-id" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
+                    </div>
+                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
+                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Payment"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* State: Payment submitted, pending verification */}
+                {paymentRecord?.status === "pending_verification" && (
+                  <div className="space-y-2">
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                      &#8987; Your payment is being verified by the admin. You will be notified once verified.
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
+                      <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
+                      <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* State: Payment rejected */}
+                {paymentRecord?.status === "rejected" && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
+                      &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Please retry with a valid transaction.
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment-tx-id-retry">Transaction / UTR ID</Label>
+                      <Input id="payment-tx-id-retry" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
+                    </div>
+                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
+                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Retry Payment"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* State: Payment verified */}
+                {paymentRecord?.status === "paid" && !internship.certificate_code && (
+                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
+                    &#10003; Payment verified! Your certificate is now eligible for admin review.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Certificate Status Messages (legacy + new after payment) */}
             {!internship.certificate_code && !allRequiredApproved && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
                 Complete all {durationTasksCount} tasks and get them approved by Admin. Certificate will remain locked until Admin releases it.
               </div>
             )}
 
-            {!internship.certificate_code && allRequiredApproved && (
+            {!internship.certificate_code && allRequiredApproved && !internship.payment_required && (
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
                 All required tasks are approved! Your certificate is pending Admin release.
+              </div>
+            )}
+
+            {!internship.certificate_code && allRequiredApproved && internship.payment_required && paymentRecord?.status === "paid" && (
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                Payment verified and all tasks approved! Your certificate is pending Admin release.
               </div>
             )}
 

@@ -68,6 +68,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       domains: {
         Row: {
           active: boolean
@@ -113,6 +134,7 @@ export type Database = {
           internship_code: string
           offer_issued_at: string | null
           offer_letter_code: string | null
+          payment_required: boolean
           progress_percent: number
           started_at: string | null
           status: Database["public"]["Enums"]["internship_status"]
@@ -133,6 +155,7 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
+          payment_required?: boolean
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -153,6 +176,7 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
+          payment_required?: boolean
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -172,6 +196,66 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      certificate_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          internship_id: string
+          rejection_reason: string | null
+          status: string
+          submitted_at: string
+          transaction_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          internship_id: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          transaction_id: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          internship_id?: string
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string
+          transaction_id?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_payments_internship_id_fkey"
+            columns: ["internship_id"]
+            isOneToOne: true
+            referencedRelation: "internships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificate_payments_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
