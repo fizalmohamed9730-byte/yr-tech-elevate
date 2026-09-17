@@ -175,11 +175,13 @@ function Dashboard() {
   );
 
   const isAIML = internship.domain?.slug === "artificial-intelligence";
-  const allTasks = getTasksForSlug(internship.domain?.slug, isAIML ? internship.duration : undefined);
-  const durationTasksCount = isAIML
+  const isFullStack = internship.domain?.slug === "full-stack";
+  const useDurationAwareTasks = isAIML || isFullStack;
+  const allTasks = getTasksForSlug(internship.domain?.slug, useDurationAwareTasks ? internship.duration : undefined);
+  const durationTasksCount = useDurationAwareTasks
     ? allTasks.length
     : (internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5);
-  const tasks = isAIML ? allTasks : allTasks.slice(0, durationTasksCount);
+  const tasks = useDurationAwareTasks ? allTasks : allTasks.slice(0, durationTasksCount);
   const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
   const isApproved = internship.status === "active" || internship.status === "completed";
 
@@ -796,7 +798,7 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
     setBusy(true);
     const { error } = submission
       ? await supabase.from("submissions").update(payload).eq("id", submission.id)
-      : await supabase.from("submissions").insert(payload);
+      : await supabase.from("submissions").upsert(payload, { onConflict: "internship_id,task_no" });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Submitted for review");

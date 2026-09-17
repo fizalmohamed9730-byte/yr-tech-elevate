@@ -768,8 +768,11 @@ function AdminPage() {
       </tr></thead><tbody>
         {recentInterns.map((intern) => {
           const s = intern.student; const ta = approvedCountByStudent.get(intern.student_id) ?? 0;
-          const tt = intern.domain?.slug === "artificial-intelligence"
-            ? (intern.duration === "1 Month" ? 5 : intern.duration === "2 Months" ? 7 : 10)
+          const isDurationAware = intern.domain?.slug === "artificial-intelligence" || intern.domain?.slug === "full-stack";
+          const tt = isDurationAware
+            ? (intern.domain?.slug === "artificial-intelligence"
+                ? (intern.duration === "1 Month" ? 5 : intern.duration === "2 Months" ? 7 : 10)
+                : (intern.duration === "1 Month" ? 5 : intern.duration === "2 Months" ? 7 : 10))
             : (intern.duration === "1 Month" ? 3 : intern.duration === "2 Months" ? 4 : 5);
           const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
           return (<tr key={intern.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover) transition-colors">
@@ -843,8 +846,11 @@ function AdminPage() {
   </tr></thead><tbody>
     {enrichedStudents.map((s) => {
       const i = s.internship; const ta = approvedCountByStudent.get(s.id) ?? 0;
-      const tt = i?.domain?.slug === "artificial-intelligence"
-        ? (i?.duration === "1 Month" ? 5 : i?.duration === "2 Months" ? 7 : 10)
+      const isDurationAwareAdmin = i?.domain?.slug === "artificial-intelligence" || i?.domain?.slug === "full-stack";
+      const tt = isDurationAwareAdmin
+        ? (i?.domain?.slug === "artificial-intelligence"
+            ? (i?.duration === "1 Month" ? 5 : i?.duration === "2 Months" ? 7 : 10)
+            : (i?.duration === "1 Month" ? 5 : i?.duration === "2 Months" ? 7 : 10))
         : (i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0);
       const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
       return (<tr key={s.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
