@@ -166,7 +166,7 @@ function AdminPage() {
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
-        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, transaction_id, status, submitted_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
+        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
       ]);
 
       // ── DEBUG: Discovery analytics diagnostic logging ──
@@ -500,7 +500,7 @@ function AdminPage() {
   async function verifyPayment(paymentId: string) {
     const { error } = await (supabase as any)
       .from("certificate_payments")
-      .update({ status: "paid", verified_at: new Date().toISOString(), verified_by: (await supabase.auth.getUser()).data.user?.id })
+      .update({ status: "paid", paid_at: new Date().toISOString(), verified_at: new Date().toISOString(), verified_by: (await supabase.auth.getUser()).data.user?.id })
       .eq("id", paymentId);
     if (error) return toast.error("Failed to verify payment: " + error.message);
     toast.success("Payment verified!");
@@ -1118,14 +1118,14 @@ function AdminPage() {
       <h3 className="text-sm font-semibold text-(--admin-text)">Eligible for Certificate</h3>
       {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
-        const paymentPaid = i.payment_required ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
-        const canIssue = i.payment_required ? paymentPaid : true;
+        const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
+        const canIssue = i.certificate_flow_version === 'payment_v1' ? paymentPaid : true;
         return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-(--admin-card-border) last:border-0">
           <div>
             <span className="text-(--admin-text) font-medium">{i.student?.full_name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span>
-            {i.payment_required && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
+            {i.certificate_flow_version === 'payment_v1' && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
           </div>
           <Button size="sm" className={`text-xs text-white ${canIssue ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canIssue} onClick={() => issueCertificate(i.id)}>
             <Award className="h-3 w-3 mr-1" /> Issue Certificate

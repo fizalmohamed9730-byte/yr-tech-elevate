@@ -61,7 +61,7 @@ function Dashboard() {
 
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, payment_required, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -80,7 +80,7 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, payment_required, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) internship = upd;
@@ -111,7 +111,7 @@ function Dashboard() {
 
         // Load certificate payment data for this intern
         const [{ data: payData }, { data: feeData }] = await Promise.all([
-          supabase.from("certificate_payments").select("id, internship_id, amount, currency, transaction_id, status, submitted_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
+          supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
           supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
         ]);
         setPaymentRecord(payData ?? null);
@@ -563,7 +563,7 @@ function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
 
             <p className="text-sm text-muted-foreground">
-              Your certificate is unlocked only after {internship.payment_required ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
+              Your certificate is unlocked only after {internship.certificate_flow_version === 'payment_v1' ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
             </p>
 
             {/* Certificate Status Card */}
@@ -572,9 +572,9 @@ function Dashboard() {
                 <span>Certificate Status:</span>
                 {internship.certificate_code ? (
                   <Badge className="bg-emerald-600">Released</Badge>
-                ) : allRequiredApproved && !internship.payment_required ? (
+                ) : allRequiredApproved && internship.certificate_flow_version !== 'payment_v1' ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
-                ) : allRequiredApproved && internship.payment_required && paymentRecord?.status === "paid" ? (
+                ) : allRequiredApproved && internship.certificate_flow_version === 'payment_v1' && paymentRecord?.status === "paid" ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
                 ) : (
                   <Badge variant="outline">Locked ({approvedTaskCount} / {durationTasksCount} Tasks Approved)</Badge>
@@ -589,7 +589,7 @@ function Dashboard() {
             </div>
 
             {/* Certificate Payment Section (new interns only) */}
-            {internship.payment_required && !internship.certificate_code && (
+            {internship.certificate_flow_version === 'payment_v1' && !internship.certificate_code && (
               <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   {paymentRecord?.status === "paid" ? (
@@ -683,13 +683,13 @@ function Dashboard() {
               </div>
             )}
 
-            {!internship.certificate_code && allRequiredApproved && !internship.payment_required && (
+            {!internship.certificate_code && allRequiredApproved && internship.certificate_flow_version !== 'payment_v1' && (
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
                 All required tasks are approved! Your certificate is pending Admin release.
               </div>
             )}
 
-            {!internship.certificate_code && allRequiredApproved && internship.payment_required && paymentRecord?.status === "paid" && (
+            {!internship.certificate_code && allRequiredApproved && internship.certificate_flow_version === 'payment_v1' && paymentRecord?.status === "paid" && (
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
                 Payment verified and all tasks approved! Your certificate is pending Admin release.
               </div>

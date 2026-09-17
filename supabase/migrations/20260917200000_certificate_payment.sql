@@ -1,11 +1,20 @@
--- CERTIFICATE PAYMENT (UPI / QR)
--- Adds payment_required flag, certificate_payments table, app_settings, and updates RPCs.
--- ONLY new interns (created after deployment) will have payment_required = true.
--- Existing interns keep payment_required = false (default) and follow legacy flow.
+-- CERTIFICATE PAYMENT (UPI / QR) — payment_v1 flow
+-- ONLY new interns get certificate_flow_version = 'payment_v1'.
+-- Existing interns keep certificate_flow_version = 'legacy' (default).
+-- This migration is purely additive. No existing data is modified.
 
--- 1. Add payment_required to internships (default false = legacy interns not affected)
+-- 1. Add certificate_flow_version to internships
+--    Existing rows default to 'legacy'. New registrations will get 'payment_v1' via handle_new_user().
 ALTER TABLE public.internships
-  ADD COLUMN IF NOT EXISTS payment_required boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS certificate_flow_version text NOT NULL DEFAULT 'legacy';
+
+-- Safety CHECK: only allow known values
+DO $$ BEGIN
+  ALTER TABLE public.internships
+    ADD CONSTRAINT internships_certificate_flow_version_check
+    CHECK (certificate_flow_version IN ('legacy', 'payment_v1'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 2. App settings table (configurable fee)
 CREATE TABLE IF NOT EXISTS public.app_settings (
@@ -24,6 +33,7 @@ CREATE POLICY "Admins manage app settings" ON public.app_settings FOR ALL
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+-- Seed default certificate fee (₹499)
 INSERT INTO public.app_settings (key, value) VALUES ('certificate_fee', to_jsonb(499))
   ON CONFLICT (key) DO NOTHING;
 
@@ -33,16 +43,21 @@ CREATE TABLE IF NOT EXISTS public.certificate_payments (
   internship_id    uuid NOT NULL UNIQUE REFERENCES public.internships(id) ON DELETE CASCADE,
   amount           numeric NOT NULL,
   currency         text NOT NULL DEFAULT 'INR',
+  upi_id           text NOT NULL DEFAULT 'fizalabbas@sbi',
   transaction_id   text NOT NULL,
   status           text NOT NULL DEFAULT 'pending_verification'
                      CHECK (status IN ('pending_verification', 'paid', 'rejected')),
   submitted_at     timestamptz NOT NULL DEFAULT now(),
+  paid_at          timestamptz,
   verified_at      timestamptz,
   verified_by      uuid REFERENCES auth.users(id),
   rejection_reason text,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now()
 );
+
+-- Index for quick lookups by internship
+CREATE INDEX IF NOT EXISTS idx_certificate_payments_internship ON public.certificate_payments (internship_id);
 
 ALTER TABLE public.certificate_payments ENABLE ROW LEVEL SECURITY;
 
@@ -71,7 +86,7 @@ CREATE POLICY "Students submit own payments" ON public.certificate_payments
     )
   );
 
--- Students can update only their own pending payments (for retry after rejection)
+-- Students can update only their own rejected payments (retry after rejection)
 DROP POLICY IF EXISTS "Students retry own rejected payments" ON public.certificate_payments;
 CREATE POLICY "Students retry own rejected payments" ON public.certificate_payments
   FOR UPDATE TO authenticated
@@ -105,7 +120,8 @@ CREATE TRIGGER certificate_payments_set_updated_at
   BEFORE UPDATE ON public.certificate_payments
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- 4. Update handle_new_user() — new interns get payment_required = true
+-- 4. Update handle_new_user() — new interns get certificate_flow_version = 'payment_v1'
+--    Existing internships are NOT touched (WHERE clause ensures only new inserts).
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -159,8 +175,8 @@ BEGIN
   v_duration := COALESCE(NEW.raw_user_meta_data->>'duration', '1 Month');
 
   IF v_domain IS NOT NULL AND v_role = 'intern' THEN
-    INSERT INTO public.internships (student_id, domain_id, duration, status, payment_required)
-    VALUES (NEW.id, v_domain, v_duration, 'active', true)
+    INSERT INTO public.internships (student_id, domain_id, duration, status, certificate_flow_version)
+    VALUES (NEW.id, v_domain, v_duration, 'active', 'payment_v1')
     ON CONFLICT (student_id) DO NOTHING
     RETURNING id INTO v_internship_id;
 
@@ -172,7 +188,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
--- 5. Update issue_certificate() — also checks payment for payment_required interns
+-- 5. Update issue_certificate() — checks payment for payment_v1 interns
 CREATE OR REPLACE FUNCTION public.issue_certificate(p_internship_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -197,12 +213,12 @@ BEGIN
     RETURN jsonb_build_object('error', 'Certificate already issued: ' || v_internship.certificate_code);
   END IF;
 
-  -- Check payment for new interns (payment_required = true)
-  IF v_internship.payment_required THEN
+  -- Only check payment for payment_v1 interns. Legacy interns are unaffected.
+  IF v_internship.certificate_flow_version = 'payment_v1' THEN
     SELECT * INTO v_payment FROM public.certificate_payments
       WHERE internship_id = p_internship_id AND status = 'paid';
     IF v_payment IS NULL THEN
-      RAISE EXCEPTION 'Cannot issue certificate: payment not verified. Payment must be confirmed before issuing certificate.';
+      RAISE EXCEPTION 'Cannot issue certificate: payment not verified. Payment must be confirmed before issuing certificate for payment_v1 interns.';
     END IF;
   END IF;
 
@@ -220,7 +236,7 @@ BEGIN
 
   v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
   UPDATE public.internships
-    SET certificate_code     = v_code,
+    SET certificate_code      = v_code,
         certificate_issued_at = now(),
         certificate_released_by = v_admin_id,
         certificate_released_at = now()

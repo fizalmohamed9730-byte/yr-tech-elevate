@@ -123,6 +123,7 @@ export type Database = {
         Row: {
           batch_id: string | null
           certificate_code: string | null
+          certificate_flow_version: string
           certificate_issued_at: string | null
           certificate_released_at: string | null
           certificate_released_by: string | null
@@ -134,7 +135,6 @@ export type Database = {
           internship_code: string
           offer_issued_at: string | null
           offer_letter_code: string | null
-          payment_required: boolean
           progress_percent: number
           started_at: string | null
           status: Database["public"]["Enums"]["internship_status"]
@@ -144,6 +144,7 @@ export type Database = {
         Insert: {
           batch_id?: string | null
           certificate_code?: string | null
+          certificate_flow_version?: string
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
@@ -155,7 +156,6 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
-          payment_required?: boolean
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -165,6 +165,7 @@ export type Database = {
         Update: {
           batch_id?: string | null
           certificate_code?: string | null
+          certificate_flow_version?: string
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
@@ -176,7 +177,6 @@ export type Database = {
           internship_code?: string
           offer_issued_at?: string | null
           offer_letter_code?: string | null
-          payment_required?: boolean
           progress_percent?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["internship_status"]
@@ -207,11 +207,13 @@ export type Database = {
           currency: string
           id: string
           internship_id: string
+          paid_at: string | null
           rejection_reason: string | null
           status: string
           submitted_at: string
           transaction_id: string
           updated_at: string
+          upi_id: string
           verified_at: string | null
           verified_by: string | null
         }
@@ -221,11 +223,13 @@ export type Database = {
           currency?: string
           id?: string
           internship_id: string
+          paid_at?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_at?: string
           transaction_id: string
           updated_at?: string
+          upi_id?: string
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -235,11 +239,13 @@ export type Database = {
           currency?: string
           id?: string
           internship_id?: string
+          paid_at?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_at?: string
           transaction_id?: string
           updated_at?: string
+          upi_id?: string
           verified_at?: string | null
           verified_by?: string | null
         }
