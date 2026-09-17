@@ -33,27 +33,28 @@ CREATE POLICY "Admins manage app settings" ON public.app_settings FOR ALL
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
--- Seed default certificate fee (₹499)
-INSERT INTO public.app_settings (key, value) VALUES ('certificate_fee', to_jsonb(499))
+-- Seed default certificate fee (₹99 INR)
+INSERT INTO public.app_settings (key, value) VALUES ('certificate_fee', to_jsonb(99))
   ON CONFLICT (key) DO NOTHING;
 
 -- 3. Certificate payments table
 CREATE TABLE IF NOT EXISTS public.certificate_payments (
-  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  internship_id    uuid NOT NULL UNIQUE REFERENCES public.internships(id) ON DELETE CASCADE,
-  amount           numeric NOT NULL,
-  currency         text NOT NULL DEFAULT 'INR',
-  upi_id           text NOT NULL DEFAULT 'fizalabbas@sbi',
-  transaction_id   text NOT NULL,
-  status           text NOT NULL DEFAULT 'pending_verification'
-                     CHECK (status IN ('pending_verification', 'paid', 'rejected')),
-  submitted_at     timestamptz NOT NULL DEFAULT now(),
-  paid_at          timestamptz,
-  verified_at      timestamptz,
-  verified_by      uuid REFERENCES auth.users(id),
-  rejection_reason text,
-  created_at       timestamptz NOT NULL DEFAULT now(),
-  updated_at       timestamptz NOT NULL DEFAULT now()
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  internship_id         uuid NOT NULL UNIQUE REFERENCES public.internships(id) ON DELETE CASCADE,
+  amount                numeric NOT NULL,
+  currency              text NOT NULL DEFAULT 'INR',
+  upi_id                text NOT NULL DEFAULT 'fizalabbas@sbi',
+  transaction_id        text NOT NULL,
+  payment_screenshot_url text,
+  status                text NOT NULL DEFAULT 'pending_verification'
+                          CHECK (status IN ('pending_verification', 'paid', 'rejected', 'refunded')),
+  submitted_at          timestamptz NOT NULL DEFAULT now(),
+  paid_at               timestamptz,
+  verified_at           timestamptz,
+  verified_by           uuid REFERENCES auth.users(id),
+  rejection_reason      text,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
 -- Index for quick lookups by internship

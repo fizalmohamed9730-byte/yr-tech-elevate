@@ -208,6 +208,7 @@ export type Database = {
           id: string
           internship_id: string
           paid_at: string | null
+          payment_screenshot_url: string | null
           rejection_reason: string | null
           status: string
           submitted_at: string
@@ -224,6 +225,7 @@ export type Database = {
           id?: string
           internship_id: string
           paid_at?: string | null
+          payment_screenshot_url?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_at?: string
@@ -240,6 +242,7 @@ export type Database = {
           id?: string
           internship_id?: string
           paid_at?: string | null
+          payment_screenshot_url?: string | null
           rejection_reason?: string | null
           status?: string
           submitted_at?: string

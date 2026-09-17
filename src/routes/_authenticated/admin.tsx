@@ -157,7 +157,7 @@ function AdminPage() {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -166,7 +166,7 @@ function AdminPage() {
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
-        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
+        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
       ]);
 
       // ── DEBUG: Discovery analytics diagnostic logging ──
@@ -1152,6 +1152,7 @@ function AdminPage() {
           <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th>
           <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
           <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Screenshot</th>
           <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Submitted</th>
           <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
         </tr></thead><tbody>
@@ -1163,6 +1164,7 @@ function AdminPage() {
                 <td className="py-3 px-3 text-(--admin-text)">{intern?.domain?.name ?? "-"}</td>
                 <td className="py-3 px-3 text-(--admin-text) font-semibold">&#8377;{p.amount}</td>
                 <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.payment_screenshot_url ? <a href={p.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a> : "-"}</td>
                 <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{new Date(p.submitted_at).toLocaleDateString()}</td>
                 <td className="py-3 px-3 space-x-1 whitespace-nowrap">
                   <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => verifyPayment(p.id)}>Verify</Button>

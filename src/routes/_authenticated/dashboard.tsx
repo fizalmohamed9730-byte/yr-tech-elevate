@@ -45,6 +45,7 @@ function Dashboard() {
   const [paymentRecord, setPaymentRecord] = useState<any>(null);
   const [certificateFee, setCertificateFee] = useState<number>(0);
   const [paymentTxId, setPaymentTxId] = useState("");
+  const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null);
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
   async function load() {
@@ -110,12 +111,14 @@ function Dashboard() {
         setSubmissions(s ?? []);
 
         // Load certificate payment data for this intern
-        const [{ data: payData }, { data: feeData }] = await Promise.all([
-          supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
+        const [{ data: payData, error: payErr }, { data: feeData, error: feeErr }] = await Promise.all([
+          supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
           supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
         ]);
+        if (payErr) console.error("[dashboard] certificate_payments query error:", payErr.code, payErr.message, payErr.details, payErr.hint);
+        if (feeErr) console.error("[dashboard] app_settings query error:", feeErr.code, feeErr.message, feeErr.details, feeErr.hint);
         setPaymentRecord(payData ?? null);
-        setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 0);
+        setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 99);
       }
     } catch (err: any) {
       console.error("[dashboard] load error:", err);
@@ -133,7 +136,7 @@ function Dashboard() {
       if (paymentRecord?.status === "rejected") {
         const { error } = await (supabase as any)
           .from("certificate_payments")
-          .update({ transaction_id: paymentTxId.trim(), status: "pending_verification", rejection_reason: null })
+          .update({ transaction_id: paymentTxId.trim(), payment_screenshot_url: paymentScreenshot, status: "pending_verification", rejection_reason: null })
           .eq("id", paymentRecord.id);
         if (error) {
           console.error("[dashboard] payment retry error:", error.code, error.message);
@@ -147,6 +150,7 @@ function Dashboard() {
             amount: certificateFee,
             currency: "INR",
             transaction_id: paymentTxId.trim(),
+            payment_screenshot_url: paymentScreenshot,
             status: "pending_verification",
           }, { onConflict: "internship_id" });
         if (error) {
@@ -156,6 +160,7 @@ function Dashboard() {
       }
       toast.success("Payment submitted! Awaiting admin verification.");
       setPaymentTxId("");
+      setPaymentScreenshot(null);
       load();
     } catch (err: any) {
       console.error("[dashboard] payment submit threw:", err?.message);
@@ -171,6 +176,15 @@ function Dashboard() {
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
     const r = new FileReader();
     r.onload = () => setPhoto(typeof r.result === "string" ? r.result : null);
+    r.readAsDataURL(file);
+  }
+
+  function onPaymentScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return toast.error("Screenshot must be under 2MB");
+    const r = new FileReader();
+    r.onload = () => setPaymentScreenshot(typeof r.result === "string" ? r.result : null);
     r.readAsDataURL(file);
   }
 
@@ -631,6 +645,11 @@ function Dashboard() {
                       <Label htmlFor="payment-tx-id">Transaction / UTR ID</Label>
                       <Input id="payment-tx-id" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment-screenshot">Payment Screenshot (optional)</Label>
+                      <Input id="payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
+                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
+                    </div>
                     <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
                       {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Payment"}
                     </Button>
@@ -660,6 +679,11 @@ function Dashboard() {
                     <div className="space-y-2">
                       <Label htmlFor="payment-tx-id-retry">Transaction / UTR ID</Label>
                       <Input id="payment-tx-id-retry" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment-screenshot-retry">Payment Screenshot (optional)</Label>
+                      <Input id="payment-screenshot-retry" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
+                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
                     </div>
                     <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
                       {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Retry Payment"}
