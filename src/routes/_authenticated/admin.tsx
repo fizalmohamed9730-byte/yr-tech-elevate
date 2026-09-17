@@ -264,7 +264,13 @@ function AdminPage() {
           error: (() => {
             if (!cpRes.failed) return null;
             const code = cpRes.supabaseError?.code;
-            if (code === "42P01" || code === "42703" || code === "PGRST204") {
+            const msg = cpRes.supabaseError?.message ?? "";
+            if (
+              code === "42P01" || code === "42703" || code === "PGRST204" ||
+              code === "28000" || code === "28P01" ||
+              msg.includes("does not exist") || msg.includes("relation") ||
+              msg.includes("certificate_payments") || msg.includes("column")
+            ) {
               return null;
             }
             return cpRes.supabaseError?.message || "Certificate payments unavailable";
