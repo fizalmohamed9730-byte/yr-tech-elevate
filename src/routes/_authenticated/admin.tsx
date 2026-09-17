@@ -768,7 +768,9 @@ function AdminPage() {
       </tr></thead><tbody>
         {recentInterns.map((intern) => {
           const s = intern.student; const ta = approvedCountByStudent.get(intern.student_id) ?? 0;
-          const tt = intern.duration === "1 Month" ? 3 : intern.duration === "2 Months" ? 4 : 5;
+          const tt = intern.domain?.slug === "artificial-intelligence"
+            ? (intern.duration === "1 Month" ? 5 : intern.duration === "2 Months" ? 7 : 10)
+            : (intern.duration === "1 Month" ? 3 : intern.duration === "2 Months" ? 4 : 5);
           const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
           return (<tr key={intern.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover) transition-colors">
             <td className="py-3 px-3"><div className="flex items-center gap-2.5"><Avatar className="h-8 w-8 shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs font-medium">{getInitials(s?.full_name)}</AvatarFallback></Avatar><span className="text-(--admin-text) font-medium whitespace-nowrap">{s?.full_name ?? "-"}</span></div></td>
@@ -841,7 +843,9 @@ function AdminPage() {
   </tr></thead><tbody>
     {enrichedStudents.map((s) => {
       const i = s.internship; const ta = approvedCountByStudent.get(s.id) ?? 0;
-      const tt = i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0;
+      const tt = i?.domain?.slug === "artificial-intelligence"
+        ? (i?.duration === "1 Month" ? 5 : i?.duration === "2 Months" ? 7 : 10)
+        : (i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0);
       const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
       return (<tr key={s.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
         <td className="py-3 px-3">{(profilePhotos[s.id] || s.avatar_url) ? <img src={profilePhotos[s.id] || s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-(--admin-input-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>

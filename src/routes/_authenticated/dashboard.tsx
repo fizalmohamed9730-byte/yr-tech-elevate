@@ -174,8 +174,12 @@ function Dashboard() {
     </div>
   );
 
-  const durationTasksCount = internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5;
-  const tasks = getTasksForSlug(internship.domain?.slug).slice(0, durationTasksCount);
+  const isAIML = internship.domain?.slug === "artificial-intelligence";
+  const allTasks = getTasksForSlug(internship.domain?.slug, isAIML ? internship.duration : undefined);
+  const durationTasksCount = isAIML
+    ? allTasks.length
+    : (internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5);
+  const tasks = isAIML ? allTasks : allTasks.slice(0, durationTasksCount);
   const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
   const isApproved = internship.status === "active" || internship.status === "completed";
 
