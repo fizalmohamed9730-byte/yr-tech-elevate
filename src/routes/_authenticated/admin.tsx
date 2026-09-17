@@ -40,6 +40,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "feedback" | "enquiries" | "analytics" | "announcements";
 
+type SectionKey = "profiles" | "internships" | "submissions" | "projects" | "projectSubmissions" | "domains" | "enquiries" | "announcements" | "feedback" | "discovery";
+type SectionError = { error: string | null; ts: number };
+
 const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "interns", label: "Interns", icon: Users },
@@ -92,7 +95,12 @@ function AdminPage() {
   const reloadInProgress = useRef(false);
   const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>({});
   const profilePhotosLoaded = useRef(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sectionErrors, setSectionErrors] = useState<Record<SectionKey, SectionError>>({
+    profiles: { error: null, ts: 0 }, internships: { error: null, ts: 0 }, submissions: { error: null, ts: 0 },
+    projects: { error: null, ts: 0 }, projectSubmissions: { error: null, ts: 0 }, domains: { error: null, ts: 0 },
+    enquiries: { error: null, ts: 0 }, announcements: { error: null, ts: 0 }, feedback: { error: null, ts: 0 },
+    discovery: { error: null, ts: 0 },
+  });
   const lastReloadSucceeded = useRef(false);
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
@@ -147,7 +155,6 @@ function AdminPage() {
   async function reload() {
     if (reloadInProgress.current) return;
     reloadInProgress.current = true;
-    setLoadError(null);
     try {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
@@ -198,19 +205,22 @@ function AdminPage() {
       profilePhotosLoaded.current = false;
       loadProfilePhotos(p);
 
-      const failedCount = [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes].filter(r => r.failed).length;
-      if (failedCount === 9) {
-        setLoadError("Unable to connect to the server. Please try again.");
-        lastReloadSucceeded.current = false;
-      } else if (failedCount > 0) {
-        setLoadError(`Some data could not be loaded (${failedCount}/9 sections failed). Partial data is shown.`);
-        lastReloadSucceeded.current = true;
-      } else {
-        lastReloadSucceeded.current = true;
-      }
+      const newErrors: Record<SectionKey, SectionError> = {
+        profiles: { error: pRes.failed ? "Failed to load profiles" : null, ts: Date.now() },
+        internships: { error: rawInternsRes.failed ? "Failed to load internships" : null, ts: Date.now() },
+        submissions: { error: rawSubsRes.failed ? "Failed to load submissions" : null, ts: Date.now() },
+        projects: { error: projRes.failed ? "Failed to load projects" : null, ts: Date.now() },
+        projectSubmissions: { error: rawPsRes.failed ? "Failed to load project submissions" : null, ts: Date.now() },
+        domains: { error: dRes.failed ? "Failed to load domains" : null, ts: Date.now() },
+        enquiries: { error: enqRes.failed ? "Failed to load enquiries" : null, ts: Date.now() },
+        announcements: { error: annRes.failed ? "Failed to load announcements" : null, ts: Date.now() },
+        feedback: { error: rawFbRes.failed ? "Failed to load feedback" : null, ts: Date.now() },
+        discovery: { error: discRes.failed ? "Discovery analytics unavailable (run pending migration)" : null, ts: Date.now() },
+      };
+      setSectionErrors(newErrors);
+      lastReloadSucceeded.current = !Object.values(newErrors).some(e => e.error);
     } catch (err: any) {
       console.error("[admin] reload error:", err);
-      setLoadError("Unable to connect to the server. Please try again.");
       lastReloadSucceeded.current = false;
     } finally {
       reloadInProgress.current = false;
@@ -649,14 +659,16 @@ function AdminPage() {
           </header>
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
 
-{loadError && (
+{Object.values(sectionErrors).some(e => e.error) && (
   <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-    <div className="flex items-center gap-2 text-red-400 text-sm">
+    <div className="flex items-center gap-2 text-red-400 text-sm min-w-0">
       <TriangleAlert className="h-4 w-4 shrink-0" />
-      <span>{loadError}</span>
+      <span className="truncate">
+        {Object.entries(sectionErrors).filter(([, e]) => e.error).map(([k]) => k).join(", ")} section(s) failed to load
+      </span>
     </div>
-    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => { lastReloadSucceeded.current = true; reload(); }}>
-      <RotateCw className="h-3 w-3 mr-1" /> Retry
+    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0" onClick={() => { lastReloadSucceeded.current = true; reload(); }}>
+      <RotateCw className="h-3 w-3 mr-1" /> Retry All
     </Button>
   </div>
 )}
@@ -906,7 +918,7 @@ function AdminPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap"><span className="font-mono text-xs text-(--admin-text-muted)">{s.internship?.internship_code} | Task {s.task_no}</span><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[s.status] ?? ""}`}>{s.status}</span></div>
           <div className="font-semibold mt-1 text-(--admin-text)">{taskMeta?.title ?? `Task ${s.task_no}`}</div>
-          <div className="text-xs text-(--admin-text-muted) mt-0.5">{s.internship?.student?.full_name} | {s.internship?.domain?.name}</div>
+          <div className="text-xs text-(--admin-text-muted) mt-0.5">{s.internship?.student?.full_name ?? "Name unavailable"} | {s.internship?.domain?.name ?? "Unknown domain"}</div>
           <div className="flex gap-3 mt-2 text-xs flex-wrap">
             {s.task_no === 1 && s.project_url && <a href={s.project_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
             {s.github_url && <a href={s.github_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
