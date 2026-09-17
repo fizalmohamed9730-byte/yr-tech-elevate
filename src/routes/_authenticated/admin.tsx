@@ -106,18 +106,13 @@ function AdminPage() {
   const [filterDiscovery, setFilterDiscovery] = useState("all");
   const [discoveryData, setDiscoveryData] = useState<any[]>([]);
 
-  async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean }> {
+  async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean; supabaseError?: { code?: string; message?: string; details?: string; hint?: string; status?: number } }> {
     try {
       const { data, error } = await builder as any;
       if (error) {
-        console.error(`[admin] ${label} query error:`, {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          status: error.status,
-        });
-        return { data: [], failed: true };
+        const errInfo = { code: error.code, message: error.message, details: error.details, hint: error.hint, status: error.status };
+        console.error(`[admin] ${label} query error:`, errInfo);
+        return { data: [], failed: true, supabaseError: errInfo };
       }
       return { data: (data ?? []) as T[], failed: false };
     } catch (err: any) {
@@ -126,7 +121,7 @@ function AdminPage() {
         message: err?.message,
         stack: err?.stack,
       });
-      return { data: [], failed: true };
+      return { data: [], failed: true, supabaseError: { code: "THROW", message: err?.message } };
     }
   }
 
@@ -169,6 +164,33 @@ function AdminPage() {
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
       ]);
+
+      // ── DEBUG: Discovery analytics diagnostic logging ──
+      console.groupCollapsed("[DISCOVERY_ANALYTICS] query result");
+      console.log("[DISCOVERY_ANALYTICS_QUERY]", {
+        table: "profiles",
+        columns: "id, country, discovery_source, discovery_other",
+        orderBy: "created_at DESC",
+      });
+      if (discRes.failed) {
+        console.log("[DISCOVERY_ANALYTICS_RESULT]", "FAILURE");
+        console.log("[DISCOVERY_ANALYTICS_ERROR]", discRes.supabaseError);
+        console.warn("[DISCOVERY_ANALYTICS_DIAGNOSIS]",
+          discRes.supabaseError?.code === "42703"
+            ? "COLUMNS MISSING — profiles table lacks country/discovery_source/discovery_other. Apply migration 20260917100000."
+            : discRes.supabaseError?.code === "PGRST204"
+            ? "SCHEMA MISMATCH — PostgREST schema cache stale. Run: NOTIFY pgrst, 'reload schema';"
+            : `UNEXPECTED ERROR — code: ${discRes.supabaseError?.code}, message: ${discRes.supabaseError?.message}`
+        );
+      } else {
+        console.log("[DISCOVERY_ANALYTICS_RESULT]", "SUCCESS", { rowCount: discRes.data.length });
+        if (discRes.data.length > 0) {
+          console.log("[DISCOVERY_ANALYTICS_SAMPLE]", discRes.data.slice(0, 3));
+        } else {
+          console.log("[DISCOVERY_ANALYTICS_DIAGNOSIS]", "EMPTY — query succeeded but 0 rows. All profiles have NULL discovery values or table is empty.");
+        }
+      }
+      console.groupEnd();
 
       const p = pRes.data;
       const rawInterns = rawInternsRes.data;
@@ -215,7 +237,17 @@ function AdminPage() {
         enquiries: { error: enqRes.failed ? "Failed to load enquiries" : null, ts: Date.now() },
         announcements: { error: annRes.failed ? "Failed to load announcements" : null, ts: Date.now() },
         feedback: { error: rawFbRes.failed ? "Failed to load feedback" : null, ts: Date.now() },
-        discovery: { error: discRes.failed ? "Discovery analytics unavailable (run pending migration)" : null, ts: Date.now() },
+        discovery: {
+          error: (() => {
+            if (!discRes.failed) return null;
+            const code = discRes.supabaseError?.code;
+            if (code === "42703" || code === "PGRST204") {
+              return null;
+            }
+            return discRes.supabaseError?.message || "Discovery analytics unavailable";
+          })(),
+          ts: Date.now(),
+        },
       };
       setSectionErrors(newErrors);
       lastReloadSucceeded.current = !Object.values(newErrors).some(e => e.error);
