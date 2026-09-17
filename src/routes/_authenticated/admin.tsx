@@ -157,7 +157,7 @@ function AdminPage() {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_flow_version, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -210,6 +210,22 @@ function AdminPage() {
       for (const profile of p) studentMap.set(profile.id, profile);
 
       const i = rawInterns.map((intern: any) => ({ ...intern, student: studentMap.get(intern.student_id) ?? null }));
+
+      // Fetch certificate_flow_version separately (may not exist in production yet)
+      if (i.length > 0) {
+        try {
+          const { data: cfvRows } = await (supabase as any)
+            .from("internships")
+            .select("id, certificate_flow_version");
+          if (cfvRows && Array.isArray(cfvRows)) {
+            const cfvMap = new Map<string, string>();
+            for (const row of cfvRows) cfvMap.set(row.id, row.certificate_flow_version ?? "legacy");
+            for (const intern of i) intern.certificate_flow_version = cfvMap.get(intern.id) ?? "legacy";
+          }
+        } catch {
+          for (const intern of i) intern.certificate_flow_version = "legacy";
+        }
+      }
       const ps = rawPs.map((sub: any) => ({ ...sub, student: studentMap.get(sub.student_id) ?? sub.student ?? null }));
       const fb = rawFb.map((f: any) => ({ ...f, student: studentMap.get(f.user_id) ?? null }));
 
@@ -244,7 +260,17 @@ function AdminPage() {
         enquiries: { error: enqRes.failed ? "Failed to load enquiries" : null, ts: Date.now() },
         announcements: { error: annRes.failed ? "Failed to load announcements" : null, ts: Date.now() },
         feedback: { error: rawFbRes.failed ? "Failed to load feedback" : null, ts: Date.now() },
-        certificatePayments: { error: cpRes.failed ? "Failed to load certificate payments" : null, ts: Date.now() },
+        certificatePayments: {
+          error: (() => {
+            if (!cpRes.failed) return null;
+            const code = cpRes.supabaseError?.code;
+            if (code === "42P01" || code === "42703" || code === "PGRST204") {
+              return null;
+            }
+            return cpRes.supabaseError?.message || "Certificate payments unavailable";
+          })(),
+          ts: Date.now(),
+        },
         discovery: {
           error: (() => {
             if (!discRes.failed) return null;
