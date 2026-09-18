@@ -181,7 +181,7 @@ function AdminPage() {
         console.log("[DISCOVERY_ANALYTICS_ERROR]", discRes.supabaseError);
         console.warn("[DISCOVERY_ANALYTICS_DIAGNOSIS]",
           discRes.supabaseError?.code === "42703"
-            ? "COLUMNS MISSING — profiles table lacks country/discovery_source/discovery_other. Apply migration 20260917100000."
+            ? "COLUMNS MISSING — profiles table lacks country/discovery_source/discovery_other. Apply migration 20260918000000_unified_discovery_analytics_fix.sql in Supabase SQL Editor."
             : discRes.supabaseError?.code === "PGRST204"
             ? "SCHEMA MISMATCH — PostgREST schema cache stale. Run: NOTIFY pgrst, 'reload schema';"
             : `UNEXPECTED ERROR — code: ${discRes.supabaseError?.code}, message: ${discRes.supabaseError?.message}`
@@ -282,7 +282,7 @@ function AdminPage() {
             if (!discRes.failed) return null;
             const code = discRes.supabaseError?.code;
             if (code === "42703" || code === "PGRST204") {
-              return null;
+              return "Analytics columns not yet in database. Apply migration 20260918000000_unified_discovery_analytics_fix.sql in Supabase SQL Editor.";
             }
             return discRes.supabaseError?.message || "Discovery analytics unavailable";
           })(),
@@ -1439,7 +1439,9 @@ function AdminPage() {
         : `Total: ${profiles.length} registrations`}
     </p>
     {filteredCountryData.length === 0 ? (
-      <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+      sectionErrors.discovery.error
+        ? <p className="text-sm text-amber-500">{sectionErrors.discovery.error}</p>
+        : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
     ) : (
       <div className="space-y-2">
         {filteredCountryData.slice(0, 10).map((item) => (
@@ -1465,7 +1467,9 @@ function AdminPage() {
   <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
     <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> How Users Found YR NOVATECH</h4>
     {filteredDiscoveryData.length === 0 ? (
-      <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+      sectionErrors.discovery.error
+        ? <p className="text-sm text-amber-500">{sectionErrors.discovery.error}</p>
+        : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
     ) : (
       <div className="space-y-2">
         {filteredDiscoveryData.map((item) => (
