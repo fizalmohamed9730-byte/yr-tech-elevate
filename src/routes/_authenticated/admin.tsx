@@ -428,8 +428,8 @@ function AdminPage() {
   const countryData = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const d of discoveryData) {
-      const c = d.country || "Unknown";
-      counts[c] = (counts[c] || 0) + 1;
+      if (!d.country) continue;
+      counts[d.country] = (counts[d.country] || 0) + 1;
     }
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
@@ -438,12 +438,14 @@ function AdminPage() {
 
   const discoverySourceData = useMemo(() => {
     const counts: Record<string, number> = {};
+    let total = 0;
     for (const d of discoveryData) {
-      const s = d.discovery_source || "Unknown";
-      counts[s] = (counts[s] || 0) + 1;
+      if (!d.discovery_source) continue;
+      counts[d.discovery_source] = (counts[d.discovery_source] || 0) + 1;
+      total++;
     }
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count, percent: Math.round((count / (discoveryData.length || 1)) * 100) }))
+      .map(([name, count]) => ({ name, count, percent: Math.round((count / (total || 1)) * 100) }))
       .sort((a, b) => b.count - a.count);
   }, [discoveryData]);
 
@@ -457,8 +459,8 @@ function AdminPage() {
   const filteredCountryData = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const d of filteredDiscoveryRecords) {
-      const c = d.country || "Unknown";
-      counts[c] = (counts[c] || 0) + 1;
+      if (!d.country) continue;
+      counts[d.country] = (counts[d.country] || 0) + 1;
     }
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
@@ -467,13 +469,14 @@ function AdminPage() {
 
   const filteredDiscoveryData = useMemo(() => {
     const counts: Record<string, number> = {};
+    let total = 0;
     for (const d of filteredDiscoveryRecords) {
-      const s = d.discovery_source || "Unknown";
-      counts[s] = (counts[s] || 0) + 1;
+      if (!d.discovery_source) continue;
+      counts[d.discovery_source] = (counts[d.discovery_source] || 0) + 1;
+      total++;
     }
-    const total = filteredDiscoveryRecords.length || 1;
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count, percent: Math.round((count / total) * 100) }))
+      .map(([name, count]) => ({ name, count, percent: Math.round((count / (total || 1)) * 100) }))
       .sort((a, b) => b.count - a.count);
   }, [filteredDiscoveryRecords]);
 
@@ -1441,7 +1444,7 @@ function AdminPage() {
     {filteredCountryData.length === 0 ? (
       discoveryColumnsMissing
         ? <p className="text-sm text-amber-500">Country data columns not yet in database. Apply migration in Supabase SQL Editor.</p>
-        : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+        : <p className="text-sm text-(--admin-text-secondary)">No country data available yet.</p>
     ) : (
       <div className="space-y-2">
         {filteredCountryData.slice(0, 10).map((item) => (
@@ -1469,7 +1472,7 @@ function AdminPage() {
     {filteredDiscoveryData.length === 0 ? (
       discoveryColumnsMissing
         ? <p className="text-sm text-amber-500">Discovery data columns not yet in database. Apply migration in Supabase SQL Editor.</p>
-        : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
+        : <p className="text-sm text-(--admin-text-secondary)">No discovery data available yet.</p>
     ) : (
       <div className="space-y-2">
         {filteredDiscoveryData.map((item) => (

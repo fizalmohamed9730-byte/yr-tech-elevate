@@ -498,6 +498,34 @@ function AuthPage() {
         console.warn("[auth] session not confirmed after signup auto-login, navigating anyway");
       }
 
+      // Fallback: ensure profile row exists with country/discovery data
+      // (in case the handle_new_user trigger is missing or didn't fire)
+      await (supabase as any)
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            user_id: user.id,
+            full_name: parsed.data.fullName,
+            email: parsed.data.email,
+            phone: parsed.data.phone,
+            college: parsed.data.college,
+            department: parsed.data.department,
+            year: parsed.data.year,
+            avatar_url: photoData,
+            must_change_password: false,
+            country: parsed.data.country,
+            discovery_source: parsed.data.discoverySource,
+            discovery_other: parsed.data.discoverySource === "Other" ? (parsed.data.discoveryOther ?? "") : "",
+          },
+          { onConflict: "id" },
+        )
+        .select()
+        .maybeSingle()
+        .then(({ error }: any) => {
+          if (error) console.warn("[auth] profile fallback upsert error:", error.message);
+        });
+
       toast.success("Account created! Redirecting to your dashboard...");
       await handleRedirect();
     } catch (err: any) {
