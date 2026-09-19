@@ -216,6 +216,18 @@ BEGIN
     IF NEW.certificate_released_at IS DISTINCT FROM OLD.certificate_released_at THEN
       RAISE EXCEPTION 'Students cannot modify certificate_released_at';
     END IF;
+    IF NEW.certificate_status IS DISTINCT FROM OLD.certificate_status THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_status';
+    END IF;
+    IF NEW.certificate_revoked_at IS DISTINCT FROM OLD.certificate_revoked_at THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_revoked_at';
+    END IF;
+    IF NEW.certificate_revoked_by IS DISTINCT FROM OLD.certificate_revoked_by THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_revoked_by';
+    END IF;
+    IF NEW.certificate_revoke_reason IS DISTINCT FROM OLD.certificate_revoke_reason THEN
+      RAISE EXCEPTION 'Students cannot modify certificate_revoke_reason';
+    END IF;
     IF NEW.progress_percent IS DISTINCT FROM OLD.progress_percent THEN
       RAISE EXCEPTION 'Students cannot modify progress_percent';
     END IF;
@@ -258,7 +270,19 @@ ALTER TABLE public.internships
   ADD COLUMN IF NOT EXISTS certificate_email_error text,
   ADD COLUMN IF NOT EXISTS certificate_resend_message_id text,
   ADD COLUMN IF NOT EXISTS certificate_released_by uuid,
-  ADD COLUMN IF NOT EXISTS certificate_released_at timestamptz;
+  ADD COLUMN IF NOT EXISTS certificate_released_at timestamptz,
+  ADD COLUMN IF NOT EXISTS certificate_flow_version text NOT NULL DEFAULT 'legacy',
+  ADD COLUMN IF NOT EXISTS certificate_status text NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS certificate_revoked_at timestamptz,
+  ADD COLUMN IF NOT EXISTS certificate_revoked_by uuid,
+  ADD COLUMN IF NOT EXISTS certificate_revoke_reason text;
+
+DO $$ BEGIN
+  ALTER TABLE public.internships
+    ADD CONSTRAINT internships_certificate_flow_version_check
+    CHECK (certificate_flow_version IN ('legacy', 'payment_v1'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS internships_one_per_student ON public.internships(student_id);
 
@@ -266,7 +290,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS internships_one_per_student ON public.internsh
 CREATE TABLE IF NOT EXISTS public.submissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   internship_id uuid NOT NULL REFERENCES public.internships(id) ON DELETE CASCADE,
-  task_no int NOT NULL CHECK (task_no BETWEEN 1 AND 6),
+  task_no int NOT NULL CHECK (task_no BETWEEN 1 AND 10),
   github_url text,
   project_url text,
   drive_url text,
@@ -318,12 +342,25 @@ DECLARE
   v_iid uuid;
   v_approved int;
   v_duration text;
+  v_domain_slug text;
   v_required int;
 BEGIN
   v_iid := COALESCE(NEW.internship_id, OLD.internship_id);
   SELECT count(*) INTO v_approved FROM public.submissions WHERE internship_id = v_iid AND status = 'approved';
-  SELECT duration INTO v_duration FROM public.internships WHERE id = v_iid;
-  v_required := CASE WHEN v_duration = '1 Month' THEN 3 WHEN v_duration = '2 Months' THEN 4 ELSE 5 END;
+  SELECT i.duration, d.slug INTO v_duration, v_domain_slug
+    FROM public.internships i
+    LEFT JOIN public.domains d ON d.id = i.domain_id
+    WHERE i.id = v_iid;
+
+  v_required := CASE
+    WHEN v_domain_slug IN ('artificial-intelligence', 'full-stack') AND v_duration = '1 Month' THEN 5
+    WHEN v_domain_slug IN ('artificial-intelligence', 'full-stack') AND v_duration = '2 Months' THEN 7
+    WHEN v_domain_slug IN ('artificial-intelligence', 'full-stack') AND v_duration = '3 Months' THEN 10
+    WHEN v_duration = '1 Month' THEN 3
+    WHEN v_duration = '2 Months' THEN 4
+    ELSE 5
+  END;
+
   UPDATE public.internships
     SET progress_percent = LEAST(ROUND((v_approved::float / v_required::float) * 100), 100),
         status = CASE
@@ -362,6 +399,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_admin_id uuid;
   v_internship record;
+  v_domain_slug text;
   v_approved int;
   v_required int;
   v_code text;
@@ -370,31 +408,58 @@ BEGIN
   IF NOT public.has_role(v_admin_id, 'admin') THEN
     RAISE EXCEPTION 'Only admins can issue certificates';
   END IF;
-  SELECT * INTO v_internship FROM public.internships WHERE id = p_internship_id;
+
+  SELECT i.*, d.slug AS domain_slug INTO v_internship
+    FROM public.internships i
+    LEFT JOIN public.domains d ON d.id = i.domain_id
+    WHERE i.id = p_internship_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Internship not found';
   END IF;
-  IF v_internship.certificate_code IS NOT NULL THEN
+
+  IF v_internship.certificate_code IS NOT NULL AND v_internship.certificate_status = 'issued' THEN
     RETURN jsonb_build_object('error', 'Certificate already issued: ' || v_internship.certificate_code);
   END IF;
+
   SELECT count(*) INTO v_approved
     FROM public.submissions
     WHERE internship_id = p_internship_id AND status = 'approved';
+
   v_required := CASE
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '1 Month' THEN 5
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '2 Months' THEN 7
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '3 Months' THEN 10
     WHEN v_internship.duration = '1 Month' THEN 3
     WHEN v_internship.duration = '2 Months' THEN 4
     ELSE 5
   END;
+
   IF v_approved < v_required THEN
     RAISE EXCEPTION 'Cannot issue certificate: % of % required tasks approved', v_approved, v_required;
   END IF;
+
+  IF v_internship.certificate_flow_version = 'payment_v1' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.certificate_payments
+      WHERE internship_id = p_internship_id AND status = 'paid'
+    ) THEN
+      RETURN jsonb_build_object('error', 'Certificate payment not verified');
+    END IF;
+  END IF;
+
   v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
+
   UPDATE public.internships
     SET certificate_code     = v_code,
         certificate_issued_at = now(),
         certificate_released_by = v_admin_id,
-        certificate_released_at = now()
+        certificate_released_at = now(),
+        certificate_status    = 'issued'
   WHERE id = p_internship_id;
+
+  INSERT INTO public.certificate_audit_log (internship_id, action, admin_id, old_certificate_code, new_certificate_code, reason)
+  VALUES (p_internship_id, 'issued', v_admin_id, v_internship.certificate_code, v_code, 'Initial issue');
+
   RETURN jsonb_build_object(
     'success', true,
     'certificate_code', v_code,
@@ -405,6 +470,129 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION public.issue_certificate(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.issue_certificate(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.revoke_certificate(p_internship_id uuid, p_reason text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id uuid;
+  v_internship record;
+BEGIN
+  v_admin_id := auth.uid();
+  IF NOT public.has_role(v_admin_id, 'admin') THEN
+    RAISE EXCEPTION 'Only admins can revoke certificates';
+  END IF;
+  IF p_reason IS NULL OR trim(p_reason) = '' THEN
+    RAISE EXCEPTION 'Revocation reason is required';
+  END IF;
+  SELECT * INTO v_internship FROM public.internships WHERE id = p_internship_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Internship not found';
+  END IF;
+  IF v_internship.certificate_status != 'issued' THEN
+    RETURN jsonb_build_object('error', 'Certificate is not in issued status (current: ' || v_internship.certificate_status || ')');
+  END IF;
+  UPDATE public.internships
+    SET certificate_status    = 'revoked',
+        certificate_revoked_at  = now(),
+        certificate_revoked_by  = v_admin_id,
+        certificate_revoke_reason = trim(p_reason),
+        certificate_code       = NULL,
+        certificate_issued_at  = NULL,
+        certificate_released_by = NULL,
+        certificate_released_at = NULL
+  WHERE id = p_internship_id;
+  INSERT INTO public.certificate_audit_log (internship_id, action, admin_id, old_certificate_code, new_certificate_code, reason)
+  VALUES (p_internship_id, 'revoked', v_admin_id, v_internship.certificate_code, NULL, trim(p_reason));
+  RETURN jsonb_build_object(
+    'success', true,
+    'message', 'Certificate revoked',
+    'revoked_at', now()::text,
+    'revoked_by', v_admin_id::text,
+    'reason', trim(p_reason)
+  );
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.revoke_certificate(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.revoke_certificate(uuid, text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.reissue_certificate(p_internship_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id uuid;
+  v_internship record;
+  v_domain_slug text;
+  v_approved int;
+  v_required int;
+  v_code text;
+BEGIN
+  v_admin_id := auth.uid();
+  IF NOT public.has_role(v_admin_id, 'admin') THEN
+    RAISE EXCEPTION 'Only admins can reissue certificates';
+  END IF;
+
+  SELECT i.*, d.slug AS domain_slug INTO v_internship
+    FROM public.internships i
+    LEFT JOIN public.domains d ON d.id = i.domain_id
+    WHERE i.id = p_internship_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Internship not found';
+  END IF;
+  IF v_internship.certificate_status != 'revoked' THEN
+    RETURN jsonb_build_object('error', 'Certificate is not in revoked status (current: ' || v_internship.certificate_status || ')');
+  END IF;
+
+  SELECT count(*) INTO v_approved
+    FROM public.submissions
+    WHERE internship_id = p_internship_id AND status = 'approved';
+
+  v_required := CASE
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '1 Month' THEN 5
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '2 Months' THEN 7
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '3 Months' THEN 10
+    WHEN v_internship.duration = '1 Month' THEN 3
+    WHEN v_internship.duration = '2 Months' THEN 4
+    ELSE 5
+  END;
+
+  IF v_approved < v_required THEN
+    RAISE EXCEPTION 'Cannot reissue: only % of % required tasks are approved', v_approved, v_required;
+  END IF;
+
+  IF v_internship.certificate_flow_version = 'payment_v1' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.certificate_payments
+      WHERE internship_id = p_internship_id AND status = 'paid'
+    ) THEN
+      RETURN jsonb_build_object('error', 'Certificate payment not verified');
+    END IF;
+  END IF;
+
+  v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
+
+  UPDATE public.internships
+    SET certificate_code     = v_code,
+        certificate_issued_at = now(),
+        certificate_released_by = v_admin_id,
+        certificate_released_at = now(),
+        certificate_status    = 'issued',
+        certificate_revoked_at  = NULL,
+        certificate_revoked_by  = NULL,
+        certificate_revoke_reason = NULL
+  WHERE id = p_internship_id;
+
+  INSERT INTO public.certificate_audit_log (internship_id, action, admin_id, old_certificate_code, new_certificate_code, reason)
+  VALUES (p_internship_id, 'reissued', v_admin_id, NULL, v_code, 'Re-issued after revocation');
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'certificate_code', v_code,
+    'issued_at', now()::text,
+    'released_by', v_admin_id::text
+  );
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.reissue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reissue_certificate(uuid) TO authenticated;
 
 -- ------------------------- 11. Storage buckets + policies -------------------------
 INSERT INTO storage.buckets (id, name, public) VALUES
@@ -638,8 +826,8 @@ BEGIN
 
   v_duration := COALESCE(NEW.raw_user_meta_data->>'duration', '1 Month');
   IF v_domain IS NOT NULL AND v_role = 'intern' THEN
-    INSERT INTO public.internships (student_id, domain_id, duration)
-    VALUES (NEW.id, v_domain, v_duration)
+    INSERT INTO public.internships (student_id, domain_id, duration, certificate_flow_version)
+    VALUES (NEW.id, v_domain, v_duration, 'payment_v1')
     ON CONFLICT (student_id) DO NOTHING
     RETURNING id INTO v_internship_id;
     UPDATE public.profiles
@@ -766,5 +954,98 @@ REVOKE EXECUTE ON FUNCTION public.recalc_internship_progress() FROM PUBLIC, anon
 REVOKE EXECUTE ON FUNCTION public.issue_offer_letter() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.issue_certificate(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.issue_certificate(uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.revoke_certificate(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.revoke_certificate(uuid, text) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.reissue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reissue_certificate(uuid) TO authenticated;
 REVOKE EXECUTE ON FUNCTION public.generate_internship_code() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.auto_confirm_student_emails() FROM PUBLIC, anon, authenticated;
+
+-- ------------------------- 19. Certificate payments table -------------------------
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key        text PRIMARY KEY,
+  value      jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid REFERENCES auth.users(id)
+);
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can read app settings" ON public.app_settings;
+CREATE POLICY "Anyone can read app settings" ON public.app_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins manage app settings" ON public.app_settings;
+CREATE POLICY "Admins manage app settings" ON public.app_settings FOR ALL
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+INSERT INTO public.app_settings (key, value) VALUES ('certificate_fee', to_jsonb(99))
+  ON CONFLICT (key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.certificate_payments (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  internship_id         uuid NOT NULL UNIQUE REFERENCES public.internships(id) ON DELETE CASCADE,
+  amount                numeric NOT NULL,
+  currency              text NOT NULL DEFAULT 'INR',
+  upi_id                text NOT NULL DEFAULT 'fizalabbas@sbi',
+  transaction_id        text NOT NULL,
+  payment_screenshot_url text,
+  status                text NOT NULL DEFAULT 'pending_verification'
+                          CHECK (status IN ('pending_verification', 'paid', 'rejected', 'refunded')),
+  submitted_at          timestamptz NOT NULL DEFAULT now(),
+  paid_at               timestamptz,
+  verified_at           timestamptz,
+  verified_by           uuid REFERENCES auth.users(id),
+  rejection_reason      text,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_certificate_payments_internship ON public.certificate_payments (internship_id);
+ALTER TABLE public.certificate_payments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Students view own payments" ON public.certificate_payments;
+CREATE POLICY "Students view own payments" ON public.certificate_payments
+  FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.internships i WHERE i.id = certificate_payments.internship_id AND i.student_id = auth.uid()));
+DROP POLICY IF EXISTS "Students submit own payments" ON public.certificate_payments;
+CREATE POLICY "Students submit own payments" ON public.certificate_payments
+  FOR INSERT TO authenticated
+  WITH CHECK (status = 'pending_verification' AND EXISTS (SELECT 1 FROM public.internships i WHERE i.id = certificate_payments.internship_id AND i.student_id = auth.uid()));
+DROP POLICY IF EXISTS "Students retry own rejected payments" ON public.certificate_payments;
+CREATE POLICY "Students retry own rejected payments" ON public.certificate_payments
+  FOR UPDATE TO authenticated
+  USING (status = 'rejected' AND EXISTS (SELECT 1 FROM public.internships i WHERE i.id = certificate_payments.internship_id AND i.student_id = auth.uid()))
+  WITH CHECK (status = 'pending_verification' AND EXISTS (SELECT 1 FROM public.internships i WHERE i.id = certificate_payments.internship_id AND i.student_id = auth.uid()));
+DROP POLICY IF EXISTS "Admins manage certificate payments" ON public.certificate_payments;
+CREATE POLICY "Admins manage certificate payments" ON public.certificate_payments
+  FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+DROP TRIGGER IF EXISTS certificate_payments_set_updated_at ON public.certificate_payments;
+CREATE TRIGGER certificate_payments_set_updated_at
+  BEFORE UPDATE ON public.certificate_payments
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ------------------------- 20. Certificate audit log -------------------------
+CREATE TABLE IF NOT EXISTS public.certificate_audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  internship_id uuid NOT NULL REFERENCES public.internships(id) ON DELETE CASCADE,
+  action text NOT NULL,
+  admin_id uuid NOT NULL,
+  old_certificate_code text,
+  new_certificate_code text,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_certificate_audit_log_internship ON public.certificate_audit_log (internship_id);
+ALTER TABLE public.certificate_audit_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins read certificate audit log" ON public.certificate_audit_log;
+CREATE POLICY "Admins read certificate audit log" ON public.certificate_audit_log
+  FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Service inserts certificate audit log" ON public.certificate_audit_log;
+CREATE POLICY "Service inserts certificate audit log" ON public.certificate_audit_log
+  FOR INSERT TO authenticated
+  WITH CHECK (true);
+
+NOTIFY pgrst, 'reload schema';

@@ -13,7 +13,7 @@ export const verifyInternship = createServerFn({ method: "POST" })
     try {
       const { data: internship, error: internErr } = await supabaseAdmin
         .from("internships")
-        .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, certificate_status, student_id, domain_id")
+        .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, student_id, domain_id")
         .eq("internship_code", code)
         .maybeSingle();
 
@@ -24,6 +24,23 @@ export const verifyInternship = createServerFn({ method: "POST" })
 
       if (!internship) {
         return { found: false as const, error: "Internship ID not found." };
+      }
+
+      let certificateStatus = "none";
+      if (internship.certificate_code && internship.certificate_released_at) {
+        certificateStatus = "issued";
+      }
+      try {
+        const { data: extData, error: extErr } = await (supabaseAdmin as any)
+          .from("internships")
+          .select("certificate_status, certificate_revoked_at, certificate_revoke_reason")
+          .eq("id", internship.id)
+          .maybeSingle();
+        if (!extErr && extData?.certificate_status) {
+          certificateStatus = extData.certificate_status;
+        }
+      } catch {
+        // certificate_status column may not exist in production schema yet; default derived above is safe
       }
 
       let domainName = "N/A";
@@ -59,7 +76,7 @@ export const verifyInternship = createServerFn({ method: "POST" })
         completedAt: internship.completed_at,
         certificateIssued,
         certificateCode: certificateIssued ? internship.certificate_code : null,
-        certificateStatus: internship.certificate_status ?? "none",
+        certificateStatus,
       };
     } catch (err: any) {
       console.error("[verifyInternship] Unexpected error:", err?.message ?? err, err?.stack);
