@@ -341,6 +341,25 @@ function AdminPage() {
     return map;
   }, [submissions]);
 
+  function getRequiredTaskCount(domainSlug: string | undefined | null, duration: string | undefined | null): number {
+    if (domainSlug === "artificial-intelligence" || domainSlug === "full-stack") {
+      if (duration === "1 Month") return 5;
+      if (duration === "2 Months") return 7;
+      return 10;
+    }
+    if (duration === "1 Month") return 3;
+    if (duration === "2 Months") return 4;
+    return 5;
+  }
+
+  const requiredCountByInternship = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of internships) {
+      map.set(i.id, getRequiredTaskCount(i.domain?.slug, i.duration));
+    }
+    return map;
+  }, [internships]);
+
   const internshipByStudent = useMemo(() => {
     const map = new Map<string, any>();
     for (const internship of internships) map.set(internship.student_id, internship);
@@ -1215,8 +1234,9 @@ function AdminPage() {
         </tr></thead><tbody>
           {internships.filter(i => i.certificate_status === "revoked").map((i) => {
             const ta = approvedCountByInternship.get(i.id) ?? 0;
+            const required = requiredCountByInternship.get(i.id) ?? 5;
             const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
-            const canReissue = i.status === "completed" && (i.certificate_flow_version !== 'payment_v1' || paymentPaid);
+            const canReissue = ta >= required && (i.certificate_flow_version !== 'payment_v1' || paymentPaid);
             return (
               <tr key={i.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
                 <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i.internship_code}</td>
@@ -1238,11 +1258,24 @@ function AdminPage() {
   )}
 
   {/* Eligible for Certificate */}
-  {internships.filter(i => i.status === "completed" && !i.certificate_code && i.certificate_status !== "revoked").length > 0 && (
+  {internships.filter(i => {
+    if (i.certificate_code) return false;
+    if (i.certificate_status === "revoked") return false;
+    const approved = approvedCountByInternship.get(i.id) ?? 0;
+    const required = requiredCountByInternship.get(i.id) ?? 5;
+    return approved >= required;
+  }).length > 0 && (
     <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
       <h3 className="text-sm font-semibold text-(--admin-text)">Eligible for Certificate</h3>
-      {internships.filter(i => i.status === "completed" && !i.certificate_code && i.certificate_status !== "revoked").map((i) => {
+      {internships.filter(i => {
+        if (i.certificate_code) return false;
+        if (i.certificate_status === "revoked") return false;
+        const approved = approvedCountByInternship.get(i.id) ?? 0;
+        const required = requiredCountByInternship.get(i.id) ?? 5;
+        return approved >= required;
+      }).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
+        const required = requiredCountByInternship.get(i.id) ?? 5;
         const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
         const canIssue = i.certificate_flow_version === 'payment_v1' ? paymentPaid : true;
         return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-(--admin-card-border) last:border-0">
@@ -1250,6 +1283,7 @@ function AdminPage() {
             <span className="text-(--admin-text) font-medium">{i.student?.full_name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span>
+            <span className="text-xs text-(--admin-text-muted) ml-2">{ta}/{required} tasks</span>
             {i.certificate_flow_version === 'payment_v1' && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
           </div>
           <Button size="sm" className={`text-xs text-white ${canIssue ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canIssue} onClick={() => issueCertificate(i.id)}>
