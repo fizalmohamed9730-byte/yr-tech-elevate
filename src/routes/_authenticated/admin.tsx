@@ -107,6 +107,7 @@ function AdminPage() {
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
   const [discoveryData, setDiscoveryData] = useState<any[]>([]);
+  const [discoveryColumnsMissing, setDiscoveryColumnsMissing] = useState(false);
   const [certificatePayments, setCertificatePayments] = useState<any[]>([]);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean; supabaseError?: { code?: string; message?: string; details?: string; hint?: string; status?: number } }> {
@@ -240,6 +241,7 @@ function AdminPage() {
 
       const discoveryRecords = discRes.failed ? [] : discRes.data;
       setDiscoveryData(discoveryRecords);
+      setDiscoveryColumnsMissing(discRes.failed && (discRes.supabaseError?.code === "42703" || discRes.supabaseError?.code === "PGRST204"));
 
       const cpData = cpRes.failed ? [] : cpRes.data;
       setCertificatePayments(cpData);
@@ -281,9 +283,7 @@ function AdminPage() {
           error: (() => {
             if (!discRes.failed) return null;
             const code = discRes.supabaseError?.code;
-            if (code === "42703" || code === "PGRST204") {
-              return "Analytics columns not yet in database. Apply migration 20260918000000_unified_discovery_analytics_fix.sql in Supabase SQL Editor.";
-            }
+            if (code === "42703" || code === "PGRST204") return null;
             return discRes.supabaseError?.message || "Discovery analytics unavailable";
           })(),
           ts: Date.now(),
@@ -1439,8 +1439,8 @@ function AdminPage() {
         : `Total: ${profiles.length} registrations`}
     </p>
     {filteredCountryData.length === 0 ? (
-      sectionErrors.discovery.error
-        ? <p className="text-sm text-amber-500">{sectionErrors.discovery.error}</p>
+      discoveryColumnsMissing
+        ? <p className="text-sm text-amber-500">Country data columns not yet in database. Apply migration in Supabase SQL Editor.</p>
         : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
     ) : (
       <div className="space-y-2">
@@ -1467,8 +1467,8 @@ function AdminPage() {
   <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
     <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><BarChart3 className="h-4 w-4 text-blue-500"/> How Users Found YR NOVATECH</h4>
     {filteredDiscoveryData.length === 0 ? (
-      sectionErrors.discovery.error
-        ? <p className="text-sm text-amber-500">{sectionErrors.discovery.error}</p>
+      discoveryColumnsMissing
+        ? <p className="text-sm text-amber-500">Discovery data columns not yet in database. Apply migration in Supabase SQL Editor.</p>
         : <p className="text-sm text-(--admin-text-secondary)">No data available.</p>
     ) : (
       <div className="space-y-2">
