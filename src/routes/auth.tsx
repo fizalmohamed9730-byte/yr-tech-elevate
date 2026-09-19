@@ -282,7 +282,13 @@ function AuthPage() {
     if (navigating.current) return;
     navigating.current = true;
     console.log("[auth] navigating to /dashboard");
-    navigate({ to: "/dashboard" });
+    try {
+      await navigate({ to: "/dashboard" });
+    } catch (err) {
+      console.error("[auth] navigation failed:", err);
+      navigating.current = false;
+      setLoading(false);
+    }
   }
 
   async function handleResendConfirmation() {
