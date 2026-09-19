@@ -16,7 +16,7 @@ import {
   Users, BookOpen, Award, Loader2, Github, ExternalLink, FolderOpen, FileText,
   BarChart3, CheckSquare, Settings, Plus, Edit3, Trash2, Eye, RotateCw, Search,
   X, MailPlus, Download, MessageSquare, Star, Linkedin, LayoutDashboard,
-  ClipboardList, Upload, Mail, CreditCard, Bell, Menu, LogOut, Clock, CheckCircle,
+  ClipboardList, Upload, Mail, CreditCard, Bell, Menu, LogOut, Clock, CheckCircle, CheckCircle2,
   TrendingUp, Calendar, Megaphone, Sun, Moon, TriangleAlert
 } from "lucide-react";
 import {
@@ -202,7 +202,7 @@ function AdminPage() {
         safeQuery("domains", supabase.from("domains").select("id, name, slug, active").eq("active", true)),
         safeQuery("enquiries", db.from("enquiries").select("id, name, email, message, status, created_at, read_at").order("created_at", { ascending: false })),
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
-        safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
+        safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, status, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
       ]);
 
@@ -746,6 +746,20 @@ function AdminPage() {
     const { error } = await db.from("profiles").delete().eq("id", studentId);
     if (error) return toast.error(error.message);
     toast.success("Student removed");
+    reload();
+  }
+
+  async function approveFeedback(id: string) {
+    const { error } = await (supabase as any).from("feedback").update({ status: "approved" }).eq("id", id);
+    if (error) return toast.error("Failed to approve: " + error.message);
+    toast.success("Feedback approved — now visible on homepage");
+    reload();
+  }
+
+  async function rejectFeedback(id: string) {
+    const { error } = await (supabase as any).from("feedback").update({ status: "rejected" }).eq("id", id);
+    if (error) return toast.error("Failed to reject: " + error.message);
+    toast.success("Feedback rejected");
     reload();
   }
 
@@ -1563,10 +1577,34 @@ function AdminPage() {
       <div key={fb.id} className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-4 space-y-2 hover:border-(--admin-card-hover) transition-colors">
         <div className="flex items-center justify-between">
           <div className="flex gap-0.5">            {Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`h-3.5 w-3.5 ${i < fb.rating ? "fill-amber-400 text-amber-400" : "text-(--admin-text-muted)"}`} />))}</div>
-          <span className="text-xs text-(--admin-text-muted)">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${fb.status === "approved" ? "bg-emerald-500/15 text-emerald-400" : fb.status === "rejected" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"}`}>
+              {fb.status === "approved" ? "Approved" : fb.status === "rejected" ? "Rejected" : "Pending"}
+            </span>
+            <span className="text-xs text-(--admin-text-muted)">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+          </div>
         </div>
         <p className="text-sm text-(--admin-feedback-text)">{fb.message}</p>
         <div className="text-xs text-(--admin-text-muted)">{fb.student?.full_name ?? "Unknown"} ({fb.student?.email ?? "-"})</div>
+        {fb.status !== "approved" && (
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => approveFeedback(fb.id)}>
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+            </Button>
+            {fb.status !== "rejected" && (
+              <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => rejectFeedback(fb.id)}>
+                <X className="h-3 w-3 mr-1" /> Reject
+              </Button>
+            )}
+          </div>
+        )}
+        {fb.status === "approved" && (
+          <div className="pt-1">
+            <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10" onClick={() => rejectFeedback(fb.id)}>
+              <X className="h-3 w-3 mr-1" /> Remove from Homepage
+            </Button>
+          </div>
+        )}
       </div>
     ))}
   </div>

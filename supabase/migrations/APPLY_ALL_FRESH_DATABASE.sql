@@ -889,8 +889,10 @@ CREATE TABLE IF NOT EXISTS public.feedback (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
   message text NOT NULL CHECK (char_length(message) >= 10),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   created_at timestamptz DEFAULT now() NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON public.feedback (status);
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.feedback TO authenticated;
 GRANT ALL ON public.feedback TO service_role;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
@@ -909,6 +911,10 @@ CREATE POLICY "Students delete own feedback" ON public.feedback
 DROP POLICY IF EXISTS "Admins view all feedback" ON public.feedback;
 CREATE POLICY "Admins view all feedback" ON public.feedback
   FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Public read approved feedback" ON public.feedback;
+CREATE POLICY "Public read approved feedback" ON public.feedback
+  FOR SELECT TO anon
+  USING (status = 'approved');
 DROP POLICY IF EXISTS "Admins manage all feedback" ON public.feedback;
 CREATE POLICY "Admins manage all feedback" ON public.feedback
   FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));

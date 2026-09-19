@@ -1,25 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Code2,
-  Palette,
-  Brain,
-  Rocket,
-  Award,
-  Users,
-  CheckCircle2,
-  Sparkles,
-  Smartphone,
-  Layers,
-  Globe,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Section, SectionHeading } from "@/components/Section";
-import heroBg from "@/assets/hero-bg.jpg";
-import skyrovixLogo from "@/assets/skyrovix-logo.png";
-import vinixLogo from "@/assets/vinix-logo.png";
+  import { createFileRoute } from "@tanstack/react-router";
+  import { Link } from "@tanstack/react-router";
+  import { useState, useEffect } from "react";
+  import {
+    ArrowRight,
+    Code2,
+    Palette,
+    Brain,
+    Rocket,
+    Award,
+    Users,
+    CheckCircle2,
+    Sparkles,
+    Smartphone,
+    Layers,
+    Globe,
+    Star,
+    Quote,
+  } from "lucide-react";
+  import { Button } from "@/components/ui/button";
+  import { Card } from "@/components/ui/card";
+  import { Section, SectionHeading } from "@/components/Section";
+  import { supabase } from "@/integrations/supabase/client";
+  import heroBg from "@/assets/hero-bg.jpg";
+  import skyrovixLogo from "@/assets/skyrovix-logo.png";
+  import vinixLogo from "@/assets/vinix-logo.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,7 +93,45 @@ const whyUs = [
   { icon: Rocket, title: "Career Ready", desc: "GitHub, LinkedIn, and interview support." },
 ];
 
-function Index() {
+  function Index() {
+    const [testimonials, setTestimonials] = useState<any[]>([]);
+
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data, error } = await (supabase as any)
+            .from("feedback")
+            .select("id, rating, message, created_at, user_id")
+            .eq("status", "approved")
+            .order("created_at", { ascending: false })
+            .limit(12);
+          if (cancelled || error || !data || data.length === 0) return;
+
+          const userIds = [...new Set(data.map((f: any) => f.user_id).filter(Boolean))] as string[];
+          let profileMap: Record<string, any> = {};
+          if (userIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, full_name")
+              .in("id", userIds);
+            if (profiles) {
+              for (const p of profiles) profileMap[p.id] = p;
+            }
+          }
+
+          const enriched = data.map((f: any) => ({
+            ...f,
+            student_name: profileMap[f.user_id]?.full_name ?? null,
+          }));
+
+          if (!cancelled) setTestimonials(enriched);
+        } catch {
+          // Silently ignore — testimonials are non-critical
+        }
+      })();
+      return () => { cancelled = true; };
+    }, []);
   return (
     <>
       <section className="relative overflow-hidden">
@@ -267,6 +309,47 @@ function Index() {
           </a>
         </div>
       </Section>
+
+      {testimonials.length > 0 && (
+        <Section>
+          <SectionHeading
+            eyebrow="Testimonials"
+            title="Student Experiences"
+            description="Real experiences from students and interns who learned, built, and grew with YR NOVATECH."
+          />
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {testimonials.map((t, i) => (
+              <Card
+                key={t.id}
+                className="p-6 border border-border bg-card/80 backdrop-blur hover:shadow-elegant transition-all animate-fade-up flex flex-col"
+                style={{ animationDelay: `${i * 0.05}s` }}
+              >
+                <Quote className="h-8 w-8 text-primary/20 mb-3" />
+                <p className="text-sm text-muted-foreground leading-relaxed flex-1 mb-4">{t.message}</p>
+                <div className="flex items-center gap-0.5 mb-3">
+                  {[0, 1, 2, 3, 4].map((si) => (
+                    <Star
+                      key={si}
+                      className={`h-3.5 w-3.5 ${si < t.rating ? "fill-blue-500 text-blue-500" : "text-muted-foreground/30"}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 pt-3 border-t border-border">
+                  <div className="h-9 w-9 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-sm font-bold shrink-0">
+                    {t.student_name ? t.student_name.charAt(0).toUpperCase() : "S"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{t.student_name ?? "Student"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(t.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <Section>
         <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-10 md:p-16 text-center">
