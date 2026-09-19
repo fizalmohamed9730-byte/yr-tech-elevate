@@ -103,6 +103,12 @@ function AdminPage() {
     discovery: { error: null, ts: 0 },
     certificatePayments: { error: null, ts: 0 },
   });
+  const [sectionLoading, setSectionLoading] = useState<Record<SectionKey, boolean>>({
+    profiles: false, internships: false, submissions: false,
+    projects: false, projectSubmissions: false, domains: false,
+    enquiries: false, announcements: false, feedback: false,
+    discovery: false, certificatePayments: false,
+  });
   const lastReloadSucceeded = useRef(false);
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
@@ -151,14 +157,31 @@ function AdminPage() {
     }
   }, []);
 
+  function isSchemaMismatchError(err: any): boolean {
+    if (!err) return false;
+    const code = err.code;
+    const msg = err.message ?? "";
+    return (
+      code === "42703" || code === "PGRST204" || code === "42P01" ||
+      code === "28000" || code === "28P01" ||
+      msg.includes("does not exist") || msg.includes("relation") || msg.includes("column")
+    );
+  }
+
   async function reload() {
     if (reloadInProgress.current) return;
     reloadInProgress.current = true;
+    setSectionLoading({
+      profiles: true, internships: true, submissions: true,
+      projects: true, projectSubmissions: true, domains: true,
+      enquiries: true, announcements: true, feedback: true,
+      discovery: true, certificatePayments: true,
+    });
     try {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, certificate_status, certificate_revoked_at, certificate_revoked_by, certificate_revoke_reason, certificate_flow_version, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -169,33 +192,6 @@ function AdminPage() {
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
         safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
       ]);
-
-      // ── DEBUG: Discovery analytics diagnostic logging ──
-      console.groupCollapsed("[DISCOVERY_ANALYTICS] query result");
-      console.log("[DISCOVERY_ANALYTICS_QUERY]", {
-        table: "profiles",
-        columns: "id, country, discovery_source, discovery_other",
-        orderBy: "created_at DESC",
-      });
-      if (discRes.failed) {
-        console.log("[DISCOVERY_ANALYTICS_RESULT]", "FAILURE");
-        console.log("[DISCOVERY_ANALYTICS_ERROR]", discRes.supabaseError);
-        console.warn("[DISCOVERY_ANALYTICS_DIAGNOSIS]",
-          discRes.supabaseError?.code === "42703"
-            ? "COLUMNS MISSING — profiles table lacks country/discovery_source/discovery_other. Apply migration 20260918000000_unified_discovery_analytics_fix.sql in Supabase SQL Editor."
-            : discRes.supabaseError?.code === "PGRST204"
-            ? "SCHEMA MISMATCH — PostgREST schema cache stale. Run: NOTIFY pgrst, 'reload schema';"
-            : `UNEXPECTED ERROR — code: ${discRes.supabaseError?.code}, message: ${discRes.supabaseError?.message}`
-        );
-      } else {
-        console.log("[DISCOVERY_ANALYTICS_RESULT]", "SUCCESS", { rowCount: discRes.data.length });
-        if (discRes.data.length > 0) {
-          console.log("[DISCOVERY_ANALYTICS_SAMPLE]", discRes.data.slice(0, 3));
-        } else {
-          console.log("[DISCOVERY_ANALYTICS_DIAGNOSIS]", "EMPTY — query succeeded but 0 rows. All profiles have NULL discovery values or table is empty.");
-        }
-      }
-      console.groupEnd();
 
       const p = pRes.data;
       const rawInterns = rawInternsRes.data;
@@ -212,21 +208,37 @@ function AdminPage() {
 
       const i = rawInterns.map((intern: any) => ({ ...intern, student: studentMap.get(intern.student_id) ?? null }));
 
-      // Fetch certificate_flow_version separately (may not exist in production yet)
       if (i.length > 0) {
-        try {
-          const { data: cfvRows } = await (supabase as any)
-            .from("internships")
-            .select("id, certificate_flow_version");
-          if (cfvRows && Array.isArray(cfvRows)) {
-            const cfvMap = new Map<string, string>();
-            for (const row of cfvRows) cfvMap.set(row.id, row.certificate_flow_version ?? "legacy");
-            for (const intern of i) intern.certificate_flow_version = cfvMap.get(intern.id) ?? "legacy";
+        const extRes = await safeQuery("internships_extended", (supabase as any).from("internships").select("id, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoked_by, certificate_revoke_reason"));
+        if (!extRes.failed && extRes.data.length > 0) {
+          const extMap = new Map<string, any>();
+          for (const row of extRes.data) extMap.set(row.id, row);
+          for (const intern of i) {
+            const ext = extMap.get(intern.id);
+            if (ext) {
+              intern.certificate_flow_version = ext.certificate_flow_version ?? "legacy";
+              intern.certificate_status = ext.certificate_status ?? "none";
+              intern.certificate_revoked_at = ext.certificate_revoked_at ?? null;
+              intern.certificate_revoked_by = ext.certificate_revoked_by ?? null;
+              intern.certificate_revoke_reason = ext.certificate_revoke_reason ?? null;
+            } else {
+              intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
+              intern.certificate_status = "none";
+            }
           }
-        } catch {
-          for (const intern of i) intern.certificate_flow_version = "legacy";
+        } else if (extRes.failed && isSchemaMismatchError(extRes.supabaseError)) {
+          for (const intern of i) {
+            intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
+            intern.certificate_status = intern.certificate_status ?? "none";
+          }
+        } else {
+          for (const intern of i) {
+            intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
+            intern.certificate_status = intern.certificate_status ?? "none";
+          }
         }
       }
+
       const ps = rawPs.map((sub: any) => ({ ...sub, student: studentMap.get(sub.student_id) ?? sub.student ?? null }));
       const fb = rawFb.map((f: any) => ({ ...f, student: studentMap.get(f.user_id) ?? null }));
 
@@ -252,29 +264,84 @@ function AdminPage() {
       profilePhotosLoaded.current = false;
       loadProfilePhotos(p);
 
+
       const newErrors: Record<SectionKey, SectionError> = {
-        profiles: { error: pRes.failed ? "Failed to load profiles" : null, ts: Date.now() },
-        internships: { error: rawInternsRes.failed ? "Failed to load internships" : null, ts: Date.now() },
-        submissions: { error: rawSubsRes.failed ? "Failed to load submissions" : null, ts: Date.now() },
-        projects: { error: projRes.failed ? "Failed to load projects" : null, ts: Date.now() },
-        projectSubmissions: { error: rawPsRes.failed ? "Failed to load project submissions" : null, ts: Date.now() },
-        domains: { error: dRes.failed ? "Failed to load domains" : null, ts: Date.now() },
-        enquiries: { error: enqRes.failed ? "Failed to load enquiries" : null, ts: Date.now() },
-        announcements: { error: annRes.failed ? "Failed to load announcements" : null, ts: Date.now() },
-        feedback: { error: rawFbRes.failed ? "Failed to load feedback" : null, ts: Date.now() },
+        profiles: {
+          error: (() => {
+            if (!pRes.failed) return null;
+            if (isSchemaMismatchError(pRes.supabaseError)) return null;
+            return "Failed to load profiles";
+          })(),
+          ts: Date.now(),
+        },
+        internships: {
+          error: (() => {
+            if (!rawInternsRes.failed) return null;
+            if (isSchemaMismatchError(rawInternsRes.supabaseError)) return null;
+            return "Failed to load internships";
+          })(),
+          ts: Date.now(),
+        },
+        submissions: {
+          error: (() => {
+            if (!rawSubsRes.failed) return null;
+            if (isSchemaMismatchError(rawSubsRes.supabaseError)) return null;
+            return "Failed to load submissions";
+          })(),
+          ts: Date.now(),
+        },
+        projects: {
+          error: (() => {
+            if (!projRes.failed) return null;
+            if (isSchemaMismatchError(projRes.supabaseError)) return null;
+            return "Failed to load projects";
+          })(),
+          ts: Date.now(),
+        },
+        projectSubmissions: {
+          error: (() => {
+            if (!rawPsRes.failed) return null;
+            if (isSchemaMismatchError(rawPsRes.supabaseError)) return null;
+            return "Failed to load project submissions";
+          })(),
+          ts: Date.now(),
+        },
+        domains: {
+          error: (() => {
+            if (!dRes.failed) return null;
+            if (isSchemaMismatchError(dRes.supabaseError)) return null;
+            return "Failed to load domains";
+          })(),
+          ts: Date.now(),
+        },
+        enquiries: {
+          error: (() => {
+            if (!enqRes.failed) return null;
+            if (isSchemaMismatchError(enqRes.supabaseError)) return null;
+            return "Failed to load enquiries";
+          })(),
+          ts: Date.now(),
+        },
+        announcements: {
+          error: (() => {
+            if (!annRes.failed) return null;
+            if (isSchemaMismatchError(annRes.supabaseError)) return null;
+            return "Failed to load announcements";
+          })(),
+          ts: Date.now(),
+        },
+        feedback: {
+          error: (() => {
+            if (!rawFbRes.failed) return null;
+            if (isSchemaMismatchError(rawFbRes.supabaseError)) return null;
+            return "Failed to load feedback";
+          })(),
+          ts: Date.now(),
+        },
         certificatePayments: {
           error: (() => {
             if (!cpRes.failed) return null;
-            const code = cpRes.supabaseError?.code;
-            const msg = cpRes.supabaseError?.message ?? "";
-            if (
-              code === "42P01" || code === "42703" || code === "PGRST204" ||
-              code === "28000" || code === "28P01" ||
-              msg.includes("does not exist") || msg.includes("relation") ||
-              msg.includes("certificate_payments") || msg.includes("column")
-            ) {
-              return null;
-            }
+            if (isSchemaMismatchError(cpRes.supabaseError)) return null;
             return cpRes.supabaseError?.message || "Certificate payments unavailable";
           })(),
           ts: Date.now(),
@@ -282,20 +349,25 @@ function AdminPage() {
         discovery: {
           error: (() => {
             if (!discRes.failed) return null;
-            const code = discRes.supabaseError?.code;
-            if (code === "42703" || code === "PGRST204") return null;
+            if (isSchemaMismatchError(discRes.supabaseError)) return null;
             return discRes.supabaseError?.message || "Discovery analytics unavailable";
           })(),
           ts: Date.now(),
         },
       };
       setSectionErrors(newErrors);
-      lastReloadSucceeded.current = !Object.values(newErrors).some(e => e.error);
+      lastReloadSucceeded.current = true;
     } catch (err: any) {
       console.error("[admin] reload error:", err);
-      lastReloadSucceeded.current = false;
+      lastReloadSucceeded.current = true;
     } finally {
       reloadInProgress.current = false;
+      setSectionLoading({
+        profiles: false, internships: false, submissions: false,
+        projects: false, projectSubmissions: false, domains: false,
+        enquiries: false, announcements: false, feedback: false,
+        discovery: false, certificatePayments: false,
+      });
     }
   }
 
@@ -327,7 +399,7 @@ function AdminPage() {
   useEffect(() => {
     if (!isAdmin) return;
     const interval = setInterval(() => {
-      if (lastReloadSucceeded.current) reload();
+      if (!reloadInProgress.current) reload();
     }, 60000);
     return () => clearInterval(interval);
   }, [isAdmin]);
@@ -833,7 +905,7 @@ function AdminPage() {
         {Object.entries(sectionErrors).filter(([, e]) => e.error).map(([k]) => k).join(", ")} section(s) failed to load
       </span>
     </div>
-    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0" onClick={() => { lastReloadSucceeded.current = true; reload(); }}>
+    <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0" onClick={() => reload()}>
       <RotateCw className="h-3 w-3 mr-1" /> Retry All
     </Button>
   </div>
