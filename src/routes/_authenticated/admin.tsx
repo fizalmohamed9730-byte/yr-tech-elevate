@@ -163,8 +163,22 @@ function AdminPage() {
     const msg = err.message ?? "";
     return (
       code === "42703" || code === "PGRST204" || code === "42P01" ||
-      code === "28000" || code === "28P01" ||
       msg.includes("does not exist") || msg.includes("relation") || msg.includes("column")
+    );
+  }
+
+  function isTableNotFoundError(err: any): boolean {
+    if (!err) return false;
+    const code = err.code;
+    const msg = err.message ?? "";
+    return (
+      code === "42P01" ||
+      code === "PGRST204" ||
+      code === "42703" ||
+      msg.includes("does not exist") ||
+      msg.includes("relation") ||
+      msg.includes("column") ||
+      msg.includes("schema cache")
     );
   }
 
@@ -179,7 +193,7 @@ function AdminPage() {
     });
     try {
       const db = supabase as any;
-      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
+      const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
         safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
@@ -190,7 +204,6 @@ function AdminPage() {
         safeQuery("announcements", db.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false })),
         safeQuery("feedback", db.from("feedback").select("id, user_id, rating, message, created_at").order("created_at", { ascending: false })),
         safeQuery("discovery", supabase.from("profiles").select("id, country, discovery_source, discovery_other").order("created_at", { ascending: false })),
-        safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false })),
       ]);
 
       const p = pRes.data;
@@ -255,6 +268,12 @@ function AdminPage() {
       setDiscoveryData(discoveryRecords);
       setDiscoveryColumnsMissing(discRes.failed && (discRes.supabaseError?.code === "42703" || discRes.supabaseError?.code === "PGRST204"));
 
+      let cpRes: { data: any[]; failed: boolean; supabaseError?: any };
+      try {
+        cpRes = await safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false }));
+      } catch {
+        cpRes = { data: [], failed: true, supabaseError: { code: "THROW", message: "Unknown certificate_payments error" } };
+      }
       const cpData = cpRes.failed ? [] : cpRes.data;
       setCertificatePayments(cpData);
 
@@ -341,6 +360,7 @@ function AdminPage() {
         certificatePayments: {
           error: (() => {
             if (!cpRes.failed) return null;
+            if (isTableNotFoundError(cpRes.supabaseError)) return null;
             if (isSchemaMismatchError(cpRes.supabaseError)) return null;
             return cpRes.supabaseError?.message || "Certificate payments unavailable";
           })(),
