@@ -158,7 +158,7 @@ function AdminPage() {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes, cpRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, certificate_status, certificate_revoked_at, certificate_revoked_by, certificate_revoke_reason, certificate_flow_version, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -529,6 +529,57 @@ function AdminPage() {
           else toast.success("Certificate emailed to " + intern.student.email);
         } catch (emailErr: any) { toast.error("Email failed: " + (emailErr?.message ?? "Unknown error")); }
       })();
+    }
+  }
+
+  const [revokeTarget, setRevokeTarget] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revoking, setRevoking] = useState(false);
+
+  async function revokeCertificate() {
+    if (!revokeTarget) return;
+    if (!revokeReason.trim()) return toast.error("Reason is required to revoke a certificate.");
+    setRevoking(true);
+    try {
+      const { data: result, error } = await supabase.rpc("revoke_certificate", {
+        p_internship_id: revokeTarget.id,
+        p_reason: revokeReason.trim(),
+      });
+      const res = result as any;
+      if (error) return toast.error("Failed to revoke: " + error.message);
+      if (res?.error) return toast.error(res.error);
+      toast.success("Certificate revoked for " + revokeTarget.name);
+      setRevokeTarget(null);
+      setRevokeReason("");
+      reload();
+    } catch (err: any) {
+      toast.error("Revoke failed: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setRevoking(false);
+    }
+  }
+
+  const [reissueTarget, setReissueTarget] = useState<{ id: string; name: string } | null>(null);
+  const [reissuing, setReissuing] = useState(false);
+
+  async function reissueCertificate() {
+    if (!reissueTarget) return;
+    setReissuing(true);
+    try {
+      const { data: result, error } = await supabase.rpc("reissue_certificate", {
+        p_internship_id: reissueTarget.id,
+      });
+      const res = result as any;
+      if (error) return toast.error("Failed to reissue: " + error.message);
+      if (res?.error) return toast.error(res.error);
+      const code = res?.certificate_code ?? "reissued";
+      toast.success("Certificate re-issued: " + code);
+      setReissueTarget(null);
+      reload();
+    } catch (err: any) {
+      toast.error("Reissue failed: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setReissuing(false);
     }
   }
 
@@ -1126,9 +1177,11 @@ function AdminPage() {
 {activeSection === "certificates" && (
 <div className="space-y-6">
   <h2 className="text-lg font-semibold text-(--admin-text)">Certificates</h2>
+
+  {/* Issued Certificates */}
   {internships.filter(i => i.certificate_code).length > 0 && (
     <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
-      <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Certificate Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Issued</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Email</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
+      <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Certificate Code</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Status</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Issued</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
     </tr></thead><tbody>
       {internships.filter(i => i.certificate_code).map((i) => (
         <tr key={i.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
@@ -1136,22 +1189,59 @@ function AdminPage() {
           <td className="py-3 px-3 text-(--admin-text) font-medium">{i.student?.full_name}</td>
           <td className="py-3 px-3 text-(--admin-text)">{i.domain?.name}</td>
           <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i.certificate_code}</td>
+          <td className="py-3 px-3"><Badge className="bg-emerald-600">Issued</Badge></td>
           <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{i.certificate_issued_at ? new Date(i.certificate_issued_at).toLocaleDateString() : "-"}</td>
-          <td className="py-3 px-3"><span className="text-xs text-(--admin-text-muted)">-</span></td>
           <td className="py-3 px-3 space-x-1 whitespace-nowrap">
             <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-500 hover:text-blue-600" onClick={() => downloadCertificate({ fullName: i.student?.full_name ?? "Intern", domain: i.domain?.name ?? "", internshipCode: i.internship_code, certificateCode: i.certificate_code, issuedAt: i.certificate_issued_at, duration: i.duration }).catch(err => { console.error("[certificate-download]", err); toast.error("Download failed") })}>Download</Button>
             <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" disabled={sendingEmail === `cert-${i.id}`} onClick={() => handleSendCertificateEmail(i)}>
               {sendingEmail === `cert-${i.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
+            </Button>
+            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setRevokeTarget({ id: i.id, name: i.student?.full_name ?? "Intern", code: i.certificate_code ?? "" })}>
+              Revoke
             </Button>
           </td>
         </tr>
       ))}
     </tbody></table></div></div>
   )}
-  {internships.filter(i => i.status === "completed" && !i.certificate_code).length > 0 && (
+
+  {/* Revoked Certificates */}
+  {internships.filter(i => i.certificate_status === "revoked").length > 0 && (
+    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-red-500">Revoked Certificates ({internships.filter(i => i.certificate_status === "revoked").length})</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
+          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern ID</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Name</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Revoked</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Reason</th><th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
+        </tr></thead><tbody>
+          {internships.filter(i => i.certificate_status === "revoked").map((i) => {
+            const ta = approvedCountByInternship.get(i.id) ?? 0;
+            const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
+            const canReissue = i.status === "completed" && (i.certificate_flow_version !== 'payment_v1' || paymentPaid);
+            return (
+              <tr key={i.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
+                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i.internship_code}</td>
+                <td className="py-3 px-3 text-(--admin-text) font-medium">{i.student?.full_name}</td>
+                <td className="py-3 px-3 text-(--admin-text)">{i.domain?.name}</td>
+                <td className="py-3 px-3 text-xs text-red-400">{i.certificate_revoked_at ? new Date(i.certificate_revoked_at).toLocaleDateString() : "-"}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary) max-w-[200px] truncate" title={i.certificate_revoke_reason ?? ""}>{i.certificate_revoke_reason || "-"}</td>
+                <td className="py-3 px-3 space-x-1 whitespace-nowrap">
+                  <Button size="sm" className={`h-7 text-xs text-white ${canReissue ? "bg-amber-600 hover:bg-amber-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canReissue} onClick={() => setReissueTarget({ id: i.id, name: i.student?.full_name ?? "Intern" })}>
+                    <Award className="h-3 w-3 mr-1" /> Re-Issue
+                  </Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody></table>
+      </div>
+    </div>
+  )}
+
+  {/* Eligible for Certificate */}
+  {internships.filter(i => i.status === "completed" && !i.certificate_code && i.certificate_status !== "revoked").length > 0 && (
     <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 space-y-3">
       <h3 className="text-sm font-semibold text-(--admin-text)">Eligible for Certificate</h3>
-      {internships.filter(i => i.status === "completed" && !i.certificate_code).map((i) => {
+      {internships.filter(i => i.status === "completed" && !i.certificate_code && i.certificate_status !== "revoked").map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
         const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
         const canIssue = i.certificate_flow_version === 'payment_v1' ? paymentPaid : true;
@@ -1169,6 +1259,69 @@ function AdminPage() {
       })}
     </div>
   )}
+
+  {/* Revoke Confirmation Dialog */}
+  <Dialog open={!!revokeTarget} onOpenChange={(open) => { if (!open) { setRevokeTarget(null); setRevokeReason(""); } }}>
+    <DialogContent className="bg-(--admin-dialog) border border-(--admin-dialog-border) max-w-md">
+      <DialogHeader>
+        <DialogTitle className="text-(--admin-text)">Revoke Certificate</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <p className="text-sm text-(--admin-text-secondary)">
+          Are you sure you want to revoke the certificate for <strong>{revokeTarget?.name}</strong>?
+        </p>
+        {revokeTarget?.code && (
+          <p className="text-xs font-mono text-(--admin-text-muted)">Certificate: {revokeTarget.code}</p>
+        )}
+        <p className="text-xs text-amber-500">This action will immediately revoke download access. The intern will no longer be able to download this certificate.</p>
+        <div className="space-y-2">
+          <Label className="text-(--admin-text-secondary)">Reason <span className="text-red-500">*</span></Label>
+          <Textarea
+            rows={3}
+            value={revokeReason}
+            onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder="Enter the reason for revocation (required)..."
+            className="bg-(--admin-input) border-(--admin-input-border) text-(--admin-text) placeholder-(--admin-input-placeholder)"
+          />
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" className="border-(--admin-input-border) text-(--admin-text-secondary)" onClick={() => { setRevokeTarget(null); setRevokeReason(""); }}>
+            Cancel
+          </Button>
+          <Button variant="destructive" disabled={!revokeReason.trim() || revoking} onClick={revokeCertificate}>
+            {revoking ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Confirm Revoke
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  {/* Re-Issue Confirmation Dialog */}
+  <Dialog open={!!reissueTarget} onOpenChange={(open) => { if (!open) setReissueTarget(null); }}>
+    <DialogContent className="bg-(--admin-dialog) border border-(--admin-dialog-border) max-w-md">
+      <DialogHeader>
+        <DialogTitle className="text-(--admin-text)">Re-Issue Certificate</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <p className="text-sm text-(--admin-text-secondary)">
+          Re-issue a new certificate for <strong>{reissueTarget?.name}</strong>?
+        </p>
+        <p className="text-xs text-(--admin-text-muted)">
+          A new certificate code will be generated and the intern will gain download access. All required tasks must be approved.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" className="border-(--admin-input-border) text-(--admin-text-secondary)" onClick={() => setReissueTarget(null)}>
+            Cancel
+          </Button>
+          <Button className="bg-amber-600 hover:bg-amber-700 text-white" disabled={reissuing} onClick={reissueCertificate}>
+            {reissuing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Re-Issue Certificate
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
 </div>
 )}
 
@@ -1385,7 +1538,8 @@ function AdminPage() {
       <h4 className="text-sm font-medium text-(--admin-text-secondary) flex items-center gap-1"><Award className="h-4 w-4 text-blue-500"/> Certificates</h4>
       <div className="space-y-2 pt-2">
         <div className="flex justify-between text-sm"><span className="text-(--admin-text-secondary)">Issued:</span><span className="font-bold text-emerald-500">{certsIssued}</span></div>
-        <div className="flex justify-between text-sm"><span className="text-(--admin-text-secondary)">Eligible (Not Issued):</span><span className="font-bold text-amber-500">{internships.filter(i => i.status === "completed" && !i.certificate_code).length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-(--admin-text-secondary)">Revoked:</span><span className="font-bold text-red-500">{internships.filter(i => i.certificate_status === "revoked").length}</span></div>
+        <div className="flex justify-between text-sm"><span className="text-(--admin-text-secondary)">Eligible (Not Issued):</span><span className="font-bold text-amber-500">{internships.filter(i => i.status === "completed" && !i.certificate_code && i.certificate_status !== "revoked").length}</span></div>
       </div>
     </div>
   </div>

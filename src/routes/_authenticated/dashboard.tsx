@@ -67,7 +67,7 @@ function Dashboard() {
       // to avoid failing when that column doesn't exist yet in production.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_status, certificate_revoked_at, certificate_revoke_reason, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -105,7 +105,7 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, progress_percent, completed_at, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_status, certificate_revoked_at, certificate_revoke_reason, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) {
@@ -619,7 +619,9 @@ function Dashboard() {
             <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Certificate Status:</span>
-                {internship.certificate_code ? (
+                {internship.certificate_status === "revoked" ? (
+                  <Badge className="bg-red-600">Revoked</Badge>
+                ) : internship.certificate_code ? (
                   <Badge className="bg-emerald-600">Released</Badge>
                 ) : allRequiredApproved && internship.certificate_flow_version !== 'payment_v1' ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
@@ -633,6 +635,15 @@ function Dashboard() {
                 <div className="flex justify-between">
                   <span>Certificate ID:</span>
                   <span className="font-mono font-semibold">{internship.certificate_code}</span>
+                </div>
+              )}
+              {internship.certificate_status === "revoked" && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200 space-y-1">
+                  <p className="font-semibold">&#10007; Certificate Revoked</p>
+                  {internship.certificate_revoke_reason && (
+                    <p className="text-xs">Reason: {internship.certificate_revoke_reason}</p>
+                  )}
+                  <p className="text-xs">Contact admin if you believe this is an error.</p>
                 </div>
               )}
             </div>
@@ -755,7 +766,7 @@ function Dashboard() {
             )}
 
             <Button
-              disabled={!internship.certificate_code}
+              disabled={!internship.certificate_code || internship.certificate_status === "revoked"}
               onClick={() => downloadCertificate({
                 fullName: profile?.full_name ?? "Intern",
                 domain: internship.domain?.name ?? "",
@@ -766,7 +777,7 @@ function Dashboard() {
               }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
               className="w-full bg-gradient-primary text-primary-foreground"
             >
-              {internship.certificate_code ? "Download Certificate PDF" : "Locked"}
+              {internship.certificate_status === "revoked" ? "Certificate Revoked" : internship.certificate_code ? "Download Certificate PDF" : "Locked"}
             </Button>
           </Card>
         </TabsContent>

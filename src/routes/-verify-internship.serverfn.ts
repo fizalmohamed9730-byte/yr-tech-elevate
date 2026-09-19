@@ -13,7 +13,7 @@ export const verifyInternship = createServerFn({ method: "POST" })
     try {
       const { data: internship, error: internErr } = await supabaseAdmin
         .from("internships")
-        .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, student_id, domain_id")
+        .select("id, internship_code, status, duration, started_at, completed_at, certificate_code, certificate_released_at, certificate_status, student_id, domain_id")
         .eq("internship_code", code)
         .maybeSingle();
 
@@ -59,6 +59,7 @@ export const verifyInternship = createServerFn({ method: "POST" })
         completedAt: internship.completed_at,
         certificateIssued,
         certificateCode: certificateIssued ? internship.certificate_code : null,
+        certificateStatus: internship.certificate_status ?? "none",
       };
     } catch (err: any) {
       console.error("[verifyInternship] Unexpected error:", err?.message ?? err, err?.stack);

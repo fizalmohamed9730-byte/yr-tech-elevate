@@ -127,6 +127,10 @@ export type Database = {
           certificate_issued_at: string | null
           certificate_released_at: string | null
           certificate_released_by: string | null
+          certificate_revoke_reason: string | null
+          certificate_revoked_at: string | null
+          certificate_revoked_by: string | null
+          certificate_status: string
           completed_at: string | null
           created_at: string
           domain_id: string
@@ -148,6 +152,10 @@ export type Database = {
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
+          certificate_revoke_reason?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_status?: string
           completed_at?: string | null
           created_at?: string
           domain_id: string
@@ -169,6 +177,10 @@ export type Database = {
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
+          certificate_revoke_reason?: string | null
+          certificate_revoked_at?: string | null
+          certificate_revoked_by?: string | null
+          certificate_status?: string
           completed_at?: string | null
           created_at?: string
           domain_id?: string
@@ -265,6 +277,47 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      certificate_audit_log: {
+        Row: {
+          id: string
+          internship_id: string
+          action: string
+          admin_id: string
+          old_certificate_code: string | null
+          new_certificate_code: string | null
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          internship_id: string
+          action: string
+          admin_id: string
+          old_certificate_code?: string | null
+          new_certificate_code?: string | null
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          internship_id?: string
+          action?: string
+          admin_id?: string
+          old_certificate_code?: string | null
+          new_certificate_code?: string | null
+          reason?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificate_audit_log_internship_id_fkey"
+            columns: ["internship_id"]
+            isOneToOne: false
+            referencedRelation: "internships"
             referencedColumns: ["id"]
           },
         ]
@@ -599,6 +652,19 @@ export type Database = {
         Returns: boolean
       }
       issue_certificate: {
+        Args: {
+          p_internship_id: string
+        }
+        Returns: Json
+      }
+      revoke_certificate: {
+        Args: {
+          p_internship_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      reissue_certificate: {
         Args: {
           p_internship_id: string
         }
