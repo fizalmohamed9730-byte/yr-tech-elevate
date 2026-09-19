@@ -67,7 +67,7 @@ function Dashboard() {
       // to avoid failing when that column doesn't exist yet in production.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_status, certificate_revoked_at, certificate_revoke_reason, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -83,17 +83,30 @@ function Dashboard() {
 
       let internship = i;
 
-      // Step 2: Fetch certificate_flow_version separately (tolerant of missing column)
+      // Step 2: Fetch certificate_flow_version + revocation columns separately
+      // (tolerant of missing columns in production schema)
       if (internship?.id) {
         try {
-          const { data: cfvData } = await (supabase as any)
+          const { data: extData } = await (supabase as any)
             .from("internships")
-            .select("certificate_flow_version")
+            .select("certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason")
             .eq("id", internship.id)
             .maybeSingle();
-          internship = { ...(internship as any), certificate_flow_version: cfvData?.certificate_flow_version ?? "legacy" };
+          internship = {
+            ...(internship as any),
+            certificate_flow_version: extData?.certificate_flow_version ?? "legacy",
+            certificate_status: extData?.certificate_status ?? "none",
+            certificate_revoked_at: extData?.certificate_revoked_at ?? null,
+            certificate_revoke_reason: extData?.certificate_revoke_reason ?? null,
+          };
         } catch {
-          internship = { ...(internship as any), certificate_flow_version: "legacy" };
+          internship = {
+            ...(internship as any),
+            certificate_flow_version: "legacy",
+            certificate_status: "none",
+            certificate_revoked_at: null,
+            certificate_revoke_reason: null,
+          };
         }
       }
       if (internship?.id && !internship.offer_letter_code) {
@@ -105,12 +118,18 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_status, certificate_revoked_at, certificate_revoke_reason, progress_percent, completed_at, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) {
-            // Preserve the certificate_flow_version we already fetched
-            internship = { ...upd, certificate_flow_version: (internship as any)?.certificate_flow_version ?? "legacy" };
+            // Preserve the extended certificate fields we already fetched
+            internship = {
+              ...upd,
+              certificate_flow_version: (internship as any)?.certificate_flow_version ?? "legacy",
+              certificate_status: (internship as any)?.certificate_status ?? "none",
+              certificate_revoked_at: (internship as any)?.certificate_revoked_at ?? null,
+              certificate_revoke_reason: (internship as any)?.certificate_revoke_reason ?? null,
+            };
           }
         } catch (err: any) {
           console.warn("[dashboard] auto-activate internship:", err?.message);
