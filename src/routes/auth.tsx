@@ -515,8 +515,9 @@ function AuthPage() {
         console.warn("[auth] session not confirmed after signup auto-login, navigating anyway");
       }
 
-      // Fallback: ensure profile row exists with country/discovery data
-      // (in case the handle_new_user trigger is missing or didn't fire)
+      // Fallback: ensure profile row exists with registration data
+      // (in case the handle_new_user trigger is missing or didn't fire).
+      // Only include columns confirmed to exist in production to avoid 400 errors.
       await (supabase as any)
         .from("profiles")
         .upsert(
@@ -531,9 +532,6 @@ function AuthPage() {
             year: parsed.data.year,
             avatar_url: photoData,
             must_change_password: false,
-            country: parsed.data.country,
-            discovery_source: parsed.data.discoverySource,
-            discovery_other: parsed.data.discoverySource === "Other" ? (parsed.data.discoveryOther ?? "") : "",
           },
           { onConflict: "id" },
         )

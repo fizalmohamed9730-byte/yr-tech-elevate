@@ -63,11 +63,12 @@ function Dashboard() {
         return;
       }
 
-      // Step 1: Fetch profile and internship WITHOUT certificate_flow_version
-      // to avoid failing when that column doesn't exist yet in production.
+      // Step 1: Fetch profile and internship using ONLY columns that exist in production.
+      // Extended columns (certificate_flow_version, certificate_status, certificate_revoked_at,
+      // certificate_revoke_reason) are fetched separately in Step 2 with tolerant error handling.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -122,16 +123,16 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) {
             internship = {
               ...upd,
-              certificate_flow_version: upd.certificate_flow_version ?? flowVersion,
-              certificate_status: upd.certificate_status ?? certStatus,
-              certificate_revoked_at: upd.certificate_revoked_at ?? certRevokedAt,
-              certificate_revoke_reason: upd.certificate_revoke_reason ?? certRevokeReason,
+              certificate_flow_version: flowVersion,
+              certificate_status: certStatus,
+              certificate_revoked_at: certRevokedAt,
+              certificate_revoke_reason: certRevokeReason,
             };
           }
         } catch (err: any) {
@@ -159,15 +160,19 @@ function Dashboard() {
         if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message, sErr.details, sErr.hint);
         setSubmissions(s ?? []);
 
-        // Load certificate payment data for this intern
-        const [{ data: payData, error: payErr }, { data: feeData, error: feeErr }] = await Promise.all([
-          supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
-          supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
-        ]);
-        if (payErr) console.error("[dashboard] certificate_payments query error:", payErr.code, payErr.message, payErr.details, payErr.hint);
-        if (feeErr) console.error("[dashboard] app_settings query error:", feeErr.code, feeErr.message, feeErr.details, feeErr.hint);
-        setPaymentRecord(payData ?? null);
-        setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 99);
+        // Load certificate payment data for this intern (tolerant of missing tables)
+        try {
+          const [{ data: payData, error: payErr }, { data: feeData, error: feeErr }] = await Promise.all([
+            supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
+            supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
+          ]);
+          if (payErr) console.warn("[dashboard] certificate_payments query (table may not exist):", payErr.code);
+          if (feeErr) console.warn("[dashboard] app_settings query (table may not exist):", feeErr.code);
+          setPaymentRecord(payData ?? null);
+          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 99);
+        } catch {
+          // Tables may not exist in production yet — keep defaults
+        }
       }
     } catch (err: any) {
       console.error("[dashboard] load error:", err);
