@@ -115,8 +115,8 @@ function Services() {
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-              <Link to="/services">
-                View All Services <ArrowRight className="ml-2 h-4 w-4" />
+              <Link to="/internship">
+                View Internships <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </div>

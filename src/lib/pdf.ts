@@ -159,7 +159,7 @@ export async function generateOfferLetterPDF(data: {
   doc.setFontSize(7.5);
   doc.setTextColor(100);
   doc.text(`${COMPANY.udyam}`, 154, 21);
-  doc.text("Email: yrnovatech@gmail.com", 154, 27);
+  doc.text("Email: yrnovatech07@gmail.com", 154, 27);
   doc.text("Web: www.yrnovatech.online", 154, 31);
 
   // Divider Line

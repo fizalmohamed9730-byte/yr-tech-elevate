@@ -351,36 +351,6 @@ function Index() {
         </Section>
       )}
 
-      <Section>
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-10 md:p-16 text-center">
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: `url(${heroBg})`, backgroundSize: "cover" }}
-          />
-          <div className="relative">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
-              Ready to build something great?
-            </h2>
-            <p className="text-white/80 max-w-xl mx-auto mb-8">
-              Whether you're hiring a team or starting your career - we'd love to talk.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
-                <Link to="/contact">Get in touch</Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-white/40 text-white hover:bg-white/10"
-              >
-                <Link to="/apply">Apply for Internship</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Section>
-
       <Section id="cta" className="py-16 md:py-24 bg-gradient-hero text-white">
         <div className="relative overflow-hidden rounded-3xl p-10 md:p-16 text-center">
           <div

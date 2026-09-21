@@ -124,7 +124,7 @@ export async function generateOfferLetterPDFBuffer(data: {
   doc.text("Udyam Registration No:", pt(154), pt(17));
   doc.fontSize(7.5).font("Helvetica").fillColor(GRAY);
   doc.text(`${COMPANY.udyam}`, pt(154), pt(21));
-  doc.text("Email: yrnovatech@gmail.com", pt(154), pt(27));
+  doc.text("Email: yrnovatech07@gmail.com", pt(154), pt(27));
   doc.text("Web: www.yrnovatech.online", pt(154), pt(31));
   doc.restore();
 

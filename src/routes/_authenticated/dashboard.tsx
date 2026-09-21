@@ -461,7 +461,7 @@ function Dashboard() {
           <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
             <Stat label="Internship ID" value={internship.internship_code} mono />
             <Stat label="College" value={(profile as any).college || "-"} />
-            <Stat label="Academic Year" value={(profile as any).academic_year || "-"} />
+            <Stat label="Academic Year" value={(profile as any).year || "-"} />
             <Stat label="Domain" value={internship.domain?.name ?? "-"} />
             <Stat label="Duration" value={internship.duration || "1 Month"} />
             <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"} className="text-xs">{internship.status}</Badge>} />

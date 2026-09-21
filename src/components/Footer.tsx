@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
-import { Github, Linkedin, Mail, MessageCircle, Instagram } from "lucide-react";
+import { Linkedin, Mail, Instagram } from "lucide-react";
 import { COMPANY } from "@/lib/company";
 
 export function Footer() {
@@ -24,15 +24,6 @@ export function Footer() {
               <Linkedin className="h-4 w-4" />
             </a>
             <a
-              href="https://github.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              className="p-2 rounded-md hover:bg-accent"
-            >
-              <Github className="h-4 w-4" />
-            </a>
-            <a
               href="https://www.instagram.com/yrnovatech_official/"
               target="_blank"
               rel="noopener noreferrer"
@@ -40,15 +31,6 @@ export function Footer() {
               className="p-2 rounded-md hover:bg-accent"
             >
               <Instagram className="h-4 w-4" />
-            </a>
-            <a
-              href="https://wa.me/"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp"
-              className="p-2 rounded-md hover:bg-accent"
-            >
-              <MessageCircle className="h-4 w-4" />
             </a>
             <a
               href="mailto:yrnovatech07@gmail.com"

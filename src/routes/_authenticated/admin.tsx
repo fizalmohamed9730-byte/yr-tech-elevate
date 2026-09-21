@@ -379,7 +379,7 @@ function AdminPage() {
       lastReloadSucceeded.current = true;
     } catch (err: any) {
       console.error("[admin] reload error:", err);
-      lastReloadSucceeded.current = true;
+      lastReloadSucceeded.current = false;
     } finally {
       reloadInProgress.current = false;
       setSectionLoading({

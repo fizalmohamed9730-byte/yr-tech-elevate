@@ -296,6 +296,8 @@ function AuthPage() {
       console.error("[auth] navigation failed:", err);
       navigating.current = false;
       setLoading(false);
+    } finally {
+      navigating.current = false;
     }
   }
 
