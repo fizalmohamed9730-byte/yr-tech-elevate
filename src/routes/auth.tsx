@@ -469,6 +469,15 @@ function AuthPage() {
         ) {
           return toast.error("An account with this email already exists. Try signing in instead.");
         }
+        if (
+          msg.includes("database error saving new user") ||
+          msg.includes("trigger") ||
+          error.code === "23514" ||
+          error.code === "42703" ||
+          error.code === "42P01"
+        ) {
+          return toast.error("Registration is temporarily unavailable. Please try again in a moment or contact support.");
+        }
         return toast.error(error.message);
       }
 
