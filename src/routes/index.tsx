@@ -1,29 +1,29 @@
-  import { createFileRoute } from "@tanstack/react-router";
-  import { Link } from "@tanstack/react-router";
-  import { useState, useEffect } from "react";
-  import {
-    ArrowRight,
-    Code2,
-    Palette,
-    Brain,
-    Rocket,
-    Award,
-    Users,
-    CheckCircle2,
-    Sparkles,
-    Smartphone,
-    Layers,
-    Globe,
-    Star,
-    Quote,
-  } from "lucide-react";
-  import { Button } from "@/components/ui/button";
-  import { Card } from "@/components/ui/card";
-  import { Section, SectionHeading } from "@/components/Section";
-  import { supabase } from "@/integrations/supabase/client";
-  import heroBg from "@/assets/hero-bg.jpg";
-  import skyrovixLogo from "@/assets/skyrovix-logo.png";
-  import vinixLogo from "@/assets/vinix-logo.png";
+import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import {
+  ArrowRight,
+  Code2,
+  Palette,
+  Brain,
+  Rocket,
+  Award,
+  Users,
+  CheckCircle2,
+  Sparkles,
+  Smartphone,
+  Layers,
+  Globe,
+  Star,
+  Quote,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Section, SectionHeading } from "@/components/Section";
+import { supabase } from "@/integrations/supabase/client";
+import heroBg from "@/assets/hero-bg.jpg";
+import skyrovixLogo from "@/assets/skyrovix-logo.png";
+import vinixLogo from "@/assets/vinix-logo.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -93,45 +93,45 @@ const whyUs = [
   { icon: Rocket, title: "Career Ready", desc: "GitHub, LinkedIn, and interview support." },
 ];
 
-  function Index() {
-    const [testimonials, setTestimonials] = useState<any[]>([]);
+function Index() {
+  const [testimonials, setTestimonials] = useState<any[]>([]);
 
-    useEffect(() => {
-      let cancelled = false;
-      (async () => {
-        try {
-          const { data, error } = await (supabase as any)
-            .from("feedback")
-            .select("id, rating, message, created_at, user_id")
-            .eq("status", "approved")
-            .order("created_at", { ascending: false })
-            .limit(12);
-          if (cancelled || error || !data || data.length === 0) return;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("feedback")
+          .select("id, rating, message, created_at, user_id")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(12);
+        if (cancelled || error || !data || data.length === 0) return;
 
-          const userIds = [...new Set(data.map((f: any) => f.user_id).filter(Boolean))] as string[];
-          let profileMap: Record<string, any> = {};
-          if (userIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from("profiles")
-              .select("id, full_name")
-              .in("id", userIds);
-            if (profiles) {
-              for (const p of profiles) profileMap[p.id] = p;
-            }
+        const userIds = [...new Set(data.map((f: any) => f.user_id).filter(Boolean))] as string[];
+        let profileMap: Record<string, any> = {};
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+          if (profiles) {
+            for (const p of profiles) profileMap[p.id] = p;
           }
-
-          const enriched = data.map((f: any) => ({
-            ...f,
-            student_name: profileMap[f.user_id]?.full_name ?? null,
-          }));
-
-          if (!cancelled) setTestimonials(enriched);
-        } catch {
-          // Silently ignore — testimonials are non-critical
         }
-      })();
-      return () => { cancelled = true; };
-    }, []);
+
+        const enriched = data.map((f: any) => ({
+          ...f,
+          student_name: profileMap[f.user_id]?.full_name ?? null,
+        }));
+
+        if (!cancelled) setTestimonials(enriched);
+      } catch {
+        // Silently ignore — testimonials are non-critical
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   return (
     <>
       <section className="relative overflow-hidden">
@@ -353,6 +353,36 @@ const whyUs = [
 
       <Section>
         <div className="relative overflow-hidden rounded-3xl bg-gradient-hero p-10 md:p-16 text-center">
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{ backgroundImage: `url(${heroBg})`, backgroundSize: "cover" }}
+          />
+          <div className="relative">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
+              Ready to build something great?
+            </h2>
+            <p className="text-white/80 max-w-xl mx-auto mb-8">
+              Whether you're hiring a team or starting your career - we'd love to talk.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
+                <Link to="/contact">Get in touch</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/40 text-white hover:bg-white/10"
+              >
+                <Link to="/apply">Apply for Internship</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="cta" className="py-16 md:py-24 bg-gradient-hero text-white">
+        <div className="relative overflow-hidden rounded-3xl p-10 md:p-16 text-center">
           <div
             className="absolute inset-0 opacity-20"
             style={{ backgroundImage: `url(${heroBg})`, backgroundSize: "cover" }}

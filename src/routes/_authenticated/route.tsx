@@ -79,8 +79,8 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     if (!role) {
-      console.warn("[auth] no role found for user:", user.id, "- redirecting to /auth");
-      throw redirect({ to: "/auth" });
+      console.warn("[auth] no role found for user:", user.id, "- defaulting to intern");
+      role = "intern";
     }
 
     return {

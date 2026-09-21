@@ -253,6 +253,14 @@ function AuthPage() {
     }
   }, []);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && !recoveryModeActive.current) {
+        navigate({ to: "/dashboard" });
+      }
+    }).catch(() => {});
+  }, []);
+
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
