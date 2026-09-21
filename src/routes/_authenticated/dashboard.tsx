@@ -169,7 +169,7 @@ function Dashboard() {
           if (payErr) console.warn("[dashboard] certificate_payments query (table may not exist):", payErr.code);
           if (feeErr) console.warn("[dashboard] app_settings query (table may not exist):", feeErr.code);
           setPaymentRecord(payData ?? null);
-          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 99);
+          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 100);
         } catch {
           // Tables may not exist in production yet — keep defaults
         }

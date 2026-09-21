@@ -302,19 +302,19 @@ function ApplyPage() {
           year: parsed.data.year,
           avatar_url: photoData,
           must_change_password: false,
-          country: parsed.data.country,
-          discovery_source: parsed.data.discoverySource,
-          discovery_other: parsed.data.discoverySource === "Other" ? (parsed.data.discoveryOther ?? "") : "",
         })
         .maybeSingle();
 
+      // Step 1: Query internship using ONLY base columns (no certificate_flow_version)
+      // to avoid 400 errors when that column doesn't exist in production yet.
       let { data: internship } = await (supabase as any)
         .from("internships")
-        .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
+        .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
         .eq("student_id", userId)
         .maybeSingle();
 
       if (!internship?.id) {
+        // Trigger may have already created this; if not, create now (without certificate_flow_version)
         internship = (
           await (supabase as any)
             .from("internships")
@@ -323,25 +323,35 @@ function ApplyPage() {
               domain_id: parsed.data.domainId,
               duration: parsed.data.duration,
               status: "active",
-              certificate_flow_version: "payment_v1",
             })
-            .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
             .single()
         ).data;
       } else {
-        // Ensure new registration sets active status and payment_v1 flow
+        // Ensure existing internship has active status
         internship = (
           await (supabase as any)
             .from("internships")
             .update({
               status: "active",
               started_at: internship.started_at ?? new Date().toISOString(),
-              certificate_flow_version: "payment_v1",
             })
             .eq("id", internship.id)
-            .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
             .single()
         ).data;
+      }
+
+      // Step 2: Try to set certificate_flow_version = 'payment_v1' (tolerant of missing column)
+      if (internship?.id) {
+        try {
+          await (supabase as any)
+            .from("internships")
+            .update({ certificate_flow_version: "payment_v1" })
+            .eq("id", internship.id);
+        } catch {
+          // Column may not exist yet — will be set by trigger after migration
+        }
       }
 
       if (internship?.id) {
@@ -366,7 +376,7 @@ function ApplyPage() {
         if (!internship.internship_code) {
           const d = await (supabase as any)
             .from("internships")
-            .select("internship_code, offer_letter_code, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
+            .select("internship_code, offer_letter_code, started_at, duration, domain:domains(name,slug)")
             .eq("id", internship.id)
             .maybeSingle();
           internship = { ...internship, ...(d?.data ?? d) };
