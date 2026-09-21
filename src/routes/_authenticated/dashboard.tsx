@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star } from "lucide-react";
+import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star, CreditCard, CheckCircle } from "lucide-react";
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -67,7 +67,7 @@ function Dashboard() {
       // to avoid failing when that column doesn't exist yet in production.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
@@ -82,6 +82,10 @@ function Dashboard() {
       setPhoto(p?.avatar_url ?? null);
 
       let internship = i;
+      let flowVersion = (internship as any)?.certificate_flow_version ?? "legacy";
+      let certStatus = (internship as any)?.certificate_status ?? "none";
+      let certRevokedAt = (internship as any)?.certificate_revoked_at ?? null;
+      let certRevokeReason = (internship as any)?.certificate_revoke_reason ?? null;
 
       // Step 2: Fetch certificate_flow_version + revocation columns separately
       // (tolerant of missing columns in production schema)
@@ -92,23 +96,23 @@ function Dashboard() {
             .select("certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason")
             .eq("id", internship.id)
             .maybeSingle();
-          internship = {
-            ...(internship as any),
-            certificate_flow_version: extData?.certificate_flow_version ?? "legacy",
-            certificate_status: extData?.certificate_status ?? "none",
-            certificate_revoked_at: extData?.certificate_revoked_at ?? null,
-            certificate_revoke_reason: extData?.certificate_revoke_reason ?? null,
-          };
+          if (extData?.certificate_flow_version) flowVersion = extData.certificate_flow_version;
+          if (extData?.certificate_status) certStatus = extData.certificate_status;
+          if (extData?.certificate_revoked_at) certRevokedAt = extData.certificate_revoked_at;
+          if (extData?.certificate_revoke_reason) certRevokeReason = extData.certificate_revoke_reason;
         } catch {
-          internship = {
-            ...(internship as any),
-            certificate_flow_version: "legacy",
-            certificate_status: "none",
-            certificate_revoked_at: null,
-            certificate_revoke_reason: null,
-          };
+          // Keep current fallback values
         }
+
+        internship = {
+          ...(internship as any),
+          certificate_flow_version: flowVersion,
+          certificate_status: certStatus,
+          certificate_revoked_at: certRevokedAt,
+          certificate_revoke_reason: certRevokeReason,
+        };
       }
+
       if (internship?.id && !internship.offer_letter_code) {
         try {
           const { data: upd, error: updErr } = await (supabase as any)
@@ -118,17 +122,16 @@ function Dashboard() {
               started_at: internship.started_at ?? new Date().toISOString(),
             })
             .eq("id", internship.id)
-            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)")
+            .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) {
-            // Preserve the extended certificate fields we already fetched
             internship = {
               ...upd,
-              certificate_flow_version: (internship as any)?.certificate_flow_version ?? "legacy",
-              certificate_status: (internship as any)?.certificate_status ?? "none",
-              certificate_revoked_at: (internship as any)?.certificate_revoked_at ?? null,
-              certificate_revoke_reason: (internship as any)?.certificate_revoke_reason ?? null,
+              certificate_flow_version: upd.certificate_flow_version ?? flowVersion,
+              certificate_status: upd.certificate_status ?? certStatus,
+              certificate_revoked_at: upd.certificate_revoked_at ?? certRevokedAt,
+              certificate_revoke_reason: upd.certificate_revoke_reason ?? certRevokeReason,
             };
           }
         } catch (err: any) {
@@ -370,11 +373,14 @@ function Dashboard() {
       {/* Modern SaaS Sub-Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex md:grid md:grid-cols-7 w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1">
+          <TabsList className={`inline-flex md:grid ${internship.certificate_flow_version === 'payment_v1' ? 'md:grid-cols-8' : 'md:grid-cols-7'} w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1`}>
             <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Dashboard</TabsTrigger>
             <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">My Tasks</TabsTrigger>
             <TabsTrigger value="offer" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Offer Letter</TabsTrigger>
             <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">ID Card</TabsTrigger>
+            {internship.certificate_flow_version === 'payment_v1' && (
+              <TabsTrigger value="payment" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Payment</TabsTrigger>
+            )}
             <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Certificate</TabsTrigger>
             <TabsTrigger value="profile" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Profile</TabsTrigger>
             <TabsTrigger value="feedback" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Feedback</TabsTrigger>
@@ -383,6 +389,70 @@ function Dashboard() {
 
         {/* Tab 1: Dashboard */}
         <TabsContent value="dashboard" className="space-y-6">
+          {/* Internship Progress Flow (for new registration interns) */}
+          {internship.certificate_flow_version === 'payment_v1' && (
+            <Card className="p-4 md:p-6 border-blue-500/20 bg-blue-50/30 dark:bg-blue-950/10 space-y-6">
+              <div className="flex items-center justify-between border-b pb-3 border-border/40">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2 text-blue-950 dark:text-blue-100">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" /> Internship Progress
+                </h2>
+                <Badge variant="outline" className="text-xs border-blue-400 text-blue-600 dark:text-blue-300">
+                  New Registration Flow
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+                {/* Step 1: Application Submitted */}
+                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mb-2 shadow-sm">
+                    ✓
+                  </div>
+                  <h4 className="font-semibold text-sm">Application Submitted</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Successfully registered</p>
+                </div>
+
+                {/* Step 2: Tasks Completed & Approved */}
+                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
+                    allRequiredApproved ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
+                  }`}>
+                    {allRequiredApproved ? "✓" : "2"}
+                  </div>
+                  <h4 className="font-semibold text-sm">Tasks Completed & Approved</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {approvedTaskCount} / {durationTasksCount} tasks approved
+                  </p>
+                </div>
+
+                {/* Step 3: Payment Verification */}
+                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
+                    paymentRecord?.status === "paid" ? "bg-emerald-500 text-white" : allRequiredApproved ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {paymentRecord?.status === "paid" ? "✓" : "3"}
+                  </div>
+                  <h4 className="font-semibold text-sm">Payment Verification</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `₹${certificateFee}`}
+                  </p>
+                </div>
+
+                {/* Step 4: Certificate Generated */}
+                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
+                    internship.certificate_code ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {internship.certificate_code ? "✓" : "4"}
+                  </div>
+                  <h4 className="font-semibold text-sm">Certificate Generated</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {internship.certificate_code ? "Certificate available" : "Get your certificate"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
             <Stat label="Internship ID" value={internship.internship_code} mono />
             <Stat label="College" value={(profile as any).college || "-"} />
@@ -624,6 +694,112 @@ function Dashboard() {
             )}
           </Card>
         </TabsContent>
+
+        {/* Tab 5.5: Payment (new interns only) */}
+        {internship.certificate_flow_version === 'payment_v1' && (
+          <TabsContent value="payment">
+            <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
+              <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary flex-shrink-0" /> Certificate Payment Verification
+              </h2>
+
+              <p className="text-sm text-muted-foreground">
+                Verify your certificate fee payment (₹{certificateFee}) after completing all required tasks.
+              </p>
+
+              {/* Certificate Payment Form / Status */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  {paymentRecord?.status === "paid" ? (
+                    <><span className="text-emerald-500">&#10003;</span> Payment Verified</>
+                  ) : paymentRecord?.status === "pending_verification" ? (
+                    <><span className="text-amber-500">&#8987;</span> Pending Verification</>
+                  ) : !allRequiredApproved ? (
+                    <><span className="text-muted-foreground">&#128274;</span> Payment Locked</>
+                  ) : (
+                    <><span className="text-blue-500">&#128275;</span> Payment Unlocked</>
+                  )}
+                </h3>
+
+                {!allRequiredApproved && (
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                    Complete and get approval for all {durationTasksCount} required tasks to unlock certificate payment. ({approvedTaskCount} / {durationTasksCount} approved)
+                  </div>
+                )}
+
+                {allRequiredApproved && !paymentRecord && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                      All required tasks are approved! Submit your payment transaction details below to proceed.
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">UPI ID:</span>
+                        <span className="font-mono text-sm font-semibold">fizalabbas@sbi</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-center">
+                      <img src="/payment/certificate-upi-qr.svg" alt="UPI QR Code" className="w-48 h-48 border rounded-lg object-contain bg-white p-2" />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">Scan &amp; Pay using any UPI app</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="tab-payment-tx-id">Transaction / UTR ID</Label>
+                      <Input id="tab-payment-tx-id" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tab-payment-screenshot">Payment Screenshot (optional)</Label>
+                      <Input id="tab-payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
+                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
+                    </div>
+                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
+                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Payment"}
+                    </Button>
+                  </div>
+                )}
+
+                {paymentRecord?.status === "pending_verification" && (
+                  <div className="space-y-2">
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                      &#8987; Your payment is being verified by the admin. You will be notified once verified.
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
+                      <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
+                      <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
+                    </div>
+                  </div>
+                )}
+
+                {paymentRecord?.status === "rejected" && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
+                      &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Please retry with a valid transaction.
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tab-payment-tx-id-retry">Transaction / UTR ID</Label>
+                      <Input id="tab-payment-tx-id-retry" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tab-payment-screenshot-retry">Payment Screenshot (optional)</Label>
+                      <Input id="tab-payment-screenshot-retry" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
+                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
+                    </div>
+                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
+                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Retry Payment"}
+                    </Button>
+                  </div>
+                )}
+
+                {paymentRecord?.status === "paid" && (
+                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
+                    &#10003; Payment verified! Your certificate is eligible for admin release.
+                  </div>
+                )}
+              </div>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Tab 6: Certificate */}
         <TabsContent value="certificate">

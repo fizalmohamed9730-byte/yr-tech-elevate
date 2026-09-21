@@ -310,7 +310,7 @@ function ApplyPage() {
 
       let { data: internship } = await (supabase as any)
         .from("internships")
-        .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
+        .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
         .eq("student_id", userId)
         .maybeSingle();
 
@@ -323,23 +323,23 @@ function ApplyPage() {
               domain_id: parsed.data.domainId,
               duration: parsed.data.duration,
               status: "active",
+              certificate_flow_version: "payment_v1",
             })
-            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
             .single()
         ).data;
-      } else if (internship.status === "pending") {
-        // The DB signup trigger may have created the internship as "pending"
-        // before this client-side flow ran. Auto-approve it to match the
-        // "active" path above so the offer letter is issued immediately.
+      } else {
+        // Ensure new registration sets active status and payment_v1 flow
         internship = (
           await (supabase as any)
             .from("internships")
             .update({
               status: "active",
-              started_at: new Date().toISOString(),
+              started_at: internship.started_at ?? new Date().toISOString(),
+              certificate_flow_version: "payment_v1",
             })
             .eq("id", internship.id)
-            .select("id, internship_code, offer_letter_code, status, started_at, duration, domain:domains(name,slug)")
+            .select("id, internship_code, offer_letter_code, status, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
             .single()
         ).data;
       }
@@ -366,7 +366,7 @@ function ApplyPage() {
         if (!internship.internship_code) {
           const d = await (supabase as any)
             .from("internships")
-            .select("internship_code, offer_letter_code, started_at, duration, domain:domains(name,slug)")
+            .select("internship_code, offer_letter_code, started_at, duration, certificate_flow_version, domain:domains(name,slug)")
             .eq("id", internship.id)
             .maybeSingle();
           internship = { ...internship, ...(d?.data ?? d) };
