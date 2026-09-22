@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useRouteContext } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function Dashboard() {
+  const routeCtx = useRouteContext({ from: "/_authenticated" }) as { user?: any };
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [internship, setInternship] = useState<any>(null);
@@ -51,15 +52,21 @@ function Dashboard() {
 
   async function load() {
     try {
-      const { data: u, error: authErr } = await supabase.auth.getUser();
-      if (authErr) {
-        console.error("[dashboard] auth error:", authErr.message, authErr);
-        setLoadError("Authentication error: " + authErr.message);
-        return;
+      // Use user from route context (already validated by _authenticated beforeLoad).
+      // Avoid a redundant getUser() network call which can fail with "Failed to fetch"
+      // while the route guard's getSession() fallback already succeeded.
+      let userId: string | null = routeCtx?.user?.id ?? null;
+
+      if (!userId) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          userId = session?.user?.id ?? null;
+        } catch {}
       }
-      if (!u.user) {
-        console.warn("[dashboard] no authenticated user");
-        setLoadError("No authenticated user found.");
+
+      if (!userId) {
+        console.warn("[dashboard] no authenticated user available");
+        setLoadError("No authenticated user found. Please log in again.");
         return;
       }
 
@@ -67,8 +74,8 @@ function Dashboard() {
       // Extended columns (certificate_flow_version, certificate_status, certificate_revoked_at,
       // certificate_revoke_reason) are fetched separately in Step 2 with tolerant error handling.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", u.user.id).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", u.user.id).maybeSingle(),
+        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", userId).single(),
+        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", userId).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
