@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { COMPANY } from "@/lib/company";
+import { fileToResizedDataUrl, AVATAR_MAX_DIM } from "@/lib/image";
 
 export const Route = createFileRoute("/apply")({
   head: () => ({
@@ -175,13 +176,11 @@ function ApplyPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
-    const reader = new FileReader();
-    reader.onload = () => setPhotoData(typeof reader.result === "string" ? reader.result : null);
-    reader.readAsDataURL(file);
+    setPhotoData(await fileToResizedDataUrl(file, AVATAR_MAX_DIM));
   }
 
   function handleResume(e: React.ChangeEvent<HTMLInputElement>) {

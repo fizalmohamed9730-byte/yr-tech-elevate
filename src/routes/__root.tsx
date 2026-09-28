@@ -134,6 +134,17 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Development-only egress diagnostics. The `import.meta.env.DEV` check is
+  // statically evaluated at build time, so this whole block is dead-code
+  // eliminated from production bundles.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      void import("@/lib/supabase-diagnostics").then((m) =>
+        m.installSupabaseDiagnostics(),
+      );
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-screen flex-col">

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Eye, EyeOff, Mail, AlertTriangle, KeyRound } from "lucide-react";
 import { COMPANY } from "@/lib/company";
+import { fileToResizedDataUrl, AVATAR_MAX_DIM } from "@/lib/image";
 
 const SIGN_IN_TIMEOUT = 15000;
 
@@ -261,13 +262,11 @@ function AuthPage() {
     }).catch(() => {});
   }, []);
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
-    const reader = new FileReader();
-    reader.onload = () => setPhotoData(typeof reader.result === "string" ? reader.result : null);
-    reader.readAsDataURL(file);
+    setPhotoData(await fileToResizedDataUrl(file, AVATAR_MAX_DIM));
   }
 
   async function waitForSession(maxAttempts = 3, delayMs = 200): Promise<boolean> {

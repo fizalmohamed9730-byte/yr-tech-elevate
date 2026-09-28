@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { fileToResizedDataUrl, AVATAR_MAX_DIM } from "@/lib/image";
 
 export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePage });
 
@@ -41,13 +42,11 @@ function ProfilePage() {
   }
   useEffect(() => { load(); }, []);
 
-  function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
-    const r = new FileReader();
-    r.onload = () => setPhoto(typeof r.result === "string" ? r.result : null);
-    r.readAsDataURL(file);
+    setPhoto(await fileToResizedDataUrl(file, AVATAR_MAX_DIM));
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {

@@ -15,6 +15,7 @@ import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Lo
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
+import { fileToResizedDataUrl, AVATAR_MAX_DIM, SCREENSHOT_MAX_DIM } from "@/lib/image";
 import { z } from "zod";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -170,7 +171,9 @@ function Dashboard() {
         // Load certificate payment data for this intern (tolerant of missing tables)
         try {
           const [{ data: payData, error: payErr }, { data: feeData, error: feeErr }] = await Promise.all([
-            supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
+            // `payment_screenshot_url` is a base64 data URL and is never rendered
+            // on this page, so it is intentionally excluded to keep the payload small.
+            supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
             supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
           ]);
           if (payErr) console.warn("[dashboard] certificate_payments query (table may not exist):", payErr.code);
@@ -231,22 +234,18 @@ function Dashboard() {
     }
   }
 
-  function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
-    const r = new FileReader();
-    r.onload = () => setPhoto(typeof r.result === "string" ? r.result : null);
-    r.readAsDataURL(file);
+    setPhoto(await fileToResizedDataUrl(file, AVATAR_MAX_DIM));
   }
 
-  function onPaymentScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPaymentScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) return toast.error("Screenshot must be under 2MB");
-    const r = new FileReader();
-    r.onload = () => setPaymentScreenshot(typeof r.result === "string" ? r.result : null);
-    r.readAsDataURL(file);
+    setPaymentScreenshot(await fileToResizedDataUrl(file, SCREENSHOT_MAX_DIM));
   }
 
   const profileSchema = z.object({

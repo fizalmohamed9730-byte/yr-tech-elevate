@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect, useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,8 +72,79 @@ const STATUS_COLORS: Record<string, string> = {
 
 const DOMAIN_COLORS = ["#3b82f6", "#06b6d4", "#a855f7", "#f97316", "#22c55e", "#ec4899"];
 
+/**
+ * Row avatar that fetches `profiles.avatar_url` only when the row scrolls into
+ * view, and never more than once per page. `avatar_url` is a base64 data URL, so
+ * eagerly rendering every intern's photo in the table was the single largest
+ * source of Supabase egress.
+ */
+function LazyAvatar({
+  profileId,
+  name,
+  src,
+  size = 32,
+  onReveal,
+}: {
+  profileId?: string | null;
+  name?: string | null;
+  src?: string | null;
+  size?: number;
+  onReveal?: (id: string) => void;
+}) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [requested, setRequested] = useState(false);
+  const photo = src ?? null;
+
+  useEffect(() => {
+    if (photo || requested) return;
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      onReveal?.(profileId as string);
+      setRequested(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          onReveal?.(profileId as string);
+          setRequested(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [photo, requested, profileId, onReveal]);
+
+  return (
+    <span ref={ref} className="inline-flex">
+      {photo ? (
+        <img
+          src={photo}
+          alt=""
+          width={size}
+          height={size}
+          style={{ width: size, height: size }}
+          className="rounded-full object-cover border border-(--admin-input-border)"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <Avatar style={{ width: size, height: size }} className="inline-flex">
+          <AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(name)}</AvatarFallback>
+        </Avatar>
+      )}
+    </span>
+  );
+}
+
+
 function AdminPage() {
   const navigate = useNavigate();
+  const routeCtx = useRouteContext({ from: "/_authenticated" }) as {
+    user?: { id: string } | null;
+    isAdmin?: boolean;
+  } | undefined;
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -94,8 +165,7 @@ function AdminPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { theme, toggleTheme, isDark } = useAdminTheme();
   const reloadInProgress = useRef(false);
-  const [profilePhotos, setProfilePhotos] = useState<Record<string, string>>({});
-  const profilePhotosLoaded = useRef(false);
+  const [profilePhotos, setProfilePhotos] = useState<Record<string, string | null>>({});
   const [sectionErrors, setSectionErrors] = useState<Record<SectionKey, SectionError>>({
     profiles: { error: null, ts: 0 }, internships: { error: null, ts: 0 }, submissions: { error: null, ts: 0 },
     projects: { error: null, ts: 0 }, projectSubmissions: { error: null, ts: 0 }, domains: { error: null, ts: 0 },
@@ -135,26 +205,62 @@ function AdminPage() {
     }
   }
 
-  const loadProfilePhotos = useCallback(async (profilesList: any[]) => {
-    if (profilePhotosLoaded.current || profilesList.length === 0) return;
+  /**
+   * Loads intern photos on demand, one row at a time, and caches the result for
+   * the lifetime of the page.
+   *
+   * `profiles.avatar_url` holds base64 data URLs. Historically this was bulk
+   * fetched (in chunks of 5) inside `reload()`, which the 60s poll re-ran every
+   * minute — re-downloading every intern's full photo forever. Photos are now
+   * fetched only for rows the admin actually reveals, and never twice.
+   */
+  const photoCache = useRef<Record<string, string | null>>({});
+  const photoPending = useRef<Set<string>>(new Set());
+
+  const fetchPhoto = useCallback(async (profileId: string): Promise<string | null> => {
+    if (profileId in photoCache.current) return photoCache.current[profileId];
+    if (photoPending.current.has(profileId)) return null;
+    photoPending.current.add(profileId);
     try {
-      const ids = profilesList.map((p: any) => p.id);
-      const photos: Record<string, string> = {};
-      const CHUNK = 5;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const chunk = ids.slice(i, i + CHUNK);
-        const { data } = await supabase.from("profiles").select("id, avatar_url").in("id", chunk);
-        if (data && data.length > 0) {
-          for (const row of data) {
-            if (row.avatar_url) photos[row.id] = row.avatar_url;
-          }
-        }
-      }
-      setProfilePhotos(photos);
-      profilePhotosLoaded.current = true;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", profileId)
+        .maybeSingle();
+      if (error) return null;
+      const url = data?.avatar_url ?? null;
+      photoCache.current[profileId] = url;
+      setProfilePhotos({ ...photoCache.current });
+      return url;
     } catch {
-      profilePhotosLoaded.current = false;
+      return null;
+    } finally {
+      photoPending.current.delete(profileId);
     }
+  }, []);
+
+  const revealPhoto = useCallback((profileId: string | null | undefined) => {
+    if (!profileId) return;
+    if (profileId in photoCache.current) return;
+    void fetchPhoto(profileId);
+  }, [fetchPhoto]);
+
+  const fetchPaymentScreenshot = useCallback(async (paymentId: string) => {
+    const { data, error } = await supabase
+      .from("certificate_payments")
+      .select("payment_screenshot_url")
+      .eq("id", paymentId)
+      .maybeSingle();
+    if (error) {
+      toast.error("Failed to load screenshot");
+      return;
+    }
+    const url = data?.payment_screenshot_url;
+    if (!url) {
+      toast.error("No screenshot attached");
+      return;
+    }
+    window.open(url, "_blank", "noopener");
   }, []);
 
   function isSchemaMismatchError(err: any): boolean {
@@ -270,7 +376,10 @@ function AdminPage() {
 
       let cpRes: { data: any[]; failed: boolean; supabaseError?: any };
       try {
-        cpRes = await safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, payment_screenshot_url, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false }));
+        // `payment_screenshot_url` is a base64 data URL (up to ~2MB). It is
+        // deliberately NOT selected here — see fetchPaymentScreenshot() — so the
+        // 60s poll no longer re-downloads every payment proof image.
+        cpRes = await safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false }));
       } catch {
         cpRes = { data: [], failed: true, supabaseError: { code: "THROW", message: "Unknown certificate_payments error" } };
       }
@@ -280,8 +389,6 @@ function AdminPage() {
       const internshipMap = new Map<string, any>();
       for (const int of i) internshipMap.set(int.id, int);
       setSubmissions(rawSubs.map((sub: any) => ({ ...sub, internship: internshipMap.get(sub.internship_id) ?? null })));
-      profilePhotosLoaded.current = false;
-      loadProfilePhotos(p);
 
 
       const newErrors: Record<SectionKey, SectionError> = {
@@ -391,37 +498,33 @@ function AdminPage() {
     }
   }
 
+  // The `/_authenticated` beforeLoad already resolved the user and role, and the
+  // route's own beforeLoad already redirects non-admins. Re-querying getUser()
+  // and user_roles here duplicated two requests on every mount for no benefit.
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const { data: u, error: uErr } = await supabase.auth.getUser();
-        if (uErr) {
-          console.error("[admin] auth error:", uErr.message, uErr);
-          return;
-        }
-        if (!u.user || !mounted) return;
-        const { data: roles, error: rErr } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
-        if (rErr) console.error("[admin] user_roles error:", rErr.code, rErr.message, rErr.details, rErr.hint);
-        const admin = (roles ?? []).some((r: any) => r.role === "admin");
-        if (!mounted) return;
-        setIsAdmin(admin);
-        if (admin) await reload();
-      } catch (err: any) {
-        console.error("[admin] init error:", err);
-      } finally {
-        if (mounted) setChecking(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+    setIsAdmin(routeCtx?.isAdmin === true);
+    setChecking(false);
+    if (routeCtx?.isAdmin === true) void reload();
+  }, [routeCtx?.isAdmin]);
 
   useEffect(() => {
     if (!isAdmin) return;
-    const interval = setInterval(() => {
-      if (!reloadInProgress.current) reload();
-    }, 60000);
-    return () => clearInterval(interval);
+    // Only poll while the tab is actually visible. A backgrounded Admin tab used
+    // to keep hammering the API every 60s with no one looking at it.
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      if (reloadInProgress.current) return;
+      void reload();
+    };
+    const interval = setInterval(tick, 60000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [isAdmin]);
 
   const approvedCountByInternship = useMemo(() => {
@@ -697,7 +800,7 @@ function AdminPage() {
   async function verifyPayment(paymentId: string) {
     const { error } = await (supabase as any)
       .from("certificate_payments")
-      .update({ status: "paid", paid_at: new Date().toISOString(), verified_at: new Date().toISOString(), verified_by: (await supabase.auth.getUser()).data.user?.id })
+      .update({ status: "paid", paid_at: new Date().toISOString(), verified_at: new Date().toISOString(), verified_by: routeCtx?.user?.id ?? null })
       .eq("id", paymentId);
     if (error) return toast.error("Failed to verify payment: " + error.message);
     toast.success("Payment verified!");
@@ -817,8 +920,7 @@ function AdminPage() {
     const title = (fd.get("title") as string)?.trim();
     const body = (fd.get("body") as string)?.trim() || "";
     if (!title) return toast.error("Title is required");
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("announcements").insert({ title, body, created_by: u.user?.id ?? null, active: true });
+    const { error } = await supabase.from("announcements").insert({ title, body, created_by: routeCtx?.user?.id ?? null, active: true });
     if (error) return toast.error(error.message);
     toast.success("Announcement published"); (e.currentTarget as HTMLFormElement).reset(); reload();
   }
@@ -1126,7 +1228,7 @@ function AdminPage() {
         : (i?.duration === "1 Month" ? 3 : i?.duration === "2 Months" ? 4 : i?.duration === "3 Months" ? 5 : 0);
       const pr = tt > 0 ? Math.round((ta / tt) * 100) : 0;
       return (<tr key={s.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
-        <td className="py-3 px-3">{(profilePhotos[s.id] || s.avatar_url) ? <img src={profilePhotos[s.id] || s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-(--admin-input-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <Avatar className="h-8 w-8"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar>}</td>
+        <td className="py-3 px-3"><LazyAvatar profileId={s.id} name={s.full_name} src={profilePhotos[s.id] ?? null} onReveal={revealPhoto} /></td>
         <td className="py-3 px-3 text-(--admin-text) font-medium whitespace-nowrap">{s.full_name ?? "-"}</td>
         <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i?.internship_code ?? "-"}</td>
         <td className="py-3 px-3 text-xs text-(--admin-text-secondary) max-w-[120px] truncate">{s.email}</td>
@@ -1139,7 +1241,8 @@ function AdminPage() {
           <Dialog><DialogTrigger asChild><Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-(--admin-text-secondary) hover:text-(--admin-text) hover:bg-(--admin-nav-hover-bg)"><Eye className="h-3.5 w-3.5" /></Button></DialogTrigger>
             <DialogContent className="max-w-lg bg-(--admin-dialog) border-(--admin-dialog-border)"><DialogHeader><DialogTitle className="text-(--admin-text)">{s.full_name ?? "Student"}</DialogTitle></DialogHeader>
               <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
-                {(profilePhotos[s.id] || s.avatar_url) && <div className="flex justify-center"><img src={profilePhotos[s.id] || s.avatar_url} alt={s.full_name ?? ""} className="w-20 h-20 rounded-full object-cover border-2 border-(--admin-card-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+                {profilePhotos[s.id] && <div className="flex justify-center"><img src={profilePhotos[s.id] as string} alt={s.full_name ?? ""} className="w-20 h-20 rounded-full object-cover border-2 border-(--admin-card-border)" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>}
+                {!profilePhotos[s.id] && <div className="flex justify-center"><button type="button" onClick={() => revealPhoto(s.id)} className="w-20 h-20 rounded-full border-2 border-dashed border-(--admin-card-border) flex items-center justify-center text-(--admin-text-muted) hover:text-blue-500 hover:border-blue-500/50" title="Load intern photo"><Avatar className="h-10 w-10"><AvatarFallback className="bg-blue-600/20 text-blue-500 text-xs">{getInitials(s.full_name)}</AvatarFallback></Avatar></button></div>}
                 <div className="border border-(--admin-card-border) rounded-lg p-4 space-y-2"><h4 className="font-semibold text-xs uppercase text-(--admin-text-muted)">Personal</h4><div className="grid grid-cols-2 gap-2">
                   <div><span className="text-(--admin-text-muted)">Name:</span> <span className="text-(--admin-text)">{s.full_name ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Email:</span> <span className="text-(--admin-text)">{s.email}</span></div>
                   <div><span className="text-(--admin-text-muted)">Phone:</span> <span className="text-(--admin-text)">{s.phone ?? "-"}</span></div><div><span className="text-(--admin-text-muted)">Year:</span> <span className="text-(--admin-text)">{s.year ?? "-"}</span></div>
@@ -1283,10 +1386,9 @@ function AdminPage() {
           <div>Duration: <span className="text-(--admin-text)">{i.duration ?? "-"}</span></div>
         </div>
         <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={async () => {
-          let photoDataUrl: string | undefined = i.student?.avatar_url;
-          if (!photoDataUrl && i.student_id) {
-            try { const { data } = await supabase.from("profiles").select("avatar_url").eq("id", i.student_id).maybeSingle(); photoDataUrl = data?.avatar_url ?? undefined; } catch {}
-          }
+          // Reuse the page-level photo cache first; only fall back to a single
+          // targeted query if this intern's photo has not been loaded yet.
+          let photoDataUrl: string | undefined = profilePhotos[i.student_id] ?? (await fetchPhoto(i.student_id)) ?? undefined;
           downloadIdCard({ fullName: i.student?.full_name ?? "Intern", internshipCode: i.internship_code ?? "", domain: i.domain?.name ?? "", photoDataUrl, email: i.student?.email, duration: i.duration }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")));
         }}>
           <CreditCard className="h-3 w-3 mr-1" /> Download ID Card
@@ -1492,7 +1594,7 @@ function AdminPage() {
                 <td className="py-3 px-3 text-(--admin-text)">{intern?.domain?.name ?? "-"}</td>
                 <td className="py-3 px-3 text-(--admin-text) font-semibold">&#8377;{p.amount}</td>
                 <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
-                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.payment_screenshot_url ? <a href={p.payment_screenshot_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View</a> : "-"}</td>
+                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)"><Button size="sm" variant="link" className="h-auto p-0 text-xs text-blue-500 hover:underline" onClick={() => fetchPaymentScreenshot(p.id)}>View</Button></td>
                 <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{new Date(p.submitted_at).toLocaleDateString()}</td>
                 <td className="py-3 px-3 space-x-1 whitespace-nowrap">
                   <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => verifyPayment(p.id)}>Verify</Button>
