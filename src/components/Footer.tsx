@@ -33,8 +33,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/projects" className="hover:text-blue-600 transition-colors">
+                <Link to="/careers" className="hover:text-blue-600 transition-colors">
                   Careers
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="hover:text-blue-600 transition-colors">
+                  FAQ
                 </Link>
               </li>
               <li>
@@ -111,9 +116,7 @@ export function Footer() {
 
           {/* Right-side description + social */}
           <div className="md:col-span-4 md:text-right">
-            <h4 className="font-bold text-slate-800 text-lg mb-2">
-              Impact. Develop. Deliver.
-            </h4>
+            <h4 className="font-bold text-slate-800 text-lg mb-2">Impact. Develop. Deliver.</h4>
             <p className="text-sm text-slate-500 leading-relaxed mb-6">
               Premium Software Engineering, AI Solutions and Project-based Internships.
             </p>
@@ -166,12 +169,25 @@ export function Footer() {
             © {new Date().getFullYear()}. YR NOVATECH. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <Link to="/about" className="text-xs text-slate-400 hover:text-blue-600 transition-colors">
+            <Link
+              to="/privacy-policy"
+              className="text-xs text-slate-400 hover:text-blue-600 transition-colors"
+            >
               Privacy Policy
             </Link>
             <span className="text-slate-300">|</span>
-            <Link to="/about" className="text-xs text-slate-400 hover:text-blue-600 transition-colors">
+            <Link
+              to="/terms-and-conditions"
+              className="text-xs text-slate-400 hover:text-blue-600 transition-colors"
+            >
               Terms & Conditions
+            </Link>
+            <span className="text-slate-300">|</span>
+            <Link
+              to="/refund-policy"
+              className="text-xs text-slate-400 hover:text-blue-600 transition-colors"
+            >
+              Refund Policy
             </Link>
           </div>
           <button

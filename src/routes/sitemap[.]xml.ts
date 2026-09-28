@@ -1,13 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-const BASE_URL = "https://www.yrnovatech.online";
+const BASE_URL = "https://yrnovatech.in";
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const paths = ["/", "/about", "/services", "/internship", "/projects", "/contact"];
+        const paths = [
+          "/",
+          "/about",
+          "/services",
+          "/internship",
+          "/projects",
+          "/contact",
+          "/careers",
+          "/faq",
+          "/privacy-policy",
+          "/terms-and-conditions",
+          "/refund-policy",
+        ];
         const urls = paths
           .map((p) => `  <url><loc>${BASE_URL}${p}</loc><changefreq>weekly</changefreq></url>`)
           .join("\n");

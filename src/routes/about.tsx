@@ -1,29 +1,61 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "@/components/Section";
 import { Reveal } from "@/components/Reveal";
-import { Target, Eye, Rocket, GraduationCap, BadgeCheck, Code2, PenTool, Brain, BarChart3 } from "lucide-react";
-import founder from "@/assets/founder.png";
-import coFounder from "@/assets/co-founder.jpg";
+import {
+  Search,
+  ClipboardList,
+  Palette,
+  Code2,
+  Bug,
+  Rocket,
+  Wrench,
+  Lightbulb,
+  ShieldCheck,
+  Eye,
+  BookOpen,
+  Users,
+  UserPlus,
+  FileText,
+  Linkedin,
+  Github,
+  ClipboardCheck,
+  Award,
+  Lock,
+  Scale,
+  RotateCcw,
+  ArrowRight,
+  Building2,
+  BadgeCheck,
+  Mail,
+  Monitor,
+  Server,
+  Database,
+  Brain,
+  Terminal,
+} from "lucide-react";
 import msmeLogo from "@/assets/msme-logo.png";
 import { COMPANY } from "@/lib/company";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About YR NOVATECH - Technology & Innovation Company" },
+      { title: "About YR NOVATECH - Software Development & Technology Company" },
       {
         name: "description",
         content:
-          "YR NOVATECH is a technology and innovation company focused on software development, internship programs, and professional skill development. Meet our leadership.",
+          "YR NOVATECH is a software development and technology company focused on custom software, web and mobile applications, AI solutions, and hands-on project-based internship programs for aspiring engineers.",
       },
       { property: "og:title", content: "About YR NOVATECH" },
       {
         property: "og:description",
         content:
-          "Technology and innovation company focused on software development, internship programs, and professional skill development.",
+          "Software development and technology company focused on custom software, web and mobile applications, AI solutions, and project-based internship programs.",
       },
+      { property: "og:url", content: "https://yrnovatech.in/about" },
     ],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/about" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -32,16 +64,9 @@ export const Route = createFileRoute("/about")({
           "@type": "Organization",
           name: "YR NOVATECH",
           description:
-            "Technology and innovation company focused on software development, internship programs, and professional skill development.",
-          founder: { "@type": "Person", name: "S. Fizal Mohamed", jobTitle: "Founder & CEO" },
-          employee: [
-            {
-              "@type": "Person",
-              name: "M. Annapoorani",
-              jobTitle: "Co-Founder & COO",
-              alumniOf: { "@type": "CollegeOrUniversity", name: "B.Sc. Computer Science" },
-            },
-          ],
+            "Software development and technology company focused on custom software, web and mobile applications, AI solutions, and project-based internship programs.",
+          url: "https://yrnovatech.in",
+          email: COMPANY.email,
         }),
       },
     ],
@@ -58,46 +83,181 @@ const whatWeDo = [
 ];
 
 const values = [
-  { icon: Target, title: "Mission", text: "Empower businesses and aspiring engineers through high-quality software and immersive training." },
-  { icon: Eye, title: "Vision", text: "Become India's most trusted partner for software craftsmanship and ed-tech excellence." },
-  { icon: Rocket, title: "Future Goals", text: "Train 10,000+ engineers and launch our own SaaS products by 2027." },
+  {
+    icon: Lightbulb,
+    title: "Practical Innovation",
+    text: "We turn ideas into working software that solves real problems.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Quality Engineering",
+    text: "We hold our work to high standards of correctness, security, and maintainability.",
+  },
+  {
+    icon: Eye,
+    title: "Transparency",
+    text: "We communicate clearly about process, progress, and outcomes.",
+  },
+  {
+    icon: BookOpen,
+    title: "Continuous Learning",
+    text: "We keep our skills current and share knowledge with interns and peers.",
+  },
+  {
+    icon: Users,
+    title: "User-Centered Development",
+    text: "We build products around the people who will actually use them.",
+  },
+];
+
+const approach = [
+  {
+    icon: Search,
+    title: "Requirement Understanding",
+    text: "We clarify goals, scope, and constraints before writing a line of code.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Planning",
+    text: "We define architecture, milestones, and deliverables so progress is measurable.",
+  },
+  {
+    icon: Palette,
+    title: "UI/UX Design",
+    text: "We design interfaces that are intuitive, accessible, and aligned with user needs.",
+  },
+  {
+    icon: Code2,
+    title: "Development",
+    text: "We build clean, maintainable software using modern, proven technologies.",
+  },
+  {
+    icon: Bug,
+    title: "Testing",
+    text: "We validate functionality thoroughly before anything reaches production.",
+  },
+  {
+    icon: Rocket,
+    title: "Deployment",
+    text: "We ship releases carefully and monitor them in live environments.",
+  },
+  {
+    icon: Wrench,
+    title: "Maintenance & Improvement",
+    text: "We support and improve products after launch based on real usage.",
+  },
+];
+
+const technology = [
+  { icon: Monitor, title: "Frontend", items: ["React", "TypeScript", "Tailwind CSS"] },
+  { icon: Server, title: "Backend", items: ["Node.js", "Python", "FastAPI", "REST APIs"] },
+  { icon: Database, title: "Data & Platform", items: ["PostgreSQL", "Supabase"] },
+  {
+    icon: Brain,
+    title: "AI / ML",
+    items: ["Python", "LangChain", "RAG", "LLM APIs", "Data Pipelines"],
+  },
+  { icon: Palette, title: "Design", items: ["Figma", "Design Systems"] },
+  { icon: Terminal, title: "DevOps", items: ["Vercel", "Docker", "CI/CD", "Git"] },
+];
+
+const internshipFlow = [
+  { icon: UserPlus, title: "Register", text: "Create an account and choose your domain." },
+  { icon: FileText, title: "Offer Letter", text: "Receive an official offer letter on approval." },
+  {
+    icon: Linkedin,
+    title: "Connect",
+    text: "Share your internship announcement with your network.",
+  },
+  { icon: Code2, title: "Build", text: "Complete real project tasks guided by the program." },
+  { icon: Github, title: "Submit", text: "Submit your work for review." },
+  {
+    icon: ClipboardCheck,
+    title: "Get Reviewed",
+    text: "Receive feedback and approval on your tasks.",
+  },
+  {
+    icon: Award,
+    title: "Certificate",
+    text: "Earn a verifiable certificate on successful completion.",
+  },
+];
+
+const legalCards = [
+  {
+    icon: Lock,
+    title: "Privacy Policy",
+    description:
+      "Learn how YR NOVATECH handles account, registration, enquiry, internship, submission, and related information.",
+    to: "/privacy-policy",
+  },
+  {
+    icon: Scale,
+    title: "Terms & Conditions",
+    description:
+      "Review the rules governing use of the website, accounts, services, internship participation, submissions, certificates, and payments.",
+    to: "/terms-and-conditions",
+  },
+  {
+    icon: RotateCcw,
+    title: "Refund & Cancellation Policy",
+    description:
+      "Review the applicable rules for payments, cancellation, verification, rejection, and refunds.",
+    to: "/refund-policy",
+  },
 ];
 
 function About() {
   return (
     <>
       <Section>
-        <SectionHeading
-          eyebrow="About YR NOVATECH"
-          title="Technology & Innovation Company"
-        />
+        <SectionHeading eyebrow="About YR NOVATECH" title="Who We Are" />
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-lg text-muted-foreground leading-relaxed">
-            YR NOVATECH is a technology and innovation company focused on software development,
-            internship programs, and professional skill development. We bridge the gap between
+            YR NOVATECH is a software development and technology company. We design, build, and
+            maintain custom software — from web and mobile applications to AI-powered tools and
+            complete digital products. Alongside our client work, we run structured, project-based
+            internship programs that help students and aspiring engineers bridge the gap between
             academic learning and industry requirements through hands-on experience, guided
-            projects, and professional development opportunities.
+            projects, and professional feedback.
           </p>
         </div>
       </Section>
 
       <Section className="!pt-0">
-        <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
-          <Card className="p-6 border border-border">
-            <h3 className="font-semibold text-lg mb-4">What We Do</h3>
-            <ul className="space-y-2.5">
-              {whatWeDo.map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </Card>
+        <Reveal>
+          <SectionHeading
+            eyebrow="Services"
+            title="What We Do"
+            description="The core services YR NOVATECH delivers for businesses, startups, and individual learners."
+          />
+        </Reveal>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {whatWeDo.map((item) => (
+            <Reveal key={item} delay={80}>
+              <Card className="p-6 border border-border h-full">
+                <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                  <span className="text-foreground font-medium">{item}</span>
+                </div>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
 
-          <div className="space-y-4">
-            {values.map((v) => (
-              <Card key={v.title} className="p-5 border border-border flex items-start gap-4">
+      <Section className="!pt-0">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Values"
+            title="Our Values"
+            description="The principles that guide how we build software, run our internship program, and work with clients and interns."
+          />
+        </Reveal>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {values.map((v, i) => (
+            <Reveal key={v.title} delay={i * 80}>
+              <Card className="p-5 border border-border flex items-start gap-4 h-full">
                 <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
                   <v.icon className="h-5 w-5 text-primary-foreground" />
                 </div>
@@ -106,8 +266,127 @@ function About() {
                   <p className="text-sm text-muted-foreground">{v.text}</p>
                 </div>
               </Card>
-            ))}
-          </div>
+            </Reveal>
+          ))}
+
+          <Reveal delay={400}>
+            <Card className="p-5 border border-border flex items-start gap-4 h-full bg-gradient-to-br from-accent/40 to-transparent">
+              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                <Award className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm mb-1">Hands-On, Not Theory</h3>
+                <p className="text-sm text-muted-foreground">
+                  Both our products and our internships are built around real, practical work.
+                </p>
+              </div>
+            </Card>
+          </Reveal>
+        </div>
+      </Section>
+
+      <Section className="!pt-0">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Technology Focus"
+            title="Technology Focus"
+            description="Technologies we use and support across our software and internship programs."
+          />
+        </Reveal>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {technology.map((t, i) => (
+            <Reveal key={t.title} delay={i * 60}>
+              <Card className="p-6 border border-border h-full">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center shrink-0">
+                    <t.icon className="h-5 w-5 text-accent-foreground" />
+                  </div>
+                  <h3 className="font-semibold text-sm">{t.title}</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {t.items.map((item) => (
+                    <span
+                      key={item}
+                      className="inline-flex items-center rounded-full bg-secondary border border-border px-3 py-1 text-xs text-secondary-foreground"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <Section className="!pt-0">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Engineering Approach"
+            title="How We Engineer Software"
+            description="A structured, end-to-end approach from first conversation to long-term support."
+          />
+        </Reveal>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {approach.map((a, i) => (
+            <Reveal key={a.title} delay={i * 60}>
+              <Card className="p-6 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all h-full">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-11 w-11 rounded-xl bg-gradient-primary flex items-center justify-center shadow-elegant">
+                    <a.icon className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <span className="text-xs font-bold text-primary/70 tabular-nums">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-base mb-2">{a.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{a.text}</p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <Section className="!pt-0">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Internship & Technology Learning"
+            title="Learning by Building"
+            description="Our internship program teaches through real project tasks, structured review, and verifiable outcomes."
+          />
+        </Reveal>
+        <div className="max-w-3xl mx-auto text-center mb-10">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            YR NOVATECH internship programs are task-based learning experiences. Interns register,
+            choose a domain, receive an offer letter on approval, and work through guided project
+            tasks. Completed work is submitted for review, and approved submissions build toward a
+            verifiable certificate. The program is about practical skill development — pay attention
+            to task requirements, deadlines, and review feedback throughout.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+          {internshipFlow.map((s, i) => (
+            <Reveal key={s.title} delay={i * 60}>
+              <Card className="p-5 border border-border text-center h-full">
+                <div className="h-11 w-11 rounded-full bg-gradient-primary flex items-center justify-center mx-auto mb-3 shadow-elegant">
+                  <s.icon className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <h3 className="font-semibold text-sm mb-1">{s.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{s.text}</p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+        <div className="max-w-3xl mx-auto text-center mt-10">
+          <Button
+            asChild
+            size="lg"
+            className="bg-gradient-primary text-primary-foreground shadow-elegant"
+          >
+            <Link to="/internship">
+              Explore the Internship Program <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </Section>
 
@@ -118,25 +397,37 @@ function About() {
               <div className="shrink-0">
                 <img
                   src={msmeLogo}
-                  alt="MSME Certified Company"
+                  alt="MSME Registered Company"
                   className="h-24 sm:h-28 w-auto object-contain"
                   width={120}
                   height={120}
                 />
               </div>
-              <div className="text-center sm:text-left">
-                <h3 className="text-xl sm:text-2xl font-bold mb-2">MSME Certified Company</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  YR NOVATECH is a registered Micro, Small & Medium Enterprise under the
-                  Ministry of Micro, Small & Medium Enterprises, Government of India.
-                </p>
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Udyam Registration No.
-                  </span>
-                  <p className="text-sm font-mono font-semibold text-foreground mt-1">
-                    {COMPANY.udyam}
-                  </p>
+              <div className="text-center sm:text-left flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">Business Information</h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-foreground">
+                    <Building2 className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-semibold">{COMPANY.name}</span>
+                  </div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
+                    <BadgeCheck className="h-4 w-4 text-primary shrink-0" />
+                    <span>
+                      MSME/Udyam Registration:{" "}
+                      <span className="font-mono font-semibold text-foreground">
+                        {COMPANY.udyam}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground">
+                    <Mail className="h-4 w-4 text-primary shrink-0" />
+                    <span>
+                      Official Email:{" "}
+                      <a href={`mailto:${COMPANY.email}`} className="text-primary hover:underline">
+                        {COMPANY.email}
+                      </a>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -147,166 +438,30 @@ function About() {
       <Section className="!pt-0">
         <Reveal>
           <SectionHeading
-            eyebrow="Leadership Team"
-            title="Meet Our Leadership"
-            description="The leaders driving YR NOVATECH's vision, technology, and operational excellence."
+            eyebrow="Policies & Legal Information"
+            title="Policies & Legal Information"
+            description="Key policies that govern the use of our website, services, internship program, and payments."
           />
         </Reveal>
-
-        <div className="grid gap-8 max-w-5xl mx-auto">
-          <Reveal>
-            <Card className="group overflow-hidden rounded-2xl border border-border bg-card shadow-elegant hover:-translate-y-1 transition-transform duration-300 h-full">
-              <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <div className="relative overflow-hidden">
-                  <div className="absolute -inset-4 bg-gradient-primary opacity-15 blur-2xl rounded-3xl" />
-                  <img
-                    src={founder}
-                    alt="S. Fizal Mohamed, Founder & CEO of YR NOVATECH"
-                    loading="lazy"
-                    width={1024}
-                    height={1024}
-                    className="relative aspect-[4/5] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
+        <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
+          {legalCards.map((c) => (
+            <Reveal key={c.title} delay={80}>
+              <Card className="p-6 border border-border h-full flex flex-col">
+                <div className="h-11 w-11 rounded-xl bg-gradient-primary flex items-center justify-center mb-4 shadow-elegant">
+                  <c.icon className="h-5 w-5 text-primary-foreground" />
                 </div>
-                <div className="p-6 md:p-7">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                    Founder & CEO
-                  </span>
-                  <h3 className="text-2xl md:text-3xl font-bold mt-2 mb-1">S. FIZAL MOHAMED</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Founder & CEO, YR NOVATECH</p>
-
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-4">
-                    <GraduationCap className="h-4 w-4 text-primary" />
-                    B.Tech - Information Technology
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {[
-                      { icon: Code2, label: "Certified Full Stack Developer" },
-                      { icon: Brain, label: "AI Developer" },
-                      { icon: BarChart3, label: "Data Analytics" },
-                    ].map((c) => (
-                      <span
-                        key={c.label}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary"
-                      >
-                        <c.icon className="h-3.5 w-3.5" />
-                        {c.label}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    S. Fizal Mohamed founded YR NOVATECH with one belief: India has incredible
-                    engineering talent that just needs the right opportunities. What started as
-                    freelance projects has grown into a technology company delivering software
-                    solutions for clients across industries - and a learning platform mentoring
-                    hundreds of students every year.
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-3">
-                    He leads the company's vision around innovation, mentorship, and building products
-                    that matter.
-                  </p>
-
-                  <div className="mt-5 pt-5 border-t border-border">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                      Expertise
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { icon: Code2, label: "Full Stack Development" },
-                        { icon: Brain, label: "AI Development" },
-                        { icon: BarChart3, label: "Data Analytics" },
-                      ].map((s) => (
-                        <span
-                          key={s.label}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary border border-border px-2.5 py-1 text-xs text-secondary-foreground"
-                        >
-                          <s.icon className="h-3.5 w-3.5 text-primary" />
-                          {s.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </Reveal>
-
-          <Reveal delay={120}>
-            <Card className="group overflow-hidden rounded-2xl border border-border bg-card shadow-elegant hover:-translate-y-1 transition-transform duration-300 h-full">
-              <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <div className="relative overflow-hidden">
-                  <div className="absolute -inset-4 bg-gradient-primary opacity-15 blur-2xl rounded-3xl" />
-                  <img
-                    src={coFounder}
-                    alt="M. Annapoorani - Co-Founder & COO of YR NOVATECH"
-                    loading="lazy"
-                    width={640}
-                    height={853}
-                    className="relative aspect-[4/5] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
-                </div>
-                <div className="p-6 md:p-7">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                    Co-Founder & COO
-                  </span>
-                  <h3 className="text-2xl md:text-3xl font-bold mt-2 mb-1">M. ANNAPOORANI</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Co-Founder & COO, YR NOVATECH</p>
-
-                  <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-4">
-                    <GraduationCap className="h-4 w-4 text-primary" />
-                    B.Sc. Computer Science
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {[
-                      { icon: BadgeCheck, label: "Certified Java & Python Full Stack Developer" },
-                      { icon: PenTool, label: "UI/UX Designer" },
-                    ].map((c) => (
-                      <span
-                        key={c.label}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-medium text-primary"
-                      >
-                        <c.icon className="h-3.5 w-3.5" />
-                        {c.label}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    M. Annapoorani is the Co-Founder and Chief Operating Officer of YR NOVATECH, with
-                    an academic background in Computer Science and expertise spanning full-stack
-                    development and UI/UX design. She is a certified Java and Python Full Stack
-                    Developer and UI/UX Designer, contributing to the company's technology, product
-                    development, user experience, and operational growth.
-                  </p>
-
-                  <div className="mt-5 pt-5 border-t border-border">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                      Expertise
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { icon: Code2, label: "Java & Python Full Stack Development" },
-                        { icon: PenTool, label: "UI/UX Design" },
-                      ].map((s) => (
-                        <span
-                          key={s.label}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary border border-border px-2.5 py-1 text-xs text-secondary-foreground"
-                        >
-                          <s.icon className="h-3.5 w-3.5 text-primary" />
-                          {s.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </Reveal>
+                <h3 className="font-semibold text-base mb-2">{c.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed flex-1 mb-5">
+                  {c.description}
+                </p>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to={c.to}>
+                    Read {c.title} <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </Card>
+            </Reveal>
+          ))}
         </div>
       </Section>
     </>
