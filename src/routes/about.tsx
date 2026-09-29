@@ -34,6 +34,8 @@ import {
   Database,
   Brain,
   Terminal,
+  Telescope,
+  Target,
 } from "lucide-react";
 import msmeLogo from "@/assets/msme-logo.png";
 import { COMPANY } from "@/lib/company";
@@ -221,6 +223,37 @@ function About() {
             academic learning and industry requirements through hands-on experience, guided
             projects, and professional feedback.
           </p>
+        </div>
+      </Section>
+
+      <Section className="!pt-0">
+        <div className="grid gap-6 md:grid-cols-2 max-w-5xl mx-auto">
+          <Reveal>
+            <Card className="p-8 border border-border bg-card shadow-elegant h-full flex flex-col">
+              <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center mb-5 shadow-elegant">
+                <Telescope className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Vision</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                To become a trusted technology company that builds innovative, reliable, and
+                accessible digital solutions while creating meaningful opportunities for students,
+                developers, and businesses to grow through technology.
+              </p>
+            </Card>
+          </Reveal>
+          <Reveal delay={80}>
+            <Card className="p-8 border border-border bg-card shadow-elegant h-full flex flex-col">
+              <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center mb-5 shadow-elegant">
+                <Target className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Mission</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                To develop practical software solutions using modern technologies, deliver quality
+                digital services, and provide hands-on technology learning and internship
+                opportunities that help students and aspiring developers build real-world skills.
+              </p>
+            </Card>
+          </Reveal>
         </div>
       </Section>
 
