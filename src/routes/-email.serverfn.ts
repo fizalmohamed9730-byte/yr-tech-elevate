@@ -32,7 +32,7 @@ const OFFER_LETTER_HTML = `<!DOCTYPE html>
       <p style="font-size:14px;margin:0 0 4px;"><strong>Regards,</strong></p>
       <p style="font-size:14px;margin:0 0 2px;"><strong>S. FIZAL MOHAMED</strong></p>
       <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Founder &amp; CEO, YR NOVATECH</p>
-      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
+      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.in" style="color:#2563eb;">www.yrnovatech.in</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
     </div>
   </div>
 </body>
@@ -65,7 +65,7 @@ const CERTIFICATE_HTML = `<!DOCTYPE html>
       <p style="font-size:14px;margin:0 0 4px;"><strong>Regards,</strong></p>
       <p style="font-size:14px;margin:0 0 2px;"><strong>S. FIZAL MOHAMED</strong></p>
       <p style="font-size:13px;color:#6b7280;margin:0 0 12px;">Founder &amp; CEO, YR NOVATECH</p>
-      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.online" style="color:#2563eb;">www.yrnovatech.online</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
+      <p style="font-size:12px;color:#9ca3af;margin:0;">Website: <a href="https://www.yrnovatech.in" style="color:#2563eb;">www.yrnovatech.in</a> &nbsp;|&nbsp; LinkedIn: <a href="https://www.linkedin.com/company/yr-novatech/" style="color:#2563eb;">YR NOVATECH</a> &nbsp;|&nbsp; Instagram: <a href="https://www.instagram.com/yrnovatech_official/" style="color:#2563eb;">@yrnovatech_official</a></p>
     </div>
   </div>
 </body>
@@ -90,7 +90,7 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
       internshipCode: z.string().min(1),
       offerCode: z.string().min(1),
       startedAt: z.string().nullable().optional(),
-    })
+    }),
   )
   .handler(async ({ data }) => {
     try {
@@ -106,7 +106,8 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
       console.log(`[email] EMAIL_FROM: ${config.emailFrom}`);
 
       if (!config.resendApiKey) {
-        const errMsg = "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
+        const errMsg =
+          "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
         console.error(`[email] FATAL: ${errMsg}`);
         return { success: false, error: errMsg };
       }
@@ -124,7 +125,9 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         });
         console.log(`[email] PDF generated: ${pdfBuffer.length} bytes`);
         if (pdfBuffer.length < 500) {
-          console.warn(`[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`);
+          console.warn(
+            `[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`,
+          );
         }
       } catch (pdfErr: any) {
         const errMsg = `PDF generation failed: ${pdfErr?.message ?? "Unknown error"}`;
@@ -132,7 +135,10 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         try {
           await (supabaseAdmin as any)
             .from("internships")
-            .update({ offer_letter_email_sent: false, offer_letter_email_error: errMsg.slice(0, 500) })
+            .update({
+              offer_letter_email_sent: false,
+              offer_letter_email_error: errMsg.slice(0, 500),
+            })
             .eq("id", data.internshipId);
         } catch {}
         return { success: false, error: errMsg };
@@ -175,7 +181,10 @@ export const sendOfferLetterEmail = createServerFn({ method: "POST" })
         try {
           await (supabaseAdmin as any)
             .from("internships")
-            .update({ offer_letter_email_sent: false, offer_letter_email_error: errMsg.slice(0, 500) })
+            .update({
+              offer_letter_email_sent: false,
+              offer_letter_email_error: errMsg.slice(0, 500),
+            })
             .eq("id", data.internshipId);
           console.log(`[email] Failure recorded in DB for internship ${data.internshipId}`);
         } catch (dbErr) {
@@ -220,7 +229,7 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
       internshipCode: z.string().min(1),
       certificateCode: z.string().min(1),
       issuedAt: z.string().nullable().optional(),
-    })
+    }),
   )
   .handler(async ({ data }) => {
     try {
@@ -236,7 +245,8 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
       console.log(`[email] EMAIL_FROM: ${config.emailFrom}`);
 
       if (!config.resendApiKey) {
-        const errMsg = "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
+        const errMsg =
+          "RESEND_API_KEY environment variable is not configured. Set it in Vercel Dashboard > Settings > Environment Variables.";
         console.error(`[email] FATAL: ${errMsg}`);
         return { success: false, error: errMsg };
       }
@@ -254,7 +264,9 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         });
         console.log(`[email] PDF generated: ${pdfBuffer.length} bytes`);
         if (pdfBuffer.length < 500) {
-          console.warn(`[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`);
+          console.warn(
+            `[email] WARNING: PDF seems too small (${pdfBuffer.length} bytes) — images may not have loaded`,
+          );
         }
       } catch (pdfErr: any) {
         const errMsg = `PDF generation failed: ${pdfErr?.message ?? "Unknown error"}`;
@@ -262,7 +274,10 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         try {
           await (supabaseAdmin as any)
             .from("internships")
-            .update({ certificate_email_sent: false, certificate_email_error: errMsg.slice(0, 500) })
+            .update({
+              certificate_email_sent: false,
+              certificate_email_error: errMsg.slice(0, 500),
+            })
             .eq("id", data.internshipId);
         } catch {}
         return { success: false, error: errMsg };
@@ -305,7 +320,10 @@ export const sendCertificateEmail = createServerFn({ method: "POST" })
         try {
           await (supabaseAdmin as any)
             .from("internships")
-            .update({ certificate_email_sent: false, certificate_email_error: errMsg.slice(0, 500) })
+            .update({
+              certificate_email_sent: false,
+              certificate_email_error: errMsg.slice(0, 500),
+            })
             .eq("id", data.internshipId);
           console.log(`[email] Failure recorded in DB for internship ${data.internshipId}`);
         } catch (dbErr) {

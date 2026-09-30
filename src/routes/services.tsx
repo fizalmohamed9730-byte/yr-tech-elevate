@@ -2,15 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Section, SectionHeading } from "@/components/Section";
 import { Button } from "@/components/ui/button";
-import {
-  Code2,
-  Brain,
-  Layers,
-  Smartphone,
-  Palette,
-  GraduationCap,
-  ArrowRight,
-} from "lucide-react";
+import { Code2, Brain, Layers, Smartphone, Palette, GraduationCap, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/services")({
   head: () => ({
@@ -23,7 +15,9 @@ export const Route = createFileRoute("/services")({
       },
       { property: "og:title", content: "YR NOVATECH Services" },
       { property: "og:description", content: "End-to-end product engineering and AI solutions." },
+      { property: "og:url", content: "https://www.yrnovatech.in/services" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/services" }],
   }),
   component: Services,
 });
@@ -114,7 +108,12 @@ function Services() {
                 Start a project <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-white text-white hover:bg-white/10"
+            >
               <Link to="/internship">
                 View Internships <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

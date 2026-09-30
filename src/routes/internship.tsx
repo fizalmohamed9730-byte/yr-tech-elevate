@@ -38,7 +38,9 @@ export const Route = createFileRoute("/internship")({
       },
       { property: "og:title", content: "YR NOVATECH Internship Program" },
       { property: "og:description", content: "Hands-on internships across six tech domains." },
+      { property: "og:url", content: "https://www.yrnovatech.in/internship" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/internship" }],
   }),
   component: Internship,
 });
@@ -171,9 +173,7 @@ function Internship() {
               >
                 <div
                   className={`md:w-1/2 ${
-                    i % 2 === 0
-                      ? "md:pr-12 md:text-right"
-                      : "md:pl-12 md:text-left"
+                    i % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12 md:text-left"
                   } pl-16 md:pl-0`}
                 >
                   <h4 className="font-semibold text-base mb-1">{w.title}</h4>
@@ -263,7 +263,15 @@ function Internship() {
                   <div className="rounded-lg bg-muted/50 p-3">
                     <span className="text-muted-foreground text-xs">Status</span>
                     <p className="mt-0.5">
-                      <Badge variant={result.status === "active" ? "default" : result.status === "completed" ? "secondary" : "outline"}>
+                      <Badge
+                        variant={
+                          result.status === "active"
+                            ? "default"
+                            : result.status === "completed"
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
                         {result.status.charAt(0).toUpperCase() + result.status.slice(1)}
                       </Badge>
                     </p>
@@ -272,7 +280,12 @@ function Internship() {
                     <span className="text-muted-foreground text-xs">Certificate Status</span>
                     <p className="mt-0.5">
                       {result.certificateIssued ? (
-                        <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">Issued</Badge>
+                        <Badge
+                          variant="default"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          Issued
+                        </Badge>
                       ) : (
                         <Badge variant="outline">Not Yet Issued</Badge>
                       )}
@@ -281,13 +294,17 @@ function Internship() {
                   {result.startedAt && (
                     <div className="rounded-lg bg-muted/50 p-3">
                       <span className="text-muted-foreground text-xs">Start Date</span>
-                      <p className="font-medium mt-0.5">{new Date(result.startedAt).toLocaleDateString()}</p>
+                      <p className="font-medium mt-0.5">
+                        {new Date(result.startedAt).toLocaleDateString()}
+                      </p>
                     </div>
                   )}
                   {result.completedAt && (
                     <div className="rounded-lg bg-muted/50 p-3">
                       <span className="text-muted-foreground text-xs">Completion Date</span>
-                      <p className="font-medium mt-0.5">{new Date(result.completedAt).toLocaleDateString()}</p>
+                      <p className="font-medium mt-0.5">
+                        {new Date(result.completedAt).toLocaleDateString()}
+                      </p>
                     </div>
                   )}
                   {result.certificateIssued && result.certificateCode && (

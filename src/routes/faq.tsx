@@ -19,9 +19,9 @@ export const Route = createFileRoute("/faq")({
         content:
           "Answers to common questions about YR NOVATECH's internship program, certificates, and payments.",
       },
-      { property: "og:url", content: "https://yrnovatech.in/faq" },
+      { property: "og:url", content: "https://www.yrnovatech.in/faq" },
     ],
-    links: [{ rel: "canonical", href: "https://yrnovatech.in/faq" }],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/faq" }],
   }),
   component: Faq,
 });

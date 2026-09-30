@@ -10,10 +10,16 @@ export const Route = createFileRoute("/projects")({
   head: () => ({
     meta: [
       { title: "Projects Portfolio | YR NOVATECH" },
-      { name: "description", content: "Explore client and student projects built at YR NOVATECH - web apps, AI products, dashboards, and more." },
+      {
+        name: "description",
+        content:
+          "Explore client and student projects built at YR NOVATECH - web apps, AI products, dashboards, and more.",
+      },
       { property: "og:title", content: "YR NOVATECH Projects" },
       { property: "og:description", content: "Client and student work portfolio." },
+      { property: "og:url", content: "https://www.yrnovatech.in/projects" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/projects" }],
   }),
   component: Projects,
 });
@@ -46,7 +52,9 @@ function Projects() {
     (async () => {
       const { data, error } = await (supabase as any)
         .from("projects")
-        .select("id, title, description, image_url, github_url, demo_url, created_at, project_domains(domain:domains(name))")
+        .select(
+          "id, title, description, image_url, github_url, demo_url, created_at, project_domains(domain:domains(name))",
+        )
         .eq("active", true)
         .order("created_at", { ascending: false });
       if (error) console.error("[projects] load error:", error);
@@ -57,7 +65,11 @@ function Projects() {
 
   return (
     <Section>
-      <SectionHeading eyebrow="Portfolio" title="Our Projects" description="A curated showcase of client solutions and intern-built products." />
+      <SectionHeading
+        eyebrow="Portfolio"
+        title="Our Projects"
+        description="A curated showcase of client solutions and intern-built products."
+      />
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -69,7 +81,8 @@ function Projects() {
           </div>
           <p className="text-xl font-semibold mb-2">Projects Coming Soon</p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            We're currently curating our portfolio of client work and intern projects. Check back soon for an updated showcase.
+            We're currently curating our portfolio of client work and intern projects. Check back
+            soon for an updated showcase.
           </p>
         </div>
       ) : (
@@ -90,14 +103,13 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
   const gradient = GRADIENTS[index % GRADIENTS.length];
 
   return (
-    <Card className="overflow-hidden border border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300" style={{ animationDelay: `${index * 0.05}s` }}>
+    <Card
+      className="overflow-hidden border border-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+      style={{ animationDelay: `${index * 0.05}s` }}
+    >
       <div className="h-48 bg-gradient-to-br relative overflow-hidden">
         {project.image_url ? (
-          <img
-            src={project.image_url}
-            alt={project.title}
-            className="h-full w-full object-cover"
-          />
+          <img src={project.image_url} alt={project.title} className="h-full w-full object-cover" />
         ) : (
           <div className={`h-full w-full bg-gradient-to-br ${gradient}`} />
         )}
@@ -105,7 +117,9 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
           <Badge variant="secondary">{project.difficulty}</Badge>
         </div>
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-10">
-          <p className="text-white text-lg font-bold leading-snug drop-shadow-md">{project.title}</p>
+          <p className="text-white text-lg font-bold leading-snug drop-shadow-md">
+            {project.title}
+          </p>
         </div>
       </div>
       <div className="p-5 space-y-3">
@@ -123,7 +137,10 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
         )}
         <div className="flex flex-wrap gap-1.5 pt-1">
           {project.project_domains?.map((pd, j) => (
-            <span key={j} className="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">
+            <span
+              key={j}
+              className="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium"
+            >
               {pd.domain?.name ?? "Domain"}
             </span>
           ))}

@@ -32,7 +32,9 @@ export const Route = createFileRoute("/careers")({
         property: "og:description",
         content: `Join the ${COMPANY.name} team. We're looking for talented engineers, designers, and AI developers.`,
       },
+      { property: "og:url", content: "https://www.yrnovatech.in/careers" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/careers" }],
   }),
   component: Careers,
 });
@@ -81,14 +83,14 @@ function Careers() {
 
         <div className="max-w-3xl mx-auto">
           <p className="text-sm text-muted-foreground leading-relaxed text-center mb-4">
-            We are a small, focused team where every member has direct impact on
-            the products we build and the students we train. If you're passionate
-            about technology, enjoy solving complex problems, and want to work in an
-            environment where your contributions matter — we'd like to hear from you.
+            We are a small, focused team where every member has direct impact on the products we
+            build and the students we train. If you're passionate about technology, enjoy solving
+            complex problems, and want to work in an environment where your contributions matter —
+            we'd like to hear from you.
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed text-center">
-            {COMPANY.name} is registered as a Micro, Small & Medium Enterprise
-            (MSME: {COMPANY.udyam}) and is headquartered in Tamil Nadu, India.
+            {COMPANY.name} is registered as a Micro, Small & Medium Enterprise (MSME:{" "}
+            {COMPANY.udyam}) and is headquartered in Tamil Nadu, India.
           </p>
         </div>
       </Section>
@@ -166,7 +168,10 @@ function Careers() {
               desc: "Guide and review intern projects, provide technical feedback, and support learning.",
             },
           ].map((role) => (
-            <Card key={role.title} className="p-5 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all">
+            <Card
+              key={role.title}
+              className="p-5 border border-border hover:shadow-elegant hover:-translate-y-1 transition-all"
+            >
               <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center mb-3 shadow-elegant">
                 <role.icon className="h-5 w-5 text-primary-foreground" />
               </div>
@@ -186,12 +191,14 @@ function Careers() {
             </div>
             <h2 className="text-2xl font-bold mb-3">Interested? Get in Touch</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-md mx-auto">
-              We don't always have open listings, but we're always interested in
-              meeting talented people. Send us your resume and a brief note about
-              what you're passionate about.
+              We don't always have open listings, but we're always interested in meeting talented
+              people. Send us your resume and a brief note about what you're passionate about.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button asChild className="bg-gradient-primary text-primary-foreground shadow-elegant">
+              <Button
+                asChild
+                className="bg-gradient-primary text-primary-foreground shadow-elegant"
+              >
                 <a href={`mailto:${COMPANY.email}?subject=Career Inquiry — ${COMPANY.name}`}>
                   Email Us <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
@@ -200,9 +207,7 @@ function Careers() {
                 <Link to="/contact">Contact Form</Link>
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">
-              Email: {COMPANY.email}
-            </p>
+            <p className="text-xs text-muted-foreground mt-4">Email: {COMPANY.email}</p>
           </Card>
         </div>
       </Section>

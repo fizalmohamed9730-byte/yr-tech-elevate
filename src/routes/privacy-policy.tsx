@@ -15,9 +15,9 @@ export const Route = createFileRoute("/privacy-policy")({
         property: "og:description",
         content: `How ${COMPANY.name} handles your data, cookies, and personal information.`,
       },
-      { property: "og:url", content: "https://yrnovatech.in/privacy-policy" },
+      { property: "og:url", content: "https://www.yrnovatech.in/privacy-policy" },
     ],
-    links: [{ rel: "canonical", href: "https://yrnovatech.in/privacy-policy" }],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/privacy-policy" }],
   }),
   component: PrivacyPolicy,
 });
@@ -39,8 +39,8 @@ function PrivacyPolicy() {
             to our website and users of our services. This Privacy Policy explains what personal
             information we collect, why we collect it, how we use and protect it, and your rights
             regarding your data. This policy applies to our website at{" "}
-            <a href="https://yrnovatech.in" className="text-primary hover:underline">
-              yrnovatech.in
+            <a href="https://www.yrnovatech.in" className="text-primary hover:underline">
+              www.yrnovatech.in
             </a>{" "}
             and all services provided through it.
           </p>
@@ -277,8 +277,8 @@ function PrivacyPolicy() {
             </li>
             <li>
               <strong>Website:</strong>{" "}
-              <a href="https://yrnovatech.in" className="text-primary hover:underline">
-                yrnovatech.in
+              <a href="https://www.yrnovatech.in" className="text-primary hover:underline">
+                www.yrnovatech.in
               </a>
             </li>
           </ul>

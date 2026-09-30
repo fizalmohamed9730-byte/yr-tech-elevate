@@ -17,9 +17,9 @@ export const Route = createFileRoute("/terms-and-conditions")({
         content:
           "Rules governing use of the YR NOVATECH website, internship program, submissions, certificates, and payments.",
       },
-      { property: "og:url", content: "https://yrnovatech.in/terms-and-conditions" },
+      { property: "og:url", content: "https://www.yrnovatech.in/terms-and-conditions" },
     ],
-    links: [{ rel: "canonical", href: "https://yrnovatech.in/terms-and-conditions" }],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/terms-and-conditions" }],
   }),
   component: TermsAndConditions,
 });
@@ -38,7 +38,7 @@ function TermsAndConditions() {
           <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             These Terms & Conditions ("Terms") govern your access to and use of the {COMPANY.name}{" "}
-            website (yrnovatech.in) and the services provided through it, including account
+            website (www.yrnovatech.in) and the services provided through it, including account
             registration, the internship program, task submissions, certificates, and payments made
             where applicable.
           </p>

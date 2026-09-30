@@ -51,7 +51,7 @@ function drawVectorSeal(doc: jsPDF, sealY: number) {
   doc.circle(156, sealY, 18);
   doc.setLineWidth(0.3);
   doc.circle(156, sealY, 16.5);
-  
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.text("YR NOVATECH", 156, sealY - 9.5, { align: "center" });
@@ -102,13 +102,13 @@ export async function generateOfferLetterPDF(data: {
   duration?: string | null;
 }): Promise<jsPDF> {
   const doc = new jsPDF({ format: "a4", unit: "mm" });
-  
+
   // Preload logo, seal, signature, MSME logo
   const [logo, seal, signature, msmeLogo] = await Promise.all([
     loadImage(logoUrl),
     loadImage(sealUrl),
     loadImage(signatureUrl),
-    loadImage(msmeLogoUrl)
+    loadImage(msmeLogoUrl),
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -160,7 +160,7 @@ export async function generateOfferLetterPDF(data: {
   doc.setTextColor(100);
   doc.text(`${COMPANY.udyam}`, 154, 21);
   doc.text("Email: yrnovatech07@gmail.com", 154, 27);
-  doc.text("Web: www.yrnovatech.online", 154, 31);
+  doc.text("Web: www.yrnovatech.in", 154, 31);
 
   // Divider Line
   doc.setDrawColor(37, 99, 235);
@@ -175,17 +175,25 @@ export async function generateOfferLetterPDF(data: {
 
   // --- 3. METADATA FIELDS ---
   const startDate = data.startedAt ? new Date(data.startedAt) : new Date();
-  const today = startDate.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const today = startDate.toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   const durationMonths = parseInt((data.duration ?? "1 Month").match(/\d+/)?.[0] ?? "1", 10) || 1;
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + durationMonths);
-  const endDateText = endDate.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const endDateText = endDate.toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(70);
   doc.text(`Date: ${today}`, 16, 58);
   doc.text(`Reference Number: ${data.offerCode}`, 194, 58, { align: "right" });
-  
+
   doc.setFont("helvetica", "bold");
   doc.setTextColor(15, 23, 42);
   doc.text(`To, ${data.fullName}`, 16, 68);
@@ -202,17 +210,20 @@ export async function generateOfferLetterPDF(data: {
   doc.text(`Dear ${data.fullName},`, 16, bodyY);
   bodyY += 8;
 
-  const p1 = "We are pleased to offer you an Internship opportunity at YR NOVATECH. Your application has been successfully accepted.";
+  const p1 =
+    "We are pleased to offer you an Internship opportunity at YR NOVATECH. Your application has been successfully accepted.";
   const p1Lines = doc.splitTextToSize(p1, 178);
   doc.text(p1Lines, 16, bodyY);
   bodyY += p1Lines.length * 5.5 + 2;
 
-  const p2 = "This Remote Based Internship program is designed to provide practical industry exposure, project experience, and professional skill development in your selected domain.";
+  const p2 =
+    "This Remote Based Internship program is designed to provide practical industry exposure, project experience, and professional skill development in your selected domain.";
   const p2Lines = doc.splitTextToSize(p2, 178);
   doc.text(p2Lines, 16, bodyY);
   bodyY += p2Lines.length * 5.5 + 2;
 
-  const p3 = "Upon successful completion of the internship requirements and assigned project work, the intern will be eligible to receive the Internship Completion Certificate.";
+  const p3 =
+    "Upon successful completion of the internship requirements and assigned project work, the intern will be eligible to receive the Internship Completion Certificate.";
   const p3Lines = doc.splitTextToSize(p3, 178);
   doc.text(p3Lines, 16, bodyY);
   bodyY += p3Lines.length * 5.5 + 2;
@@ -243,7 +254,11 @@ export async function generateOfferLetterPDF(data: {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 23, 42);
   doc.text(data.internshipCode, 60, boxY + 7);
-  doc.text(`${data.domain} – Remote Based Internship (${data.duration || '1 Month'})`, 60, boxY + 13);
+  doc.text(
+    `${data.domain} – Remote Based Internship (${data.duration || "1 Month"})`,
+    60,
+    boxY + 13,
+  );
   doc.text(today, 60, boxY + 19);
   doc.text(endDateText, 60, boxY + 25);
   doc.text(data.duration || "1 Month", 60, boxY + 31);
@@ -342,7 +357,10 @@ export async function ensureOfferLetterStored(data: {
   const { data: existing, error: listError } = await supabase.storage
     .from("offer-letters")
     .list(data.studentId, { limit: 1, search: "offer-letter.pdf" });
-  const stored = !listError && Array.isArray(existing) ? existing.find((f) => f.name === "offer-letter.pdf") : undefined;
+  const stored =
+    !listError && Array.isArray(existing)
+      ? existing.find((f) => f.name === "offer-letter.pdf")
+      : undefined;
   // Regenerate if missing or if the stored file is empty/corrupt (e.g. a
   // stale upload), so the Download/View buttons always have a real PDF.
   if (stored && (stored.metadata?.size ?? 0) >= 500) return;
@@ -425,7 +443,7 @@ export async function downloadCertificate(data: {
   duration?: string | null;
 }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  
+
   // Preload logo, seal, signature, MSME logo, and partner logos
   const [logo, seal, signature, msmeLogo, vinixLogo, skyrovixLogo] = await Promise.all([
     loadImage(logoUrl),
@@ -433,7 +451,7 @@ export async function downloadCertificate(data: {
     loadImage(signatureUrl),
     loadImage(msmeLogoUrl),
     loadImage(vinixLogoUrl),
-    loadImage(skyrovixLogoUrl)
+    loadImage(skyrovixLogoUrl),
   ]);
 
   // Preprocess signature to make it darker/bolder
@@ -518,16 +536,25 @@ export async function downloadCertificate(data: {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(37, 99, 235);
-  doc.text(`Domain: ${data.domain}  |  Duration: ${data.duration || "1 Month"}`, 148.5, 120, { align: "center" });
-  doc.text(`Mode: Remote  |  Internship ID: ${data.internshipCode}`, 148.5, 126, { align: "center" });
+  doc.text(`Domain: ${data.domain}  |  Duration: ${data.duration || "1 Month"}`, 148.5, 120, {
+    align: "center",
+  });
+  doc.text(`Mode: Remote  |  Internship ID: ${data.internshipCode}`, 148.5, 126, {
+    align: "center",
+  });
 
   doc.setFontSize(10);
-  const issued = data.issuedAt ? new Date(data.issuedAt).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN");
+  const issued = data.issuedAt
+    ? new Date(data.issuedAt).toLocaleDateString("en-IN")
+    : new Date().toLocaleDateString("en-IN");
   doc.text(`Issued: ${issued}`, 148.5, 134, { align: "center" });
 
   // QR
   try {
-    const qr = await QRCode.toDataURL(`Certificate: ${data.certificateCode} | Intern: ${data.internshipCode} | ${COMPANY.name}`, { margin: 0, width: 180 });
+    const qr = await QRCode.toDataURL(
+      `Certificate: ${data.certificateCode} | Intern: ${data.internshipCode} | ${COMPANY.name}`,
+      { margin: 0, width: 180 },
+    );
     doc.addImage(qr, "PNG", 240, 150, 32, 32);
   } catch {}
 
@@ -593,10 +620,7 @@ export async function downloadIdCard(data: {
 }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [85, 135] });
 
-  const [logo, seal] = await Promise.all([
-    loadImage(logoUrl),
-    loadImage(sealUrl)
-  ]);
+  const [logo, seal] = await Promise.all([loadImage(logoUrl), loadImage(sealUrl)]);
 
   // ── HEADER BAND ──
   doc.setFillColor(37, 99, 235);
@@ -628,7 +652,9 @@ export async function downloadIdCard(data: {
   doc.setFillColor(240, 240, 240);
   doc.roundedRect(27.5, 34, 30, 36, 2, 2, "FD");
   if (data.photoDataUrl) {
-    try { doc.addImage(data.photoDataUrl, "JPEG", 27.5, 34, 30, 36); } catch {}
+    try {
+      doc.addImage(data.photoDataUrl, "JPEG", 27.5, 34, 30, 36);
+    } catch {}
   } else {
     doc.setFontSize(6);
     doc.setTextColor(140);
@@ -647,9 +673,17 @@ export async function downloadIdCard(data: {
   doc.line(10, 81, 75, 81);
 
   // ── INFO SECTION ──
-  const issueDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const issueDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
   const months = parseInt(data.duration ?? "1") || 1;
-  const validUntil = new Date(Date.now() + months * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const validUntil = new Date(Date.now() + months * 30 * 86400000).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
   let y = 87;
   const labelColor: [number, number, number] = [100, 110, 130];

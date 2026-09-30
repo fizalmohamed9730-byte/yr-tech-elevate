@@ -15,10 +15,18 @@ export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: `Contact ${COMPANY.name} - Get in Touch` },
-      { name: "description", content: `Contact ${COMPANY.name}. Reach out for internship inquiries, partnerships, or collaborations.` },
+      {
+        name: "description",
+        content: `Contact ${COMPANY.name}. Reach out for internship inquiries, partnerships, or collaborations.`,
+      },
       { property: "og:title", content: `Contact ${COMPANY.name}` },
-      { property: "og:description", content: `Get in touch with ${COMPANY.name} for internships and collaborations.` },
+      {
+        property: "og:description",
+        content: `Get in touch with ${COMPANY.name} for internships and collaborations.`,
+      },
+      { property: "og:url", content: "https://www.yrnovatech.in/contact" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/contact" }],
   }),
   component: Contact,
 });

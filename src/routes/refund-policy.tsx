@@ -17,9 +17,9 @@ export const Route = createFileRoute("/refund-policy")({
         content:
           "The applicable rules for YR NOVATECH payments, cancellation, verification, rejection, and refunds.",
       },
-      { property: "og:url", content: "https://yrnovatech.in/refund-policy" },
+      { property: "og:url", content: "https://www.yrnovatech.in/refund-policy" },
     ],
-    links: [{ rel: "canonical", href: "https://yrnovatech.in/refund-policy" }],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/refund-policy" }],
   }),
   component: RefundPolicy,
 });

@@ -55,9 +55,9 @@ export const Route = createFileRoute("/about")({
         content:
           "Software development and technology company focused on custom software, web and mobile applications, AI solutions, and project-based internship programs.",
       },
-      { property: "og:url", content: "https://yrnovatech.in/about" },
+      { property: "og:url", content: "https://www.yrnovatech.in/about" },
     ],
-    links: [{ rel: "canonical", href: "https://yrnovatech.in/about" }],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/about" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -67,7 +67,7 @@ export const Route = createFileRoute("/about")({
           name: "YR NOVATECH",
           description:
             "Software development and technology company focused on custom software, web and mobile applications, AI solutions, and project-based internship programs.",
-          url: "https://yrnovatech.in",
+          url: "https://www.yrnovatech.in",
           email: COMPANY.email,
         }),
       },

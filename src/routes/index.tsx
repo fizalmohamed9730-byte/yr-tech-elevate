@@ -30,27 +30,38 @@ import vinixLogo from "@/assets/vinix-logo.png";
 import msmeLogo from "@/assets/msme-logo.png";
 import { COMPANY } from "@/lib/company";
 
-export const Route = createFileRoute("/")(
-  {
-    head: () => ({
-      meta: [
-        { title: "YR NOVATECH - Innovate. Develop. Deliver." },
-        {
-          name: "description",
-          content:
-            "Premium software development and project-based internships in Full Stack, UI/UX, AI, Python, and C++.",
-        },
-        { property: "og:title", content: "YR NOVATECH - Innovate. Develop. Deliver." },
-        {
-          property: "og:description",
-          content:
-            "YR NOVATECH - premium software development, AI, web, mobile, and UI/UX services plus project-based internships.",
-        },
-      ],
-    }),
-    component: Index,
-  },
-);
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "YR NOVATECH - Innovate. Develop. Deliver." },
+      {
+        name: "description",
+        content:
+          "Premium software development and project-based internships in Full Stack, UI/UX, AI, Python, and C++.",
+      },
+      { property: "og:title", content: "YR NOVATECH - Innovate. Develop. Deliver." },
+      {
+        property: "og:description",
+        content:
+          "YR NOVATECH - premium software development, AI, web, mobile, and UI/UX services plus project-based internships.",
+      },
+      { property: "og:url", content: "https://www.yrnovatech.in/" },
+    ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "YR NOVATECH",
+          url: "https://www.yrnovatech.in",
+        }),
+      },
+    ],
+  }),
+  component: Index,
+});
 
 /* ─── Service cards data ─── */
 const services = [
@@ -118,17 +129,22 @@ function Index() {
     (async () => {
       try {
         // Stats: Fetch counts from internships table
-        const [
-          { count: total },
-          { count: active },
-          { count: pending },
-          { count: completed },
-        ] = await Promise.all([
-          supabase.from("internships").select("id", { count: "exact", head: true }),
-          supabase.from("internships").select("id", { count: "exact", head: true }).eq("status", "active"),
-          supabase.from("internships").select("id", { count: "exact", head: true }).eq("status", "pending"),
-          supabase.from("internships").select("id", { count: "exact", head: true }).eq("status", "completed"),
-        ]);
+        const [{ count: total }, { count: active }, { count: pending }, { count: completed }] =
+          await Promise.all([
+            supabase.from("internships").select("id", { count: "exact", head: true }),
+            supabase
+              .from("internships")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "active"),
+            supabase
+              .from("internships")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "pending"),
+            supabase
+              .from("internships")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "completed"),
+          ]);
         setStats({
           total: total ?? 0,
           active: active ?? 0,
@@ -177,10 +193,11 @@ function Index() {
       {/* ═══════════════════ HERO SECTION ═══════════════════ */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-white to-blue-50/40">
         {/* Subtle geometric background pattern */}
-        <div className="absolute inset-0 -z-0 opacity-[0.03]"
+        <div
+          className="absolute inset-0 -z-0 opacity-[0.03]"
           style={{
             backgroundImage: `radial-gradient(circle at 1px 1px, rgb(37,99,235) 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
+            backgroundSize: "40px 40px",
           }}
         />
         {/* Decorative gradient orb */}
@@ -194,13 +211,14 @@ function Index() {
                 BUILDING A SMARTER TOMORROW
               </p>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-[1.1] mb-6">
-                Innovate.{" "}
-                <span className="text-blue-600">Develop.</span>
+                Innovate. <span className="text-blue-600">Develop.</span>
                 <br />
                 Deliver.
               </h1>
               <p className="text-slate-500 text-base md:text-lg leading-relaxed mb-8 max-w-lg">
-                YR NOVATECH is a premium software company. We design, engineer and ship world-class digital products and train the next generation of engineers through project-based internships.
+                YR NOVATECH is a premium software company. We design, engineer and ship world-class
+                digital products and train the next generation of engineers through project-based
+                internships.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -266,7 +284,9 @@ function Index() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Our Services</h2>
-            <p className="text-slate-400 text-sm mt-1">Tailored solutions for your digital growth.</p>
+            <p className="text-slate-400 text-sm mt-1">
+              Tailored solutions for your digital growth.
+            </p>
           </div>
           <Link
             to="/services"
@@ -320,16 +340,38 @@ function Index() {
             {/* Right stat cards */}
             <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { icon: Users, value: stats?.total ?? "—", label: "Total Interns", color: "text-blue-600 bg-blue-100" },
-                { icon: UserCheck, value: stats?.active ?? "—", label: "Active Interns", color: "text-blue-600 bg-blue-100" },
-                { icon: FileText, value: stats?.pending ?? "—", label: "Pending Applications", color: "text-blue-600 bg-blue-100" },
-                { icon: CheckCircle, value: stats?.completed ?? "—", label: "Completed", color: "text-blue-600 bg-blue-100" },
+                {
+                  icon: Users,
+                  value: stats?.total ?? "—",
+                  label: "Total Interns",
+                  color: "text-blue-600 bg-blue-100",
+                },
+                {
+                  icon: UserCheck,
+                  value: stats?.active ?? "—",
+                  label: "Active Interns",
+                  color: "text-blue-600 bg-blue-100",
+                },
+                {
+                  icon: FileText,
+                  value: stats?.pending ?? "—",
+                  label: "Pending Applications",
+                  color: "text-blue-600 bg-blue-100",
+                },
+                {
+                  icon: CheckCircle,
+                  value: stats?.completed ?? "—",
+                  label: "Completed",
+                  color: "text-blue-600 bg-blue-100",
+                },
               ].map((s) => (
                 <div
                   key={s.label}
                   className="bg-white rounded-2xl border border-blue-100/60 p-5 text-center shadow-sm"
                 >
-                  <div className={`w-10 h-10 rounded-full ${s.color} flex items-center justify-center mx-auto mb-3`}>
+                  <div
+                    className={`w-10 h-10 rounded-full ${s.color} flex items-center justify-center mx-auto mb-3`}
+                  >
                     <s.icon className="h-5 w-5" />
                   </div>
                   <div className="text-2xl md:text-3xl font-bold text-slate-800">{s.value}</div>
@@ -370,7 +412,9 @@ function Index() {
       <section className="container mx-auto px-4 py-12 md:py-16">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-8">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Trusted Collaborations</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+              Trusted Collaborations
+            </h2>
             <p className="text-slate-400 text-sm mt-1">
               We work with trusted partners to deliver the best technology solutions.
             </p>
@@ -455,7 +499,8 @@ function Index() {
               </div>
               <h3 className="font-semibold text-slate-800 text-sm mb-2">MsME Certified</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Registered under the Ministry of Micro, Small & Medium Enterprises, Government of India.
+                Registered under the Ministry of Micro, Small & Medium Enterprises, Government of
+                India.
               </p>
               <p className="text-[10px] font-mono text-blue-600 mt-2 font-semibold">
                 {COMPANY.udyam}
@@ -475,7 +520,8 @@ function Index() {
               </span>
               <h2 className="text-2xl md:text-3xl font-bold text-slate-800">Student Experiences</h2>
               <p className="text-slate-400 text-sm mt-2 max-w-lg mx-auto">
-                Real experiences from students and interns who learned, built, and grew with YR NOVATECH.
+                Real experiences from students and interns who learned, built, and grew with YR
+                NOVATECH.
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -499,7 +545,9 @@ function Index() {
                       {t.student_name ? t.student_name.charAt(0).toUpperCase() : "S"}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{t.student_name ?? "Student"}</p>
+                      <p className="text-sm font-medium text-slate-700 truncate">
+                        {t.student_name ?? "Student"}
+                      </p>
                       <p className="text-xs text-slate-400">
                         {new Date(t.created_at).toLocaleDateString("en-IN", {
                           day: "2-digit",
