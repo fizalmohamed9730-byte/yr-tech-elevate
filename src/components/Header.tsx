@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, User, ChevronDown } from "lucide-react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 
 const links = [
@@ -17,21 +18,45 @@ const links = [
 export function Header() {
   const [open, setOpen] = useState(false);
   const [adminDropdown, setAdminDropdown] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { isAuthenticated, isAdmin, signOut } = useAuth();
 
+  // Track scroll to add backdrop blur + subtle shadow
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    if (open) setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-blue-100/60 shadow-[0_1px_3px_rgba(37,99,235,0.06)]">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <header
+      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+        scrolled
+          ? "bg-nav glass shadow-nav border-b border-border"
+          : "bg-transparent border-b border-transparent"
+      }`}
+    >
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 lg:px-6">
+        {/* Logo — constrained size */}
         <Logo compact />
-        <nav className="hidden md:flex items-center gap-0.5">
+
+        {/* Desktop navigation */}
+        <nav className="hidden md:flex items-center gap-0.5" role="navigation" aria-label="Main navigation">
           {links.map((l) => (
             <Link
               key={l.to}
               to={l.to}
-              className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors rounded-md px-3 py-1.5 relative"
+              className="text-[13px] font-medium text-nav-muted hover:text-foreground transition-colors rounded-lg px-3 py-2 relative hover:bg-accent/50"
               activeProps={{
                 className:
-                  "text-sm font-medium text-blue-600 rounded-md px-3 py-1.5 relative after:absolute after:bottom-[-13px] after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-[2px] after:bg-blue-600 after:rounded-full",
+                  "text-[13px] font-semibold text-primary rounded-lg px-3 py-2 relative bg-accent/40 after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-[2px] after:bg-primary after:rounded-full",
               }}
               activeOptions={{ exact: l.to === "/" }}
             >
@@ -39,12 +64,15 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+
+        {/* Right actions */}
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle />
           {isAuthenticated ? (
             <>
               <Link
                 to="/dashboard"
-                className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg bg-accent/50 text-foreground hover:bg-accent transition-colors"
                 aria-label="Dashboard"
               >
                 <User className="h-4 w-4" />
@@ -54,17 +82,17 @@ export function Header() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50 gap-1.5 rounded-lg"
+                    className="gap-1.5 rounded-lg text-xs"
                     onClick={() => setAdminDropdown(!adminDropdown)}
                   >
-                    Sign In
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    Admin
+                    <ChevronDown className={`h-3 w-3 transition-transform ${adminDropdown ? "rotate-180" : ""}`} />
                   </Button>
                   {adminDropdown && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg border border-blue-100 shadow-lg py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-44 bg-card rounded-xl border border-border shadow-card-hover py-1.5 z-50 animate-slide-up">
                       <Link
                         to="/admin"
-                        className="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent/50 transition-colors"
                         onClick={() => setAdminDropdown(false)}
                       >
                         Admin Panel
@@ -74,7 +102,7 @@ export function Header() {
                           signOut();
                           setAdminDropdown(false);
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+                        className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent/50 transition-colors"
                       >
                         Sign out
                       </button>
@@ -86,7 +114,7 @@ export function Header() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="hidden md:inline-flex text-slate-500 hover:text-blue-600"
+                  className="hidden md:inline-flex text-muted-foreground hover:text-foreground text-xs"
                   onClick={() => signOut()}
                 >
                   Sign out
@@ -94,57 +122,54 @@ export function Header() {
               )}
             </>
           ) : (
-            <>
-              <Link
-                to="/auth"
-                className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                aria-label="Sign in"
-              >
-                <User className="h-4 w-4" />
-              </Link>
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="hidden md:inline-flex border-blue-200 text-blue-700 hover:bg-blue-50 gap-1.5 rounded-lg"
-              >
-                <Link to="/auth">
-                  Sign In <ChevronDown className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </>
+            <Button
+              asChild
+              size="sm"
+              className="hidden md:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs shadow-sm"
+            >
+              <Link to="/auth">Sign In</Link>
+            </Button>
           )}
+
+          {/* Mobile menu toggle */}
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden text-slate-600"
+            className="md:hidden text-foreground h-8 w-8"
             onClick={() => setOpen(!open)}
-            aria-label="Menu"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
+
+      {/* Mobile navigation */}
       {open && (
-        <nav className="md:hidden border-t border-blue-100/40 bg-white px-4 py-3 flex flex-col gap-1">
+        <nav
+          className="md:hidden border-t border-border bg-card/95 glass px-4 py-3 flex flex-col gap-0.5 animate-slide-up"
+          role="navigation"
+          aria-label="Mobile navigation"
+        >
           {links.map((l) => (
             <Link
               key={l.to}
               to={l.to}
               onClick={() => setOpen(false)}
-              className="text-sm font-medium text-slate-600 hover:text-blue-600 rounded-md px-3 py-2 hover:bg-blue-50"
+              className="text-sm font-medium text-foreground hover:text-primary rounded-lg px-3 py-2.5 hover:bg-accent/50 transition-colors"
             >
               {l.label}
             </Link>
           ))}
-          <div className="mt-2 border-t border-blue-100/40 pt-2 flex flex-col gap-1">
+          <div className="mt-2 border-t border-border pt-2 flex flex-col gap-0.5">
             {isAuthenticated ? (
               <>
                 {isAdmin && (
                   <Link
                     to="/admin"
                     onClick={() => setOpen(false)}
-                    className="text-sm font-medium rounded-md px-3 py-2 hover:bg-blue-50 text-blue-600"
+                    className="text-sm font-medium rounded-lg px-3 py-2.5 hover:bg-accent/50 text-primary transition-colors"
                   >
                     Admin Panel
                   </Link>
@@ -152,7 +177,7 @@ export function Header() {
                 <Link
                   to="/dashboard"
                   onClick={() => setOpen(false)}
-                  className="text-sm font-medium rounded-md px-3 py-2 hover:bg-blue-50 text-slate-700"
+                  className="text-sm font-medium rounded-lg px-3 py-2.5 hover:bg-accent/50 text-foreground transition-colors"
                 >
                   Dashboard
                 </Link>
@@ -161,7 +186,7 @@ export function Header() {
                     signOut();
                     setOpen(false);
                   }}
-                  className="text-sm font-medium text-left rounded-md px-3 py-2 hover:bg-blue-50 text-slate-700"
+                  className="text-sm font-medium text-left rounded-lg px-3 py-2.5 hover:bg-accent/50 text-foreground transition-colors"
                 >
                   Sign out
                 </button>
@@ -170,7 +195,7 @@ export function Header() {
               <Link
                 to="/auth"
                 onClick={() => setOpen(false)}
-                className="text-sm font-medium bg-blue-600 text-white rounded-lg px-3 py-2 text-center hover:bg-blue-700"
+                className="text-sm font-semibold bg-primary text-primary-foreground rounded-lg px-3 py-2.5 text-center hover:bg-primary/90 transition-colors"
               >
                 Sign in
               </Link>

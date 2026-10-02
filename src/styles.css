@@ -59,10 +59,17 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Additional semantic surface tokens */
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-nav: var(--nav);
+  --color-nav-foreground: var(--nav-foreground);
+  --color-nav-muted: var(--nav-muted);
 }
 
 :root {
   --radius: 0.75rem;
+  /* Admin tokens */
   --admin-page: #f0f4f8;
   --admin-sidebar: #ffffff;
   --admin-sidebar-border: #e2e8f0;
@@ -89,6 +96,7 @@
   --admin-progress-bg: #e2e8f0;
   --admin-select-bg: #ffffff;
   --admin-badge-bg: #f1f5f9;
+  /* Core palette */
   --background: oklch(0.96 0.005 250);
   --foreground: oklch(0.17 0.025 255);
   --card: oklch(1 0 0);
@@ -109,10 +117,21 @@
   --border: oklch(0.90 0.008 250);
   --input: oklch(0.92 0.008 250);
   --ring: oklch(0.50 0.20 262);
+  /* Semantic surface tokens */
+  --surface: oklch(0.97 0.004 250);
+  --surface-foreground: oklch(0.17 0.025 255);
+  --nav: oklch(1 0 0 / 85%);
+  --nav-foreground: oklch(0.17 0.025 255);
+  --nav-muted: oklch(0.42 0.015 255);
+  /* Gradients & shadows */
   --gradient-primary: linear-gradient(135deg, oklch(0.50 0.20 262), oklch(0.65 0.18 258));
   --gradient-hero: linear-gradient(135deg, oklch(0.18 0.06 262) 0%, oklch(0.32 0.16 262) 50%, oklch(0.48 0.20 258) 100%);
   --shadow-elegant: 0 8px 30px -12px oklch(0.50 0.20 262 / 0.18);
   --shadow-glow: 0 0 60px oklch(0.65 0.18 258 / 0.25);
+  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.04), 0 1px 2px oklch(0 0 0 / 0.06);
+  --shadow-card-hover: 0 10px 40px -12px oklch(0.50 0.20 262 / 0.15), 0 4px 6px oklch(0 0 0 / 0.03);
+  --shadow-nav: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+  /* Chart */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -175,10 +194,20 @@
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.70 0.18 258);
+  /* Semantic surface tokens */
+  --surface: oklch(0.15 0.02 262);
+  --surface-foreground: oklch(0.96 0.003 250);
+  --nav: oklch(0.14 0.02 262 / 85%);
+  --nav-foreground: oklch(0.96 0.003 250);
+  --nav-muted: oklch(0.60 0.012 255);
+  /* Gradients & shadows */
   --gradient-primary: linear-gradient(135deg, oklch(0.55 0.20 262), oklch(0.72 0.16 258));
   --gradient-hero: linear-gradient(135deg, oklch(0.12 0.04 262) 0%, oklch(0.20 0.08 262) 50%, oklch(0.32 0.16 258) 100%);
   --shadow-elegant: 0 12px 40px -12px oklch(0.50 0.20 262 / 0.4);
   --shadow-glow: 0 0 60px oklch(0.70 0.18 258 / 0.35);
+  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.2), 0 1px 2px oklch(0 0 0 / 0.15);
+  --shadow-card-hover: 0 10px 40px -12px oklch(0.70 0.18 258 / 0.3), 0 4px 6px oklch(0 0 0 / 0.15);
+  --shadow-nav: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -204,6 +233,7 @@
     color: var(--color-foreground);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -235,17 +265,49 @@
   box-shadow: var(--shadow-glow);
 }
 
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-card-hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+@utility shadow-nav {
+  box-shadow: var(--shadow-nav);
+}
+
+@utility glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+}
+
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 @utility animate-fade-up {
   animation: fade-up 0.6s ease-out both;
 }
+@utility animate-slide-up {
+  animation: slide-up 0.35s ease-out both;
+}
 @utility animate-float {
   animation: float 6s ease-in-out infinite;
+}
+@utility animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
 }
