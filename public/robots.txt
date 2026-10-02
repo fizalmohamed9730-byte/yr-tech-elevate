@@ -8,6 +8,7 @@ Allow: /contact
 Allow: /privacy-policy
 Allow: /terms-and-conditions
 Allow: /refund-policy
+Allow: /ads.txt
 
 Disallow: /admin
 Disallow: /dashboard
