@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { createFileRoute, Link, redirect, useRouteContext } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
 import { fileToResizedDataUrl, AVATAR_MAX_DIM, SCREENSHOT_MAX_DIM } from "@/lib/image";
+import {
+  CERTIFICATE_FEE,
+  CERTIFICATE_UPI_ID,
+  CERTIFICATE_QR_SRC,
+  SEPTEMBER_EXEMPT_NOTICE,
+  isSeptember2026Exempt,
+} from "@/lib/certificate-payment";
 import { z } from "zod";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -32,6 +39,9 @@ function Dashboard() {
   const routeCtx = useRouteContext({ from: "/_authenticated" }) as { user?: any };
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  // Authoritative registration timestamp (profiles.created_at) used for the
+  // September 2026 certificate-payment exemption.
+  const [registeredAt, setRegisteredAt] = useState<string | null>(null);
   const [internship, setInternship] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [newPassword, setNewPassword] = useState("");
@@ -75,11 +85,27 @@ function Dashboard() {
       // Extended columns (certificate_flow_version, certificate_status, certificate_revoked_at,
       // certificate_revoke_reason) are fetched separately in Step 2 with tolerant error handling.
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password").eq("id", userId).single(),
+        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password, created_at").eq("id", userId).single(),
         supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", userId).maybeSingle(),
       ]);
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
+
+      // Registration timestamp drives the September 2026 payment exemption.
+      // It is fetched on its own so that a failure or partial result in the
+      // wider profile select above can never silently disable the exemption.
+      let registeredAt: string | null = p?.created_at ?? null;
+      try {
+        const { data: regRow } = await supabase
+          .from("profiles")
+          .select("created_at")
+          .eq("id", userId)
+          .maybeSingle();
+        if (regRow?.created_at) registeredAt = regRow.created_at;
+      } catch (regErr: any) {
+        console.warn("[dashboard] registration date lookup failed:", regErr?.message);
+      }
+      setRegisteredAt(registeredAt);
       if (iErr) {
         console.error("[dashboard] internships query error:", iErr.code, iErr.message, iErr.details, iErr.hint);
         setLoadError("Failed to load internship data. Database error: " + (iErr.message ?? iErr.code ?? "unknown"));
@@ -179,9 +205,9 @@ function Dashboard() {
           if (payErr) console.warn("[dashboard] certificate_payments query (table may not exist):", payErr.code);
           if (feeErr) console.warn("[dashboard] app_settings query (table may not exist):", feeErr.code);
           setPaymentRecord(payData ?? null);
-          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : 100);
+          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : CERTIFICATE_FEE);
         } catch {
-          // Tables may not exist in production yet — keep defaults
+          // Tables may not exist in production yet â€” keep defaults
         }
       }
     } catch (err: any) {
@@ -193,7 +219,10 @@ function Dashboard() {
 
   async function submitCertificatePayment() {
     if (!internship?.id) return;
+    // September 2026 batch is payment-exempt: never create a payment record.
+    if (isSeptember2026Exempt(registeredAt)) return;
     if (!paymentTxId.trim()) return toast.error("Please enter your Transaction / UTR ID");
+    if (!allRequiredApproved) return toast.error("Complete and get approval for all required tasks first");
     if (paymentRecord?.status === "paid") return toast.error("Payment already verified");
     setSubmittingPayment(true);
     try {
@@ -325,7 +354,18 @@ function Dashboard() {
   // Certificate eligibility: only when admin has released it (certificate_code exists)
   const completedTaskCount = tasks.filter((t) => submissionByNo.has(t.no)).length;
   const approvedTaskCount = tasks.filter((t) => submissionByNo.get(t.no)?.status === "approved").length;
-  const allRequiredApproved = approvedTaskCount >= durationTasksCount;
+  // Every assigned required task must have an approved submission. Derived from
+  // the actual task list + submission records rather than a hardcoded count.
+  const allRequiredApproved = tasks.every((t) => submissionByNo.get(t.no)?.status === "approved");
+
+  // September 2026 batch: payment section is shown, but payment is never
+  // required and never gates certificate eligibility. Source of truth is the
+  // profiles.created_at written by the on_auth_user_created trigger.
+  const septemberExempt = isSeptember2026Exempt(registeredAt);
+  const requiresPayment = internship.certificate_flow_version === "payment_v1" && !septemberExempt;
+  // The Payment section is visible to every registered intern. Only interns who
+  // actually require payment (post-September payment_v1) get a submission form.
+  const showPaymentTab = true;
 
   function isTaskUnlocked(taskNo: number): boolean {
     if (taskNo === 1) return true;
@@ -338,7 +378,7 @@ function Dashboard() {
       {/* Welcome & Overview Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 border-b pb-4 md:pb-6 border-border/40">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} ðŸ‘‹</h1>
           <p className="text-sm md:text-muted-foreground">{COMPANY.name} Internship Portal</p>
         </div>
       </div>
@@ -384,12 +424,12 @@ function Dashboard() {
       {/* Modern SaaS Sub-Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className={`inline-flex md:grid ${internship.certificate_flow_version === 'payment_v1' ? 'md:grid-cols-8' : 'md:grid-cols-7'} w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1`}>
+          <TabsList className={`inline-flex md:grid ${showPaymentTab ? 'md:grid-cols-8' : 'md:grid-cols-7'} w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1`}>
             <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Dashboard</TabsTrigger>
             <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">My Tasks</TabsTrigger>
             <TabsTrigger value="offer" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Offer Letter</TabsTrigger>
             <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">ID Card</TabsTrigger>
-            {internship.certificate_flow_version === 'payment_v1' && (
+            {showPaymentTab && (
               <TabsTrigger value="payment" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Payment</TabsTrigger>
             )}
             <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Certificate</TabsTrigger>
@@ -416,7 +456,7 @@ function Dashboard() {
                 {/* Step 1: Application Submitted */}
                 <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
                   <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mb-2 shadow-sm">
-                    ✓
+                    âœ“
                   </div>
                   <h4 className="font-semibold text-sm">Application Submitted</h4>
                   <p className="text-xs text-muted-foreground mt-1">Successfully registered</p>
@@ -427,7 +467,7 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     allRequiredApproved ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
                   }`}>
-                    {allRequiredApproved ? "✓" : "2"}
+                    {allRequiredApproved ? "âœ“" : "2"}
                   </div>
                   <h4 className="font-semibold text-sm">Tasks Completed & Approved</h4>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -440,11 +480,11 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     paymentRecord?.status === "paid" ? "bg-emerald-500 text-white" : allRequiredApproved ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
                   }`}>
-                    {paymentRecord?.status === "paid" ? "✓" : "3"}
+                    {paymentRecord?.status === "paid" ? "âœ“" : "3"}
                   </div>
                   <h4 className="font-semibold text-sm">Payment Verification</h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `₹${certificateFee}`}
+                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `â‚¹${certificateFee}`}
                   </p>
                 </div>
 
@@ -453,7 +493,7 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     internship.certificate_code ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
                   }`}>
-                    {internship.certificate_code ? "✓" : "4"}
+                    {internship.certificate_code ? "âœ“" : "4"}
                   </div>
                   <h4 className="font-semibold text-sm">Certificate Generated</h4>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -706,106 +746,136 @@ function Dashboard() {
           </Card>
         </TabsContent>
 
-        {/* Tab 5.5: Payment (new interns only) */}
-        {internship.certificate_flow_version === 'payment_v1' && (
+        {/* Tab 5.5: Payment â€” visible to every registered intern, including the
+            grandfathered September 2026 batch who are exempt from paying. */}
+        {showPaymentTab && (
           <TabsContent value="payment">
             <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
               <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary flex-shrink-0" /> Certificate Payment Verification
+                <CreditCard className="h-5 w-5 text-primary flex-shrink-0" /> Certificate Payment
               </h2>
 
-              <p className="text-sm text-muted-foreground">
-                Verify your certificate fee payment (₹{certificateFee}) after completing all required tasks.
-              </p>
-
-              {/* Certificate Payment Form / Status */}
+              {/* Payment information (fee, UPI, official QR) is shown to EVERY
+                  registered intern. September 2026 interns are payment-EXEMPT,
+                  not payment-section-exempt. */}
               <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  {paymentRecord?.status === "paid" ? (
-                    <><span className="text-emerald-500">&#10003;</span> Payment Verified</>
-                  ) : paymentRecord?.status === "pending_verification" ? (
-                    <><span className="text-amber-500">&#8987;</span> Pending Verification</>
-                  ) : !allRequiredApproved ? (
-                    <><span className="text-muted-foreground">&#128274;</span> Payment Locked</>
-                  ) : (
-                    <><span className="text-blue-500">&#128275;</span> Payment Unlocked</>
-                  )}
-                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Payment Method:</span>
+                    <span className="text-sm font-semibold">UPI</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">UPI ID:</span>
+                    <span className="font-mono text-sm font-semibold">{CERTIFICATE_UPI_ID}</span>
+                  </div>
+                </div>
+                <div className="flex justify-center">
+                  <img
+                    src={CERTIFICATE_QR_SRC}
+                    alt="Official YR NOVATECH UPI QR Code"
+                    className="w-full max-w-xs rounded-lg border bg-white p-2"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">Official YR NOVATECH QR Code</p>
+              </div>
 
-                {!allRequiredApproved && (
-                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                    Complete and get approval for all {durationTasksCount} required tasks to unlock certificate payment. ({approvedTaskCount} / {durationTasksCount} approved)
+              {/* IMPORTANT NOTE â€” displayed to ALL registered students. */}
+              <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500 dark:border-emerald-500 space-y-2">
+                <p className="text-sm font-bold uppercase tracking-wide text-emerald-900 dark:text-emerald-100">Important Note</p>
+                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">{SEPTEMBER_EXEMPT_NOTICE}</p>
+                {septemberExempt ? (
+                  <p className="text-sm text-emerald-900 dark:text-emerald-100">
+                    Payment is not mandatory for your batch. You do not need to pay, submit a UTR,
+                    upload a screenshot or complete payment verification. Your certificate continues
+                    through the existing flow: all required tasks approved, then an Admin releases it.
+                  </p>
+                ) : (
+                  <p className="text-sm text-emerald-900 dark:text-emerald-100">
+                    Only the September 2026 registered batch is exempt. For all other registrations,
+                    payment of &#8377;{certificateFee} becomes required once every required internship
+                    task has been approved.
+                  </p>
+                )}
+              </div>
+
+              {/* Transaction ID / UTR + optional screenshot â€” shown to ALL
+                  registered students. Only payment-required interns submit them. */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="payment-tx-id">Transaction ID / UTR</Label>
+                  <Input
+                    id="payment-tx-id"
+                    placeholder="Enter Transaction ID / UTR"
+                    value={paymentTxId}
+                    onChange={(e) => setPaymentTxId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {requiresPayment
+                      ? "Required. Submitted to the Admin for payment verification."
+                      : "Optional. Not required for your batch â€” your certificate payment is exempt."}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment-screenshot">Payment Screenshot (Optional)</Label>
+                  <Input id="payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
+                  {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached (optional).</p>}
+                </div>
+
+                {!requiresPayment && (
+                  <div className="p-3 rounded-lg bg-muted/50 border text-sm text-muted-foreground">
+                    No certificate payment submission is required for your internship. Your
+                    certificate is issued through the standard process once all required tasks are
+                    approved and an Admin releases it.
                   </div>
                 )}
 
-                {allRequiredApproved && !paymentRecord && (
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
-                      All required tasks are approved! Submit your payment transaction details below to proceed.
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">UPI ID:</span>
-                        <span className="font-mono text-sm font-semibold">fizalabbas@sbi</span>
+                {requiresPayment && (
+                  <>
+                    {!allRequiredApproved && (
+                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                        Payment submission becomes available after all required internship tasks are approved. ({approvedTaskCount} / {durationTasksCount} approved)
                       </div>
-                    </div>
-                    <div className="flex justify-center">
-                      <img src="/payment/certificate-upi-qr.svg" alt="UPI QR Code" className="w-48 h-48 border rounded-lg object-contain bg-white p-2" />
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">Scan &amp; Pay using any UPI app</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="tab-payment-tx-id">Transaction / UTR ID</Label>
-                      <Input id="tab-payment-tx-id" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tab-payment-screenshot">Payment Screenshot (optional)</Label>
-                      <Input id="tab-payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
-                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
-                    </div>
-                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
-                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Payment"}
-                    </Button>
-                  </div>
-                )}
+                    )}
 
-                {paymentRecord?.status === "pending_verification" && (
-                  <div className="space-y-2">
-                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                      &#8987; Your payment is being verified by the admin. You will be notified once verified.
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
-                      <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
-                      <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
-                    </div>
-                  </div>
-                )}
+                    {paymentRecord?.status === "pending_verification" && (
+                      <>
+                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                          Payment submitted successfully. Your payment is waiting for Admin verification.
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
+                          <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
+                          <div className="flex justify-between"><span>Status:</span><span>pending_verification</span></div>
+                          <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
+                        </div>
+                      </>
+                    )}
 
-                {paymentRecord?.status === "rejected" && (
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
-                      &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Please retry with a valid transaction.
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tab-payment-tx-id-retry">Transaction / UTR ID</Label>
-                      <Input id="tab-payment-tx-id-retry" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tab-payment-screenshot-retry">Payment Screenshot (optional)</Label>
-                      <Input id="tab-payment-screenshot-retry" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
-                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
-                    </div>
-                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
-                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Retry Payment"}
-                    </Button>
-                  </div>
-                )}
+                    {paymentRecord?.status === "rejected" && (
+                      <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
+                        &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Enter a valid Transaction ID / UTR above and retry.
+                      </div>
+                    )}
 
-                {paymentRecord?.status === "paid" && (
-                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
-                    &#10003; Payment verified! Your certificate is eligible for admin release.
-                  </div>
+                    {paymentRecord?.status === "paid" && (
+                      <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
+                        &#10003; Payment verified! Your certificate is eligible for Admin release.
+                      </div>
+                    )}
+
+                    {allRequiredApproved && paymentRecord?.status !== "pending_verification" && (
+                      <Button
+                        onClick={submitCertificatePayment}
+                        disabled={submittingPayment || !paymentTxId.trim()}
+                        className="w-full bg-gradient-primary text-primary-foreground"
+                      >
+                        {submittingPayment
+                          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</>
+                          : paymentRecord?.status === "rejected" ? "Retry Payment" : "Submit Payment"}
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </Card>
@@ -818,7 +888,7 @@ function Dashboard() {
             <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
 
             <p className="text-sm text-muted-foreground">
-              Your certificate is unlocked only after {internship.certificate_flow_version === 'payment_v1' ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
+              Your certificate is unlocked only after {requiresPayment ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
             </p>
 
             {/* Certificate Status Card */}
@@ -829,9 +899,9 @@ function Dashboard() {
                   <Badge className="bg-red-600">Revoked</Badge>
                 ) : internship.certificate_code ? (
                   <Badge className="bg-emerald-600">Released</Badge>
-                ) : allRequiredApproved && internship.certificate_flow_version !== 'payment_v1' ? (
+                ) : allRequiredApproved && !requiresPayment ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
-                ) : allRequiredApproved && internship.certificate_flow_version === 'payment_v1' && paymentRecord?.status === "paid" ? (
+                ) : allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" ? (
                   <Badge className="bg-amber-500">Pending Admin Release</Badge>
                 ) : (
                   <Badge variant="outline">Locked ({approvedTaskCount} / {durationTasksCount} Tasks Approved)</Badge>
@@ -854,9 +924,12 @@ function Dashboard() {
               )}
             </div>
 
-            {/* Certificate Payment Section (new interns only) */}
-            {internship.certificate_flow_version === 'payment_v1' && !internship.certificate_code && (
-              <div className="border rounded-lg p-4 space-y-4">
+            {/* Certificate payment status summary. The full payment section
+                (fee, UPI ID, official QR, IMPORTANT NOTE, Transaction ID / UTR
+                and the optional screenshot upload) lives on the Payment tab, so
+                there is exactly one Transaction ID / UTR field in the page. */}
+            {!internship.certificate_code && (
+              <div className="border rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   {paymentRecord?.status === "paid" ? (
                     <><span className="text-emerald-500">&#10003;</span> Certificate Payment &mdash; Verified</>
@@ -868,87 +941,22 @@ function Dashboard() {
                     <><span className="text-blue-500">&#128275;</span> Certificate Payment &mdash; Unlocked</>
                   )}
                 </h3>
-
-                {/* State: Not all tasks approved */}
-                {!allRequiredApproved && (
-                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                {!allRequiredApproved ? (
+                  <p className="text-sm text-muted-foreground">
                     Complete and get approval for all {durationTasksCount} required internship tasks to unlock certificate payment.
-                  </div>
+                  </p>
+                ) : paymentRecord?.status === "paid" ? (
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                    Payment verified. Your certificate is eligible for Admin release.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    All required tasks are approved. Submit your payment on the Payment tab.
+                  </p>
                 )}
-
-                {/* State: All tasks approved, payment not yet submitted */}
-                {allRequiredApproved && !paymentRecord && (
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
-                      All required tasks are approved! Complete the certificate payment to proceed.
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">UPI ID:</span>
-                        <span className="font-mono text-sm font-semibold">fizalabbas@sbi</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-center">
-                      <img src="/payment/certificate-upi-qr.svg" alt="UPI QR Code" className="w-48 h-48 border rounded-lg" />
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">Scan &amp; Pay using any UPI app</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-tx-id">Transaction / UTR ID</Label>
-                      <Input id="payment-tx-id" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-screenshot">Payment Screenshot (optional)</Label>
-                      <Input id="payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
-                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
-                    </div>
-                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
-                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Submit Payment"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* State: Payment submitted, pending verification */}
-                {paymentRecord?.status === "pending_verification" && (
-                  <div className="space-y-2">
-                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                      &#8987; Your payment is being verified by the admin. You will be notified once verified.
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
-                      <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
-                      <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
-                    </div>
-                  </div>
-                )}
-
-                {/* State: Payment rejected */}
-                {paymentRecord?.status === "rejected" && (
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
-                      &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Please retry with a valid transaction.
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-tx-id-retry">Transaction / UTR ID</Label>
-                      <Input id="payment-tx-id-retry" placeholder="Enter UPI Transaction ID or UTR number" value={paymentTxId} onChange={(e) => setPaymentTxId(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-screenshot-retry">Payment Screenshot (optional)</Label>
-                      <Input id="payment-screenshot-retry" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
-                      {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached.</p>}
-                    </div>
-                    <Button onClick={submitCertificatePayment} disabled={submittingPayment || !paymentTxId.trim()} className="w-full bg-gradient-primary text-primary-foreground">
-                      {submittingPayment ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</> : "Retry Payment"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* State: Payment verified */}
-                {paymentRecord?.status === "paid" && !internship.certificate_code && (
-                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
-                    &#10003; Payment verified! Your certificate is now eligible for admin review.
-                  </div>
-                )}
+                <Button variant="outline" className="w-full" onClick={() => setActiveTab("payment")}>
+                  Go to Payment
+                </Button>
               </div>
             )}
 
@@ -959,15 +967,22 @@ function Dashboard() {
               </div>
             )}
 
-            {!internship.certificate_code && allRequiredApproved && internship.certificate_flow_version !== 'payment_v1' && (
+            {!internship.certificate_code && allRequiredApproved && !requiresPayment && (
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
                 All required tasks are approved! Your certificate is pending Admin release.
               </div>
             )}
 
-            {!internship.certificate_code && allRequiredApproved && internship.certificate_flow_version === 'payment_v1' && paymentRecord?.status === "paid" && (
+            {!internship.certificate_code && allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" && (
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
                 Payment verified and all tasks approved! Your certificate is pending Admin release.
+              </div>
+            )}
+
+            {septemberExempt && !internship.certificate_code && (
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
+                <p className="font-semibold">Your batch doesn&rsquo;t have to pay for the certificate.</p>
+                <p className="mt-1">Your certificate eligibility depends only on task approval and Admin release.</p>
               </div>
             )}
 
@@ -1291,8 +1306,8 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
             <form onSubmit={submit} className="space-y-3">
               {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
               {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
-              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
-              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}
+              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://â€¦" required /></div>}
+              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/â€¦" required /></div>}
               <div><Label>Notes (optional)</Label><Textarea name="notes" rows={3} defaultValue={submission?.notes ?? ""} /></div>
               <Button type="submit" disabled={busy} className="w-full bg-gradient-primary text-primary-foreground">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Submit for review"}</Button>
             </form>

@@ -24,6 +24,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar
 } from "recharts";
 import { getTasksForSlug } from "@/lib/tasks";
+import { isSeptember2026Exempt } from "@/lib/certificate-payment";
 import { getInitials } from "@/lib/utils";
 import { useAdminTheme } from "@/hooks/use-admin-theme";
 
@@ -301,7 +302,7 @@ function AdminPage() {
       const db = supabase as any;
       const [pRes, rawInternsRes, rawSubsRes, projRes, rawPsRes, dRes, enqRes, annRes, rawFbRes, discRes] = await Promise.all([
         safeQuery("profiles", supabase.from("profiles").select("id, user_id, full_name, email, phone, college, department, year, github_url, linkedin_url, created_at").order("created_at", { ascending: false })),
-        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
+        safeQuery("internships", supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_status, certificate_flow_version, certificate_issued_at, certificate_released_by, certificate_released_at, certificate_revoked_at, certificate_revoke_reason, progress_percent, completed_at, created_at, domain:domains(name,slug)").order("created_at", { ascending: false })),
         safeQuery("submissions", db.from("submissions").select("id, internship_id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").order("submitted_at", { ascending: false })),
         safeQuery("projects", db.from("projects").select("id, title, description, file_url, difficulty, deadline, created_at, active, project_domains(domain_id, domain:domains(name))").order("created_at", { ascending: false })),
         safeQuery("project_submissions", db.from("project_submissions").select("id, project_id, student_id, github_url, notes, status, feedback, submitted_at, reviewed_at, project:projects(title)").order("submitted_at", { ascending: false })),
@@ -554,6 +555,24 @@ function AdminPage() {
     }
     return map;
   }, [internships]);
+
+  // September 2026 registered interns are exempt from the certificate payment.
+  // The intern's registration timestamp lives on the profile row (i.student).
+  const septemberExemptByInternship = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const i of internships) {
+      map.set(i.id, isSeptember2026Exempt(i.student?.created_at ?? null));
+    }
+    return map;
+  }, [internships]);
+
+  // Payment only applies to payment_v1 interns outside the exempt batch.
+  const paymentRequiredFor = useCallback(
+    (internship: any) =>
+      internship.certificate_flow_version === "payment_v1" &&
+      !septemberExemptByInternship.get(internship.id),
+    [septemberExemptByInternship],
+  );
 
   const internshipByStudent = useMemo(() => {
     const map = new Map<string, any>();
@@ -1443,8 +1462,9 @@ function AdminPage() {
           {internships.filter(i => i.certificate_status === "revoked").map((i) => {
             const ta = approvedCountByInternship.get(i.id) ?? 0;
             const required = requiredCountByInternship.get(i.id) ?? 5;
-            const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
-            const canReissue = ta >= required && (i.certificate_flow_version !== 'payment_v1' || paymentPaid);
+            const paymentRequired = paymentRequiredFor(i);
+            const paymentPaid = !paymentRequired || certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid");
+            const canReissue = ta >= required && paymentPaid;
             return (
               <tr key={i.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
                 <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i.internship_code}</td>
@@ -1484,15 +1504,17 @@ function AdminPage() {
       }).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
         const required = requiredCountByInternship.get(i.id) ?? 5;
-        const paymentPaid = i.certificate_flow_version === 'payment_v1' ? certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid") : true;
-        const canIssue = i.certificate_flow_version === 'payment_v1' ? paymentPaid : true;
+        const paymentRequired = paymentRequiredFor(i);
+        const paymentPaid = !paymentRequired || certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid");
+        const canIssue = paymentPaid;
         return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-(--admin-card-border) last:border-0">
           <div>
             <span className="text-(--admin-text) font-medium">{i.student?.full_name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{ta}/{required} tasks</span>
-            {i.certificate_flow_version === 'payment_v1' && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
+            {paymentRequired && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
+            {!paymentRequired && septemberExemptByInternship.get(i.id) && <span className="text-xs text-emerald-500 ml-2">(Sept 2026 batch — payment exempt)</span>}
           </div>
           <Button size="sm" className={`text-xs text-white ${canIssue ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canIssue} onClick={() => issueCertificate(i.id)}>
             <Award className="h-3 w-3 mr-1" /> Issue Certificate
