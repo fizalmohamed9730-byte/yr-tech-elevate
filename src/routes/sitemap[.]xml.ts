@@ -13,15 +13,19 @@ export const Route = createFileRoute("/sitemap.xml")({
           "/services",
           "/internship",
           "/projects",
-          "/contact",
-          "/careers",
+          "/resources",
           "/faq",
+          "/careers",
+          "/contact",
           "/privacy-policy",
           "/terms-and-conditions",
           "/refund-policy",
         ];
         const urls = paths
-          .map((p) => `  <url><loc>${BASE_URL}${p}</loc><changefreq>weekly</changefreq></url>`)
+          .map(
+            (p) =>
+              `  <url><loc>${BASE_URL}${p}</loc><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : ["about", "services", "internship"].includes(p.slice(1)) ? "0.9" : "0.7"}</priority></url>`,
+          )
           .join("\n");
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
         return new Response(xml, {

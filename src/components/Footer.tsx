@@ -40,50 +40,18 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/services" className="hover:text-primary transition-colors">
+                  Services
+                </Link>
+              </li>
+              <li>
                 <Link to="/careers" className="hover:text-primary transition-colors">
                   Careers
                 </Link>
               </li>
               <li>
-                <Link to="/faq" className="hover:text-primary transition-colors">
-                  FAQ
-                </Link>
-              </li>
-              <li>
                 <Link to="/contact" className="hover:text-primary transition-colors">
                   Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Services */}
-          <div className="md:col-span-2">
-            <h4 className="font-semibold text-foreground mb-4 text-sm">Services</h4>
-            <ul className="space-y-2.5 text-sm text-muted-foreground">
-              <li>
-                <Link to="/services" className="hover:text-primary transition-colors">
-                  Software Development
-                </Link>
-              </li>
-              <li>
-                <Link to="/services" className="hover:text-primary transition-colors">
-                  AI Solutions
-                </Link>
-              </li>
-              <li>
-                <Link to="/services" className="hover:text-primary transition-colors">
-                  Web Development
-                </Link>
-              </li>
-              <li>
-                <Link to="/services" className="hover:text-primary transition-colors">
-                  Mobile Apps
-                </Link>
-              </li>
-              <li>
-                <Link to="/services" className="hover:text-primary transition-colors">
-                  UI/UX Design
                 </Link>
               </li>
             </ul>
@@ -95,27 +63,49 @@ export function Footer() {
             <ul className="space-y-2.5 text-sm text-muted-foreground">
               <li>
                 <Link to="/internship" className="hover:text-primary transition-colors">
-                  Full Stack
+                  Program Overview
                 </Link>
               </li>
               <li>
-                <Link to="/internship" className="hover:text-primary transition-colors">
-                  UI/UX Design
+                <Link to="/internship" hash="domains" className="hover:text-primary transition-colors">
+                  Domains &amp; Tasks
                 </Link>
               </li>
               <li>
-                <Link to="/internship" className="hover:text-primary transition-colors">
-                  C / C++
+                <Link to="/internship" hash="certificate" className="hover:text-primary transition-colors">
+                  Certificate Process
                 </Link>
               </li>
               <li>
-                <Link to="/internship" className="hover:text-primary transition-colors">
-                  Python
+                <Link to="/auth" className="hover:text-primary transition-colors">
+                  Apply Now
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Learn */}
+          <div className="md:col-span-2">
+            <h4 className="font-semibold text-foreground mb-4 text-sm">Learn</h4>
+            <ul className="space-y-2.5 text-sm text-muted-foreground">
+              <li>
+                <Link to="/resources" className="hover:text-primary transition-colors">
+                  Technology Resources
                 </Link>
               </li>
               <li>
-                <Link to="/internship" className="hover:text-primary transition-colors">
-                  Artificial Intelligence
+                <Link to="/projects" className="hover:text-primary transition-colors">
+                  Projects &amp; Case Studies
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="hover:text-primary transition-colors">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link to="/internship" hash="verify" className="hover:text-primary transition-colors">
+                  Verify a Certificate
                 </Link>
               </li>
             </ul>

@@ -4,16 +4,23 @@ Allow: /about
 Allow: /services
 Allow: /internship
 Allow: /projects
+Allow: /resources
+Allow: /faq
+Allow: /careers
 Allow: /contact
 Allow: /privacy-policy
 Allow: /terms-and-conditions
 Allow: /refund-policy
+Allow: /terms
 Allow: /ads.txt
+Allow: /sitemap.xml
 
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /internships
 Disallow: /profile
 Disallow: /admin-setup
+Disallow: /auth
+Disallow: /apply
 
 Sitemap: https://www.yrnovatech.in/sitemap.xml

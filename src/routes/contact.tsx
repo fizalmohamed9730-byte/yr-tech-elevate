@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Section, SectionHeading } from "@/components/Section";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,7 @@ function Contact() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Message sent successfully! Our team will respond within 24 hours.");
+        toast.success("Message sent successfully. We will reply to this address as soon as we can.");
         setForm({ name: "", email: "", message: "" });
       }
     } catch {
@@ -99,6 +99,7 @@ function Contact() {
       <SectionHeading
         eyebrow="Get in Touch"
         title="Let's Build Something Exceptional"
+        asH1
         description={`Reach out to ${COMPANY.name} for technical projects, software consulting, or internship guidance.`}
       />
 
@@ -211,7 +212,7 @@ function Contact() {
 
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground text-center">
               <Clock className="h-3.5 w-3.5 text-primary" />
-              <span>Typical response time: Under 24 business hours</span>
+              <span>Replies are sent to the email address you provide</span>
             </div>
           </form>
         </Card>
@@ -268,7 +269,7 @@ function Contact() {
               >
                 {COMPANY.email}
               </a>
-              <div className="text-xs text-muted-foreground mt-0.5">Monitored 7 days a week</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Usually answered within a business day</div>
             </div>
           </Card>
 
@@ -289,6 +290,41 @@ function Contact() {
               <div className="text-xs text-muted-foreground mt-0.5">Updates, announcements &amp; tech insights</div>
             </div>
           </Card>
+        </div>
+      </div>
+
+      {/* Self-service routes — most questions are answered before we need to reply */}
+      <div className="max-w-5xl mx-auto mt-12 pt-8 border-t border-border">
+        <h2 className="text-lg font-bold text-foreground mb-2">Looking for something specific?</h2>
+        <p className="text-sm text-muted-foreground mb-5 max-w-3xl">
+          These pages answer most of what people write to us about, and they are faster than
+          waiting for a reply.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/services">Services &amp; what we build</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/internship">Internship program</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/faq">Frequently asked questions</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/projects">Projects &amp; case studies</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/careers">Careers &amp; hiring status</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/resources">Technology resources</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/about">About the company</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/refund-policy">Refund policy</Link>
+          </Button>
         </div>
       </div>
     </Section>

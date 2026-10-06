@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { COMPANY } from "@/lib/company";
+import { AdSlot } from "@/components/AdSlot";
+import { AD_SLOTS } from "@/lib/ads";
 import {
   HelpCircle,
   Mail,
@@ -24,27 +26,43 @@ export const Route = createFileRoute("/faq")({
       {
         name: "description",
         content:
-          "Frequently asked questions about YR NOVATECH internships, domains, durations, task submissions, certificates, payment verification, and how to contact us.",
+          "Answers about YR NOVATECH software services, internships, domains, durations, task submissions, certificates, certificate fees, payment verification and how to reach us.",
       },
       { property: "og:title", content: `FAQ — ${COMPANY.name}` },
       {
         property: "og:description",
         content:
-          "Answers to common questions about YR NOVATECH's internship program, certificates, and payments.",
+          "Straight answers about YR NOVATECH's software services, internship program, certificates and payments.",
       },
+      { property: "og:type", content: "website" },
       { property: "og:url", content: "https://www.yrnovatech.in/faq" },
     ],
     links: [{ rel: "canonical", href: "https://www.yrnovatech.in/faq" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }),
+      },
+    ],
   }),
   component: Faq,
 });
 
-type FAQCategory = "All" | "Internship" | "Certificates" | "Payments" | "General";
+type FAQCategory = "All" | "Internship" | "Certificates" | "Payments" | "Services" | "General";
 
 interface FAQItem {
   q: string;
   a: string;
-  category: "Internship" | "Certificates" | "Payments" | "General";
+  category: "Internship" | "Certificates" | "Payments" | "Services" | "General";
+  link?: { to: "/refund-policy" | "/services" | "/internship" | "/projects" | "/resources" | "/careers" | "/contact" | "/privacy-policy" | "/about"; label: string };
 }
 
 const faqs: FAQItem[] = [
@@ -60,8 +78,9 @@ const faqs: FAQItem[] = [
   },
   {
     q: "Which internship domains are available?",
-    a: "Internship domains include Full Stack Development, UI/UX Design, C++ Programming, Python Programming, and Artificial Intelligence. You choose your preferred domain at registration.",
+    a: "Internship domains are Full Stack Development, UI/UX Design, Python Programming, C++ Programming, Cyber Security, and Artificial Intelligence & Machine Learning. You choose your preferred domain at registration.",
     category: "Internship",
+    link: { to: "/internship", label: "See the domains in detail" },
   },
   {
     q: "What are the internship durations?",
@@ -97,20 +116,59 @@ const faqs: FAQItem[] = [
     q: "What payments are involved?",
     a: "Where a certificate processing fee applies, the amount is shown in your account before payment. Payment is made using the payment method displayed in your account (UPI), and you provide the transaction or UTR reference for verification. Payments are verified manually, so payment status is always subject to verification. See our Refund & Cancellation Policy for details.",
     category: "Payments",
+    link: { to: "/refund-policy", label: "Read the Refund & Cancellation Policy" },
   },
   {
     q: "Can fees be refunded?",
     a: "Refunds are considered on a case-by-case basis, at our discretion and after verification. They are not guaranteed and are generally not available after a verified payment and successful certificate issuance. See our Refund & Cancellation Policy for the full details.",
     category: "Payments",
+    link: { to: "/refund-policy", label: "Read the Refund & Cancellation Policy" },
+  },
+  {
+    q: "Do September 2026 registered students have to pay the certificate fee?",
+    a: "No. Students who registered during September 2026 are exempt from the certificate payment requirement. The certificate payment section still appears in their account, but no payment, transaction reference or screenshot is required from them, and their certificate process is otherwise unchanged.",
+    category: "Payments",
+    link: { to: "/internship", label: "Certificate process details" },
+  },
+  {
+    q: "What services does YR NOVATECH provide?",
+    a: "We build web applications, mobile applications, data and analytics pipelines, applied AI and machine learning features, interface and UX design, and custom internal software. Each service page explains what it covers, the problems it solves, our approach, and what you receive.",
+    category: "Services",
+    link: { to: "/services", label: "Explore all services" },
+  },
+  {
+    q: "How do I know if my project is a good fit for you?",
+    a: "If you can describe the problem, the people affected by it, and someone who owns the outcome, it is usually worth a conversation. If the problem is not yet clear, we will say that rather than sell you a build. Send a short description through the contact page.",
+    category: "Services",
+    link: { to: "/contact", label: "Describe your project" },
+  },
+  {
+    q: "Do you publish your project work?",
+    a: "We publish engineering case studies only once they are cleared for public release, so that nothing confidential or unverified appears on the site. The Projects page explains what each case study contains and how new ones are added.",
+    category: "Services",
+    link: { to: "/projects", label: "See our publication policy" },
+  },
+  {
+    q: "Are there free technical resources on this site?",
+    a: "Yes. The resources section contains practical guides on full stack development, applied AI, Python, data analytics, UI/UX and internship preparation. They are written to solve specific problems rather than to fill space, and they are free to read.",
+    category: "Services",
+    link: { to: "/resources", label: "Browse the resources" },
+  },
+  {
+    q: "Are you hiring?",
+    a: "We publish our current hiring status openly on the careers page. If there are no openings listed, we do not have an active role at that moment — but you can register an expression of interest and we will come back to you when something opens.",
+    category: "General",
+    link: { to: "/careers", label: "Check current hiring status" },
   },
   {
     q: "How can I contact YR NOVATECH?",
-    a: "You can reach us through our contact page or by emailing our support desk directly at support@yrnovatech.in. We respond to inquiries within 24 business hours.",
+    a: "Use the contact form on our contact page, or email the support desk directly. The form reaches the same inbox, and you will get a reply at the address you provide.",
     category: "General",
+    link: { to: "/contact", label: "Go to the contact page" },
   },
 ];
 
-const categories: FAQCategory[] = ["All", "Internship", "Certificates", "Payments", "General"];
+const categories: FAQCategory[] = ["All", "Internship", "Certificates", "Payments", "Services", "General"];
 
 function Faq() {
   const [selectedCategory, setSelectedCategory] = useState<FAQCategory>("All");
@@ -237,6 +295,14 @@ function Faq() {
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {faq.a}
                     </p>
+                    {faq.link && (
+                      <Link
+                        to={faq.link.to}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                      >
+                        {faq.link.label} <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
                   </div>
                 )}
               </Card>
@@ -244,6 +310,8 @@ function Faq() {
           })
         )}
       </div>
+
+      <AdSlot slot={AD_SLOTS.faqInline} className="py-2" />
 
       {/* Still Have Questions Box */}
       <div className="max-w-3xl mx-auto mt-12">
@@ -273,6 +341,31 @@ function Faq() {
             </a>
           </div>
         </Card>
+      </div>
+
+      {/* Related pages */}
+      <div className="max-w-3xl mx-auto mt-8">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          More from this site
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { to: "/services" as const, label: "Services" },
+            { to: "/internship" as const, label: "Internship" },
+            { to: "/projects" as const, label: "Projects" },
+            { to: "/resources" as const, label: "Resources" },
+            { to: "/careers" as const, label: "Careers" },
+            { to: "/about" as const, label: "About" },
+            { to: "/privacy-policy" as const, label: "Privacy Policy" },
+            { to: "/terms-and-conditions" as const, label: "Terms" },
+            { to: "/refund-policy" as const, label: "Refunds" },
+            { to: "/contact" as const, label: "Contact" },
+          ].map((l) => (
+            <Button key={l.to} asChild size="sm" variant="outline" className="h-8 px-3 text-xs">
+              <Link to={l.to}>{l.label}</Link>
+            </Button>
+          ))}
+        </div>
       </div>
     </Section>
   );

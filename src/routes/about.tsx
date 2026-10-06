@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import msmeLogo from "@/assets/msme-logo.png";
 import { COMPANY } from "@/lib/company";
+import { AdSlot } from "@/components/AdSlot";
+import { AD_SLOTS } from "@/lib/ads";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -56,6 +58,7 @@ export const Route = createFileRoute("/about")({
           "Software development and technology company focused on custom software, web and mobile applications, AI solutions, and project-based internship programs.",
       },
       { property: "og:url", content: "https://www.yrnovatech.in/about" },
+      { property: "og:type", content: "website" },
     ],
     links: [{ rel: "canonical", href: "https://www.yrnovatech.in/about" }],
     scripts: [
@@ -213,7 +216,7 @@ function About() {
   return (
     <>
       <Section>
-        <SectionHeading eyebrow="About YR NOVATECH" title="Who We Are" />
+          <SectionHeading eyebrow="About YR NOVATECH" title="Who We Are" asH1 />
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-lg text-muted-foreground leading-relaxed">
             YR NOVATECH is a software development and technology company. We design, build, and
@@ -495,6 +498,79 @@ function About() {
               </Card>
             </Reveal>
           ))}
+        </div>
+      </Section>
+
+      <AdSlot slot={AD_SLOTS.contentInline} className="py-2" />
+
+      {/* Explore the site */}
+      <Section className="!pt-0">
+        <Reveal>
+          <SectionHeading
+            eyebrow="Explore"
+            title="Where to go next"
+            description="The rest of the site, grouped by what you are probably trying to find out."
+          />
+        </Reveal>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {[
+            {
+              to: "/services" as const,
+              title: "What we build",
+              body: "Each service explained: the problems it solves, our approach, deliverables and who it suits.",
+            },
+            {
+              to: "/internship" as const,
+              title: "Internship program",
+              body: "Domains, durations, the task and review process, certificates and how to apply.",
+            },
+            {
+              to: "/projects" as const,
+              title: "Projects & case studies",
+              body: "What we publish as engineering work, and when selected case studies become available.",
+            },
+            {
+              to: "/resources" as const,
+              title: "Technology resources",
+              body: "Practical guides on full stack development, applied AI, data analytics and UI/UX.",
+            },
+            {
+              to: "/faq" as const,
+              title: "Frequently asked questions",
+              body: "Straight answers on services, certificates, payments, durations and company information.",
+            },
+            {
+              to: "/careers" as const,
+              title: "Careers",
+              body: "Our current hiring status, the work we bring people in for, and how we recruit.",
+            },
+          ].map((c, i) => (
+            <Reveal key={c.title} delay={i * 60}>
+              <Card className="p-6 border border-border h-full flex flex-col">
+                <h3 className="font-semibold text-base mb-2">{c.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed flex-1 mb-5">{c.body}</p>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to={c.to}>
+                    {c.title} <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+        <div className="max-w-5xl mx-auto mt-6 flex flex-wrap justify-center gap-3">
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/contact">Contact YR NOVATECH</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/privacy-policy">Privacy Policy</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/terms-and-conditions">Terms &amp; Conditions</Link>
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/refund-policy">Refund Policy</Link>
+          </Button>
         </div>
       </Section>
     </>

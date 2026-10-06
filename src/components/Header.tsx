@@ -12,8 +12,24 @@ const links = [
   { to: "/services", label: "Services" },
   { to: "/internship", label: "Internship" },
   { to: "/projects", label: "Projects" },
+  { to: "/resources", label: "Resources", secondary: true },
+  { to: "/faq", label: "FAQ", secondary: true },
+  { to: "/careers", label: "Careers", secondary: true },
   { to: "/contact", label: "Contact" },
 ] as const;
+
+function navClass(active: boolean, secondary?: boolean) {
+  const base = [
+    "text-[13px] rounded-lg px-3 py-2 relative transition-colors",
+    secondary ? "hidden xl:block" : "block",
+    active ? "font-semibold text-primary bg-accent/40" : "font-medium text-nav-muted hover:text-foreground hover:bg-accent/50",
+  ];
+  if (!active) return base.join(" ");
+  return [
+    ...base,
+    "after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-[2px] after:bg-primary after:rounded-full",
+  ].join(" ");
+}
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -53,11 +69,8 @@ export function Header() {
             <Link
               key={l.to}
               to={l.to}
-              className="text-[13px] font-medium text-nav-muted hover:text-foreground transition-colors rounded-lg px-3 py-2 relative hover:bg-accent/50"
-              activeProps={{
-                className:
-                  "text-[13px] font-semibold text-primary rounded-lg px-3 py-2 relative bg-accent/40 after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-5 after:h-[2px] after:bg-primary after:rounded-full",
-              }}
+              className={navClass(false, "secondary" in l ? l.secondary : undefined)}
+              activeProps={{ className: navClass(true, "secondary" in l ? l.secondary : undefined) }}
               activeOptions={{ exact: l.to === "/" }}
             >
               {l.label}

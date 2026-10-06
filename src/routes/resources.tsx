@@ -4,6 +4,8 @@ import { Section, SectionHeading } from "@/components/Section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { COMPANY } from "@/lib/company";
+import { AdSlot } from "@/components/AdSlot";
+import { AD_SLOTS } from "@/lib/ads";
 import {
   Code2,
   Brain,
@@ -40,7 +42,10 @@ export const Route = createFileRoute("/resources")({
         property: "og:description",
         content: `Engineering knowledge hub: full-stack, AI, Python, and design guides from ${COMPANY.name}.`,
       },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://www.yrnovatech.in/resources" },
     ],
+    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/resources" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -48,8 +53,9 @@ export const Route = createFileRoute("/resources")({
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "YR NOVATECH Technology Resources",
+          url: "https://www.yrnovatech.in/resources",
           description: "Technical articles, architecture guides, and engineering knowledge from YR NOVATECH.",
-          publisher: { "@type": "Organization", name: "YR NOVATECH" },
+          publisher: { "@type": "Organization", name: "YR NOVATECH", url: "https://www.yrnovatech.in" },
         }),
       },
     ],
@@ -285,7 +291,9 @@ const articles: Article[] = [
 
 function Resources() {
   const [activeCategory, setActiveCategory] = useState("all");
-  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  // Articles are expanded by default so their full text is present in the
+  // server-rendered HTML. Readers can still collapse any they have finished.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const filteredArticles =
     activeCategory === "all"
@@ -318,7 +326,7 @@ function Resources() {
               key={cat.id}
               onClick={() => {
                 setActiveCategory(cat.id);
-                setExpandedArticle(null);
+                setCollapsed({});
               }}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all ${
                 activeCategory === cat.id
@@ -335,16 +343,14 @@ function Resources() {
         {/* Article list */}
         <div className="space-y-4 max-w-4xl mx-auto">
           {filteredArticles.map((article) => {
-            const isExpanded = expandedArticle === article.id;
+            const isExpanded = !collapsed[article.id];
             return (
               <Card
                 key={article.id}
                 className="border border-border overflow-hidden transition-all"
               >
                 <button
-                  onClick={() =>
-                    setExpandedArticle(isExpanded ? null : article.id)
-                  }
+                  onClick={() => setCollapsed((c) => ({ ...c, [article.id]: !c[article.id] }))}
                   className="w-full text-left p-6 flex items-start gap-4 hover:bg-accent/30 transition-colors"
                 >
                   <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0 shadow-elegant">
@@ -395,6 +401,8 @@ function Resources() {
           </div>
         )}
       </Section>
+
+      <AdSlot slot={AD_SLOTS.contentInline} className="py-2" />
 
       {/* CTA */}
       <Section className="!pt-0">
