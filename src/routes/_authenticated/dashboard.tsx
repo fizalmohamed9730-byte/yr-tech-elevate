@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, redirect, useRouteContext } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -207,7 +207,7 @@ function Dashboard() {
           setPaymentRecord(payData ?? null);
           setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : CERTIFICATE_FEE);
         } catch {
-          // Tables may not exist in production yet â€” keep defaults
+          // Tables may not exist in production yet — keep defaults
         }
       }
     } catch (err: any) {
@@ -378,7 +378,7 @@ function Dashboard() {
       {/* Welcome & Overview Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 border-b pb-4 md:pb-6 border-border/40">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} ðŸ‘‹</h1>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
           <p className="text-sm md:text-muted-foreground">{COMPANY.name} Internship Portal</p>
         </div>
       </div>
@@ -456,7 +456,7 @@ function Dashboard() {
                 {/* Step 1: Application Submitted */}
                 <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
                   <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mb-2 shadow-sm">
-                    âœ“
+                    ✓
                   </div>
                   <h4 className="font-semibold text-sm">Application Submitted</h4>
                   <p className="text-xs text-muted-foreground mt-1">Successfully registered</p>
@@ -467,7 +467,7 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     allRequiredApproved ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
                   }`}>
-                    {allRequiredApproved ? "âœ“" : "2"}
+                    {allRequiredApproved ? "✓" : "2"}
                   </div>
                   <h4 className="font-semibold text-sm">Tasks Completed & Approved</h4>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -480,11 +480,11 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     paymentRecord?.status === "paid" ? "bg-emerald-500 text-white" : allRequiredApproved ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
                   }`}>
-                    {paymentRecord?.status === "paid" ? "âœ“" : "3"}
+                    {paymentRecord?.status === "paid" ? "✓" : "3"}
                   </div>
                   <h4 className="font-semibold text-sm">Payment Verification</h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `â‚¹${certificateFee}`}
+                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `₹${certificateFee}`}
                   </p>
                 </div>
 
@@ -493,7 +493,7 @@ function Dashboard() {
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
                     internship.certificate_code ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
                   }`}>
-                    {internship.certificate_code ? "âœ“" : "4"}
+                    {internship.certificate_code ? "✓" : "4"}
                   </div>
                   <h4 className="font-semibold text-sm">Certificate Generated</h4>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -746,7 +746,7 @@ function Dashboard() {
           </Card>
         </TabsContent>
 
-        {/* Tab 5.5: Payment â€” visible to every registered intern, including the
+        {/* Tab 5.5: Payment — visible to every registered intern, including the
             grandfathered September 2026 batch who are exempt from paying. */}
         {showPaymentTab && (
           <TabsContent value="payment">
@@ -780,7 +780,7 @@ function Dashboard() {
                 <p className="text-xs text-muted-foreground text-center">Official YR NOVATECH QR Code</p>
               </div>
 
-              {/* IMPORTANT NOTE â€” displayed to ALL registered students. */}
+              {/* IMPORTANT NOTE — displayed to ALL registered students. */}
               <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500 dark:border-emerald-500 space-y-2">
                 <p className="text-sm font-bold uppercase tracking-wide text-emerald-900 dark:text-emerald-100">Important Note</p>
                 <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">{SEPTEMBER_EXEMPT_NOTICE}</p>
@@ -799,7 +799,7 @@ function Dashboard() {
                 )}
               </div>
 
-              {/* Transaction ID / UTR + optional screenshot â€” shown to ALL
+              {/* Transaction ID / UTR + optional screenshot — shown to ALL
                   registered students. Only payment-required interns submit them. */}
               <div className="border rounded-lg p-4 space-y-4">
                 <div className="space-y-2">
@@ -813,7 +813,7 @@ function Dashboard() {
                   <p className="text-xs text-muted-foreground">
                     {requiresPayment
                       ? "Required. Submitted to the Admin for payment verification."
-                      : "Optional. Not required for your batch â€” your certificate payment is exempt."}
+                      : "Optional. Not required for your batch — your certificate payment is exempt."}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -821,14 +821,6 @@ function Dashboard() {
                   <Input id="payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
                   {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached (optional).</p>}
                 </div>
-
-                {!requiresPayment && (
-                  <div className="p-3 rounded-lg bg-muted/50 border text-sm text-muted-foreground">
-                    No certificate payment submission is required for your internship. Your
-                    certificate is issued through the standard process once all required tasks are
-                    approved and an Admin releases it.
-                  </div>
-                )}
 
                 {requiresPayment && (
                   <>
@@ -1306,8 +1298,8 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
             <form onSubmit={submit} className="space-y-3">
               {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
               {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
-              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://â€¦" required /></div>}
-              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/â€¦" required /></div>}
+              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
+              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}
               <div><Label>Notes (optional)</Label><Textarea name="notes" rows={3} defaultValue={submission?.notes ?? ""} /></div>
               <Button type="submit" disabled={busy} className="w-full bg-gradient-primary text-primary-foreground">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Submit for review"}</Button>
             </form>
