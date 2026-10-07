@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createFileRoute, Link, redirect, useRouteContext } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin, Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star, CreditCard, CheckCircle } from "lucide-react";
+import {
+  Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin,
+  Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star,
+  CreditCard, CheckCircle, CheckCircle2, Clock, AlertTriangle, AlertCircle,
+  Calendar, Megaphone, Copy, Check, Sparkles, ChevronRight, ArrowRight,
+  BookOpen, Download, LayoutDashboard, Filter, RefreshCw, Info, Lock,
+  ChevronDown, Send, CheckCheck, HelpCircle, Layers, CheckSquare
+} from "lucide-react";
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
@@ -23,6 +31,7 @@ import {
   SEPTEMBER_EXEMPT_NOTICE,
   isSeptember2026Exempt,
 } from "@/lib/certificate-payment";
+import { getInitials } from "@/lib/utils";
 import { z } from "zod";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -35,37 +44,45 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-function Dashboard() {
+export function Dashboard() {
   const routeCtx = useRouteContext({ from: "/_authenticated" }) as { user?: any };
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  // Authoritative registration timestamp (profiles.created_at) used for the
-  // September 2026 certificate-payment exemption.
   const [registeredAt, setRegisteredAt] = useState<string | null>(null);
   const [internship, setInternship] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [newPassword, setNewPassword] = useState("");
   const [showForcePw, setShowForcePw] = useState(false);
   const [pwBusy, setPwBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Active navigation tab
+  const [activeTab, setActiveTab] = useState("overview");
+  const [taskFilter, setTaskFilter] = useState<"all" | "available" | "in_review" | "approved" | "resubmit">("all");
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState<TaskDef | null>(null);
+
   // Profile editing states
   const [saving, setSaving] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
 
   // Certificate payment states
   const [paymentRecord, setPaymentRecord] = useState<any>(null);
-  const [certificateFee, setCertificateFee] = useState<number>(0);
+  const [certificateFee, setCertificateFee] = useState<number>(CERTIFICATE_FEE);
   const [paymentTxId, setPaymentTxId] = useState("");
   const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null);
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  function copyToClipboard(text: string, key: string, label: string = "Copied") {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    toast.success(`${label} to clipboard`);
+    setTimeout(() => setCopiedKey(null), 2000);
+  }
 
   async function load() {
     try {
-      // Use user from route context (already validated by _authenticated beforeLoad).
-      // Avoid a redundant getUser() network call which can fail with "Failed to fetch"
-      // while the route guard's getSession() fallback already succeeded.
       let userId: string | null = routeCtx?.user?.id ?? null;
 
       if (!userId) {
@@ -81,33 +98,37 @@ function Dashboard() {
         return;
       }
 
-      // Step 1: Fetch profile and internship using ONLY columns that exist in production.
-      // Extended columns (certificate_flow_version, certificate_status, certificate_revoked_at,
-      // certificate_revoke_reason) are fetched separately in Step 2 with tolerant error handling.
+      // Step 1: Fetch profile and internship using safe production column select
       const [{ data: p, error: pErr }, { data: i, error: iErr }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password, created_at").eq("id", userId).single(),
-        supabase.from("internships").select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)").eq("student_id", userId).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("id, full_name, email, phone, college, department, year, avatar_url, github_url, linkedin_url, must_change_password, created_at")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("internships")
+          .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)")
+          .eq("student_id", userId)
+          .maybeSingle(),
       ]);
 
-      if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message, pErr.details, pErr.hint);
+      if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message);
 
-      // Registration timestamp drives the September 2026 payment exemption.
-      // It is fetched on its own so that a failure or partial result in the
-      // wider profile select above can never silently disable the exemption.
-      let registeredAt: string | null = p?.created_at ?? null;
+      let regDate: string | null = p?.created_at ?? null;
       try {
         const { data: regRow } = await supabase
           .from("profiles")
           .select("created_at")
           .eq("id", userId)
           .maybeSingle();
-        if (regRow?.created_at) registeredAt = regRow.created_at;
+        if (regRow?.created_at) regDate = regRow.created_at;
       } catch (regErr: any) {
         console.warn("[dashboard] registration date lookup failed:", regErr?.message);
       }
-      setRegisteredAt(registeredAt);
+      setRegisteredAt(regDate);
+
       if (iErr) {
-        console.error("[dashboard] internships query error:", iErr.code, iErr.message, iErr.details, iErr.hint);
+        console.error("[dashboard] internships query error:", iErr.code, iErr.message);
         setLoadError("Failed to load internship data. Database error: " + (iErr.message ?? iErr.code ?? "unknown"));
         setLoading(false);
         return;
@@ -116,31 +137,28 @@ function Dashboard() {
       setProfile(p);
       setPhoto(p?.avatar_url ?? null);
 
-      let internship = i;
-      let flowVersion = (internship as any)?.certificate_flow_version ?? "legacy";
-      let certStatus = (internship as any)?.certificate_status ?? "none";
-      let certRevokedAt = (internship as any)?.certificate_revoked_at ?? null;
-      let certRevokeReason = (internship as any)?.certificate_revoke_reason ?? null;
+      let internshipData = i;
+      let flowVersion = (internshipData as any)?.certificate_flow_version ?? "legacy";
+      let certStatus = (internshipData as any)?.certificate_status ?? "none";
+      let certRevokedAt = (internshipData as any)?.certificate_revoked_at ?? null;
+      let certRevokeReason = (internshipData as any)?.certificate_revoke_reason ?? null;
 
-      // Step 2: Fetch certificate_flow_version + revocation columns separately
-      // (tolerant of missing columns in production schema)
-      if (internship?.id) {
+      // Step 2: Fetch certificate_flow_version + revocation columns separately (tolerant)
+      if (internshipData?.id) {
         try {
           const { data: extData } = await (supabase as any)
             .from("internships")
             .select("certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason")
-            .eq("id", internship.id)
+            .eq("id", internshipData.id)
             .maybeSingle();
           if (extData?.certificate_flow_version) flowVersion = extData.certificate_flow_version;
           if (extData?.certificate_status) certStatus = extData.certificate_status;
           if (extData?.certificate_revoked_at) certRevokedAt = extData.certificate_revoked_at;
           if (extData?.certificate_revoke_reason) certRevokeReason = extData.certificate_revoke_reason;
-        } catch {
-          // Keep current fallback values
-        }
+        } catch {}
 
-        internship = {
-          ...(internship as any),
+        internshipData = {
+          ...(internshipData as any),
           certificate_flow_version: flowVersion,
           certificate_status: certStatus,
           certificate_revoked_at: certRevokedAt,
@@ -148,20 +166,21 @@ function Dashboard() {
         };
       }
 
-      if (internship?.id && !internship.offer_letter_code) {
+      // Auto-activate offer letter if needed
+      if (internshipData?.id && !internshipData.offer_letter_code) {
         try {
           const { data: upd, error: updErr } = await (supabase as any)
             .from("internships")
             .update({
               status: "active",
-              started_at: internship.started_at ?? new Date().toISOString(),
+              started_at: internshipData.started_at ?? new Date().toISOString(),
             })
-            .eq("id", internship.id)
+            .eq("id", internshipData.id)
             .select("id, student_id, domain_id, status, duration, started_at, internship_code, offer_letter_code, certificate_code, certificate_issued_at, certificate_released_by, certificate_released_at, progress_percent, completed_at, domain:domains(name,slug)")
             .maybeSingle();
           if (updErr) console.warn("[dashboard] auto-activate error:", updErr.code, updErr.message);
           if (upd) {
-            internship = {
+            internshipData = {
               ...upd,
               certificate_flow_version: flowVersion,
               certificate_status: certStatus,
@@ -170,45 +189,62 @@ function Dashboard() {
             };
           }
         } catch (err: any) {
-          console.warn("[dashboard] auto-activate internship:", err?.message);
+          console.warn("[dashboard] auto-activate internship error:", err?.message);
         }
       }
-      setInternship(internship);
+      setInternship(internshipData);
 
-      if (internship?.domain_id && (!internship.domain?.name || !internship.domain?.slug)) {
+      // Domain fallback
+      if (internshipData?.domain_id && (!internshipData.domain?.name || !internshipData.domain?.slug)) {
         try {
           const { data: domainRow, error: dErr } = await (supabase as any)
-            .from("domains").select("name, slug").eq("id", internship.domain_id).maybeSingle();
-          if (dErr) console.warn("[dashboard] domain fallback error:", dErr.code, dErr.message);
-          if (domainRow?.name && domainRow?.slug) {
-            internship = { ...internship, domain: { name: domainRow.name, slug: domainRow.slug } };
-            setInternship(internship);
+            .from("domains").select("name, slug").eq("id", internshipData.domain_id).maybeSingle();
+          if (!dErr && domainRow?.name && domainRow?.slug) {
+            internshipData = { ...internshipData, domain: { name: domainRow.name, slug: domainRow.slug } };
+            setInternship(internshipData);
           }
         } catch (err: any) {
           console.warn("[dashboard] fallback domain fetch:", err?.message);
         }
       }
 
-      if (internship?.id) {
-        const { data: s, error: sErr } = await supabase.from("submissions").select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at").eq("internship_id", internship.id).order("task_no");
-        if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message, sErr.details, sErr.hint);
-        setSubmissions(s ?? []);
+      // Submissions and Certificate Payment queries
+      if (internshipData?.id) {
+        const [{ data: s, error: sErr }, { data: annData }] = await Promise.all([
+          supabase
+            .from("submissions")
+            .select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at")
+            .eq("internship_id", internshipData.id)
+            .order("task_no"),
+          (supabase as any)
+            .from("announcements")
+            .select("id, title, body, created_at, active")
+            .eq("active", true)
+            .order("created_at", { ascending: false })
+            .catch(() => ({ data: [] })),
+        ]);
 
-        // Load certificate payment data for this intern (tolerant of missing tables)
+        if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message);
+        setSubmissions(s ?? []);
+        setAnnouncements(annData ?? []);
+
         try {
-          const [{ data: payData, error: payErr }, { data: feeData, error: feeErr }] = await Promise.all([
-            // `payment_screenshot_url` is a base64 data URL and is never rendered
-            // on this page, so it is intentionally excluded to keep the payload small.
-            supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason").eq("internship_id", internship.id).maybeSingle(),
-            supabase.from("app_settings").select("value").eq("key", "certificate_fee").maybeSingle(),
+          const [{ data: payData }, { data: feeData }] = await Promise.all([
+            supabase
+              .from("certificate_payments")
+              .select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason")
+              .eq("internship_id", internshipData.id)
+              .maybeSingle(),
+            supabase
+              .from("app_settings")
+              .select("value")
+              .eq("key", "certificate_fee")
+              .maybeSingle(),
           ]);
-          if (payErr) console.warn("[dashboard] certificate_payments query (table may not exist):", payErr.code);
-          if (feeErr) console.warn("[dashboard] app_settings query (table may not exist):", feeErr.code);
+
           setPaymentRecord(payData ?? null);
           setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : CERTIFICATE_FEE);
-        } catch {
-          // Tables may not exist in production yet — keep defaults
-        }
+        } catch {}
       }
     } catch (err: any) {
       console.error("[dashboard] load error:", err);
@@ -221,15 +257,30 @@ function Dashboard() {
     if (!internship?.id) return;
     // September 2026 batch is payment-exempt: never create a payment record.
     if (isSeptember2026Exempt(registeredAt)) return;
-    if (!paymentTxId.trim()) return toast.error("Please enter your Transaction / UTR ID");
-    if (!allRequiredApproved) return toast.error("Complete and get approval for all required tasks first");
-    if (paymentRecord?.status === "paid") return toast.error("Payment already verified");
+
+    const trimmedTxId = paymentTxId.trim();
+    if (!trimmedTxId) {
+      return toast.error("Please enter your Transaction / UTR ID");
+    }
+    if (!allRequiredApproved) {
+      return toast.error("Complete and get approval for all required tasks first");
+    }
+    if (paymentRecord?.status === "paid") {
+      return toast.error("Payment already verified");
+    }
+
     setSubmittingPayment(true);
     try {
       if (paymentRecord?.status === "rejected") {
         const { error } = await (supabase as any)
           .from("certificate_payments")
-          .update({ transaction_id: paymentTxId.trim(), payment_screenshot_url: paymentScreenshot, status: "pending_verification", rejection_reason: null })
+          .update({
+            transaction_id: trimmedTxId,
+            payment_screenshot_url: paymentScreenshot,
+            status: "pending_verification",
+            rejection_reason: null,
+            submitted_at: new Date().toISOString(),
+          })
           .eq("id", paymentRecord.id);
         if (error) {
           console.error("[dashboard] payment retry error:", error.code, error.message);
@@ -242,22 +293,23 @@ function Dashboard() {
             internship_id: internship.id,
             amount: certificateFee,
             currency: "INR",
-            transaction_id: paymentTxId.trim(),
+            transaction_id: trimmedTxId,
             payment_screenshot_url: paymentScreenshot,
             status: "pending_verification",
+            submitted_at: new Date().toISOString(),
           }, { onConflict: "internship_id" });
         if (error) {
           console.error("[dashboard] payment submit error:", error.code, error.message);
           return toast.error("Failed to submit payment: " + error.message);
         }
       }
-      toast.success("Payment submitted! Awaiting admin verification.");
+      toast.success("Payment submitted successfully. Your transaction is now pending Admin verification.");
       setPaymentTxId("");
       setPaymentScreenshot(null);
       load();
     } catch (err: any) {
       console.error("[dashboard] payment submit threw:", err?.message);
-      toast.error("Failed to submit payment");
+      toast.error("Failed to submit payment: " + (err?.message ?? "Unknown error"));
     } finally {
       setSubmittingPayment(false);
     }
@@ -278,13 +330,13 @@ function Dashboard() {
   }
 
   const profileSchema = z.object({
-    full_name: z.string().trim().min(2).max(100),
+    full_name: z.string().trim().min(2, "Full name must be at least 2 characters").max(100),
     phone: z.string().trim().max(30).optional().or(z.literal("")),
     college: z.string().trim().max(150).optional().or(z.literal("")),
     department: z.string().trim().max(100).optional().or(z.literal("")),
     year: z.string().trim().max(40).optional().or(z.literal("")),
-    github_url: z.string().trim().url().max(300).optional().or(z.literal("")),
-    linkedin_url: z.string().trim().url().max(300).optional().or(z.literal("")),
+    github_url: z.string().trim().url("Please enter a valid GitHub URL").max(300).optional().or(z.literal("")),
+    linkedin_url: z.string().trim().url("Please enter a valid LinkedIn URL").max(300).optional().or(z.literal("")),
   });
 
   async function handleSaveProfile(e: React.FormEvent<HTMLFormElement>) {
@@ -298,7 +350,7 @@ function Dashboard() {
     const { error } = await supabase.from("profiles").update(payload).eq("id", profile.id);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Profile updated");
+    toast.success("Profile details saved successfully");
     load();
   }
 
@@ -321,50 +373,35 @@ function Dashboard() {
     setProfile({ ...profile, must_change_password: false });
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  if (loading) return <div className="container mx-auto py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>;
-  if (loadError) return (
-    <div className="container mx-auto max-w-xl py-20 text-center">
-      <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
-      <p className="text-muted-foreground mb-6">{loadError}</p>
-      <p className="text-muted-foreground mb-6">Please try refreshing the page. If this persists, contact support.</p>
-      <Button onClick={() => { setLoadError(null); setLoading(true); load(); }}>Retry</Button>
-    </div>
-  );
-  if (!internship) return (
-    <div className="container mx-auto max-w-xl py-20 text-center">
-      <h1 className="text-2xl font-bold mb-2">No internship found</h1>
-      <p className="text-muted-foreground mb-6">Your account does not have an active internship. If you believe this is an error, please contact support.</p>
-      <Button asChild><Link to="/auth">Go to login</Link></Button>
-    </div>
-  );
-
-  const isAIML = internship.domain?.slug === "artificial-intelligence";
-  const isFullStack = internship.domain?.slug === "full-stack";
+  // Compute tasks & progression
+  const isAIML = internship?.domain?.slug === "artificial-intelligence";
+  const isFullStack = internship?.domain?.slug === "full-stack";
   const useDurationAwareTasks = isAIML || isFullStack;
-  const allTasks = getTasksForSlug(internship.domain?.slug, useDurationAwareTasks ? internship.duration : undefined);
+  const allTasks = internship ? getTasksForSlug(internship.domain?.slug, useDurationAwareTasks ? internship.duration : undefined) : [];
   const durationTasksCount = useDurationAwareTasks
     ? allTasks.length
-    : (internship.duration === "1 Month" ? 3 : internship.duration === "2 Months" ? 4 : 5);
+    : (internship?.duration === "1 Month" ? 3 : internship?.duration === "2 Months" ? 4 : 5);
   const tasks = useDurationAwareTasks ? allTasks : allTasks.slice(0, durationTasksCount);
-  const submissionByNo = new Map(submissions.map((s) => [s.task_no, s]));
-  const isApproved = internship.status === "active" || internship.status === "completed";
+  const submissionByNo = useMemo(() => new Map(submissions.map((s) => [s.task_no, s])), [submissions]);
 
-  // Certificate eligibility: only when admin has released it (certificate_code exists)
-  const completedTaskCount = tasks.filter((t) => submissionByNo.has(t.no)).length;
   const approvedTaskCount = tasks.filter((t) => submissionByNo.get(t.no)?.status === "approved").length;
-  // Every assigned required task must have an approved submission. Derived from
-  // the actual task list + submission records rather than a hardcoded count.
-  const allRequiredApproved = tasks.every((t) => submissionByNo.get(t.no)?.status === "approved");
+  const pendingReviewCount = tasks.filter((t) => {
+    const st = submissionByNo.get(t.no)?.status;
+    return st === "pending_review" || st === "pending";
+  }).length;
+  const resubmitCount = tasks.filter((t) => {
+    const st = submissionByNo.get(t.no)?.status;
+    return st === "rejected" || st === "resubmit";
+  }).length;
+  const remainingCount = Math.max(0, durationTasksCount - approvedTaskCount);
+  const allRequiredApproved = tasks.length > 0 && tasks.every((t) => submissionByNo.get(t.no)?.status === "approved");
 
-  // September 2026 batch: payment section is shown, but payment is never
-  // required and never gates certificate eligibility. Source of truth is the
-  // profiles.created_at written by the on_auth_user_created trigger.
   const septemberExempt = isSeptember2026Exempt(registeredAt);
-  const requiresPayment = internship.certificate_flow_version === "payment_v1" && !septemberExempt;
-  // The Payment section is visible to every registered intern. Only interns who
-  // actually require payment (post-September payment_v1) get a submission form.
+  const requiresPayment = internship?.certificate_flow_version === "payment_v1" && !septemberExempt;
   const showPaymentTab = true;
 
   function isTaskUnlocked(taskNo: number): boolean {
@@ -373,269 +410,1583 @@ function Dashboard() {
     return prevSubmission?.status === "approved";
   }
 
-  return (
-    <div className="container mx-auto px-4 py-6 md:py-10 space-y-6 md:space-y-8">
-      {/* Welcome & Overview Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 border-b pb-4 md:pb-6 border-border/40">
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Welcome, {profile?.full_name ?? "Intern"} 👋</h1>
-          <p className="text-sm md:text-muted-foreground">{COMPANY.name} Internship Portal</p>
+  // Next Action intelligence engine
+  const nextAction = useMemo(() => {
+    if (!internship) return null;
+
+    // 1. Any task rejected or needing resubmission
+    const taskNeedingResubmit = tasks.find((t) => {
+      const s = submissionByNo.get(t.no);
+      return s && (s.status === "rejected" || s.status === "resubmit");
+    });
+    if (taskNeedingResubmit) {
+      const sub = submissionByNo.get(taskNeedingResubmit.no);
+      return {
+        type: "warning" as const,
+        badge: "Action Required",
+        title: `Revise Task ${taskNeedingResubmit.no}: ${taskNeedingResubmit.title}`,
+        description: sub?.feedback
+          ? `Reviewer feedback: "${sub.feedback}"`
+          : "Your previous submission requires revisions to meet quality standards.",
+        actionLabel: "Revise Deliverables",
+        onAction: () => {
+          setActiveTab("tasks");
+          setSelectedTaskForModal(taskNeedingResubmit);
+        },
+      };
+    }
+
+    // 2. Next unlocked task not yet submitted
+    const nextUnlocked = tasks.find((t) => isTaskUnlocked(t.no) && !submissionByNo.has(t.no));
+    if (nextUnlocked) {
+      return {
+        type: "primary" as const,
+        badge: "Next Milestone",
+        title: `Submit Task ${nextUnlocked.no}: ${nextUnlocked.title}`,
+        description: nextUnlocked.description.slice(0, 130) + (nextUnlocked.description.length > 130 ? "..." : ""),
+        actionLabel: `Start Task ${nextUnlocked.no}`,
+        onAction: () => {
+          setActiveTab("tasks");
+          setSelectedTaskForModal(nextUnlocked);
+        },
+      };
+    }
+
+    // 3. Any task pending review
+    const pendingTask = tasks.find((t) => {
+      const s = submissionByNo.get(t.no);
+      return s && (s.status === "pending_review" || s.status === "pending");
+    });
+    if (pendingTask) {
+      return {
+        type: "info" as const,
+        badge: "Evaluation in Progress",
+        title: `Task ${pendingTask.no} is Awaiting Evaluation`,
+        description: "Your deliverables have been received and are currently being reviewed by the technical evaluation team.",
+        actionLabel: "View Roadmap",
+        onAction: () => setActiveTab("tasks"),
+      };
+    }
+
+    // 4. All tasks approved!
+    if (allRequiredApproved) {
+      if (internship.certificate_code) {
+        return {
+          type: "success" as const,
+          badge: "Certificate Ready",
+          title: "Certificate of Completion Issued!",
+          description: `Verified Certificate ${internship.certificate_code} is officially signed and ready for download.`,
+          actionLabel: "Download Certificate",
+          onAction: () => setActiveTab("certificate"),
+        };
+      }
+
+      if (requiresPayment) {
+        if (paymentRecord?.status === "paid") {
+          return {
+            type: "info" as const,
+            badge: "Verification Completed",
+            title: "Payment Verified — Ready for Admin Release",
+            description: "Compliance verified! Your certificate is queued for administrative digital signature.",
+            actionLabel: "View Certificate Status",
+            onAction: () => setActiveTab("certificate"),
+          };
+        }
+        if (paymentRecord?.status === "pending_verification") {
+          return {
+            type: "info" as const,
+            badge: "Verification Pending",
+            title: "Payment Verification in Progress",
+            description: `UTR ${paymentRecord.transaction_id || "submitted"} is being verified by finance administrators.`,
+            actionLabel: "Check Payment Details",
+            onAction: () => setActiveTab("certificate"),
+          };
+        }
+        if (paymentRecord?.status === "rejected") {
+          return {
+            type: "warning" as const,
+            badge: "Payment Action Needed",
+            title: "Payment Verification Notice",
+            description: paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : "Please update your transaction details to proceed.",
+            actionLabel: "Review Payment",
+            onAction: () => setActiveTab("certificate"),
+          };
+        }
+        return {
+          type: "primary" as const,
+          badge: "Final Step",
+          title: "All Tasks Approved — Submit Certificate Verification",
+          description: `All ${durationTasksCount} required deliverables approved. Complete verification to unlock certificate generation.`,
+          actionLabel: "Proceed to Payment",
+          onAction: () => setActiveTab("certificate"),
+        };
+      }
+
+      return {
+        type: "info" as const,
+        badge: "Ready for Release",
+        title: "All Milestones Completed!",
+        description: "All assigned domain tasks are approved. Your official certificate is awaiting final administrative sign-off.",
+        actionLabel: "View Certificate",
+        onAction: () => setActiveTab("certificate"),
+      };
+    }
+
+    return {
+      type: "info" as const,
+      badge: "In Progress",
+      title: "Continue Your Engineering Roadmap",
+      description: "Follow the structured curriculum and submit each project milestone for review.",
+      actionLabel: "View Tasks",
+      onAction: () => setActiveTab("tasks"),
+    };
+  }, [internship, tasks, submissionByNo, allRequiredApproved, requiresPayment, paymentRecord, durationTasksCount]);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto max-w-xl py-20 px-4 text-center">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive mb-4">
+          <AlertCircle className="h-7 w-7" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight mb-2">Unable to Load Dashboard</h1>
+        <p className="text-muted-foreground text-sm mb-6 leading-relaxed">{loadError}</p>
+        <div className="flex justify-center gap-3">
+          <Button onClick={() => { setLoadError(null); setLoading(true); load(); }} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Retry Connection
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/contact">Contact Support</Link>
+          </Button>
         </div>
       </div>
+    );
+  }
 
-      {/* Prominent Offer Letter Banner */}
-      {(internship.status === "active" || internship.status === "completed") && internship.offer_letter_code && (
-        <Card className="p-4 md:p-6 border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6 shadow-elegant">
-          <div className="space-y-1">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" /> Download Your Official Offer Letter
-            </h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              Your enrollment is approved! Download your official offer letter below.
-            </p>
+  if (!internship) {
+    return (
+      <div className="container mx-auto max-w-xl py-20 px-4 text-center">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
+          <Layers className="h-7 w-7" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight mb-2">No Active Internship Found</h1>
+        <p className="text-muted-foreground text-sm mb-6">
+          Your account does not have an active internship enrollment registered in the portal.
+        </p>
+        <Button asChild>
+          <Link to="/auth">Sign In With Another Account</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* SaaS Product Header Ribbon */}
+      <section className="border-b border-border/60 bg-gradient-to-b from-card to-background/50">
+        <div className="container mx-auto px-4 py-6 md:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* Student Profile Info */}
+            <div className="flex items-start sm:items-center gap-4">
+              <div className="relative shrink-0">
+                <Avatar className="h-16 w-16 md:h-18 md:w-18 rounded-2xl border-2 border-primary/20 shadow-sm">
+                  {photo ? (
+                    <AvatarImage src={photo} alt={profile?.full_name ?? "Intern"} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="rounded-2xl bg-primary/10 text-primary font-bold text-lg md:text-xl">
+                    {getInitials(profile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background bg-emerald-500" title="Active intern" />
+              </div>
+
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground truncate">
+                    Welcome back, {profile?.full_name?.split(" ")[0] ?? "Intern"}
+                  </h1>
+                  <Badge variant={internship.status === "completed" ? "default" : "secondary"} className="capitalize text-xs font-medium">
+                    {internship.status}
+                  </Badge>
+                  {septemberExempt && (
+                    <Badge variant="outline" className="text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 text-[11px]">
+                      Sept 2026 Batch
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                  <span className="font-semibold text-foreground">{internship.domain?.name ?? "Engineering Track"}</span>
+                  <span className="text-border">•</span>
+                  <span>{internship.duration || "1 Month"}</span>
+                  <span className="text-border">•</span>
+                  <button
+                    onClick={() => copyToClipboard(internship.internship_code, "id", "Internship ID copied")}
+                    className="group inline-flex items-center gap-1.5 font-mono text-xs font-medium px-2 py-0.5 rounded bg-muted/80 hover:bg-muted text-foreground transition-colors"
+                    title="Click to copy ID"
+                  >
+                    <span>ID: {internship.internship_code}</span>
+                    {copiedKey === "id" ? (
+                      <Check className="h-3 w-3 text-emerald-600" />
+                    ) : (
+                      <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Strip */}
+            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+              {internship.offer_letter_code && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    toast.promise(
+                      downloadOfferLetterAnywhere({
+                        studentId: profile.id,
+                        fullName: profile?.full_name ?? "Intern",
+                        domain: internship.domain?.name ?? "",
+                        domainSlug: internship.domain?.slug,
+                        internshipCode: internship.internship_code,
+                        offerCode: internship.offer_letter_code,
+                        startedAt: internship.started_at,
+                        duration: internship.duration,
+                      }),
+                      {
+                        loading: "Downloading offer letter...",
+                        success: "Offer letter downloaded!",
+                        error: "Failed to download offer letter."
+                      }
+                    );
+                  }}
+                  className="gap-1.5 text-xs h-9 shadow-sm"
+                >
+                  <FileText className="h-3.5 w-3.5 text-blue-600" /> Offer Letter
+                </Button>
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveTab("idcard")}
+                className="gap-1.5 text-xs h-9 shadow-sm"
+              >
+                <IdCard className="h-3.5 w-3.5 text-indigo-600" /> Digital ID
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={() => setActiveTab("certificate")}
+                disabled={!internship.certificate_code}
+                variant={internship.certificate_code ? "default" : "secondary"}
+                className="gap-1.5 text-xs h-9 shadow-sm"
+              >
+                <Award className="h-3.5 w-3.5" />
+                {internship.certificate_code ? "Certificate" : "Certificate Locked"}
+              </Button>
+            </div>
           </div>
-          <Button
-            onClick={() => {
-              toast.promise(
-                downloadOfferLetterAnywhere({
-                  studentId: profile.id,
-                  fullName: profile?.full_name ?? "Intern",
-                  domain: internship.domain?.name ?? "",
-                  domainSlug: internship.domain?.slug,
-                  internshipCode: internship.internship_code,
-                  offerCode: internship.offer_letter_code,
-                  startedAt: internship.started_at,
-                  duration: internship.duration,
-                }),
-                {
-                  loading: "Downloading offer letter...",
-                  success: "Downloaded successfully!",
-                  error: "Failed to download offer letter."
-                }
-              );
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-elegant px-4 md:px-6 w-full md:w-auto"
-          >
-            Download Offer Letter
-          </Button>
-        </Card>
-      )}
+        </div>
+      </section>
 
-      {/* Modern SaaS Sub-Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className={`inline-flex md:grid ${showPaymentTab ? 'md:grid-cols-8' : 'md:grid-cols-7'} w-auto md:w-full h-auto p-1 bg-muted rounded-lg gap-1`}>
-            <TabsTrigger value="dashboard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Dashboard</TabsTrigger>
-            <TabsTrigger value="tasks" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">My Tasks</TabsTrigger>
-            <TabsTrigger value="offer" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Offer Letter</TabsTrigger>
-            <TabsTrigger value="idcard" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">ID Card</TabsTrigger>
-            {showPaymentTab && (
-              <TabsTrigger value="payment" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Payment</TabsTrigger>
-            )}
-            <TabsTrigger value="certificate" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Certificate</TabsTrigger>
-            <TabsTrigger value="profile" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Profile</TabsTrigger>
-            <TabsTrigger value="feedback" className="py-2 text-xs md:text-sm whitespace-nowrap px-3">Feedback</TabsTrigger>
-          </TabsList>
+      {/* Main SaaS Dashboard Container */}
+      <main className="container mx-auto px-4 py-6 md:py-8 space-y-6 md:space-y-8">
+        {/* Next Action Intelligence Card */}
+        {nextAction && (
+          <div className={`relative overflow-hidden rounded-2xl border p-5 md:p-6 shadow-sm transition-all ${
+            nextAction.type === "warning"
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-100"
+              : nextAction.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
+              : "bg-primary/5 border-primary/20 text-foreground"
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                    {nextAction.badge}
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-lg font-semibold tracking-tight text-foreground">
+                  {nextAction.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                  {nextAction.description}
+                </p>
+              </div>
+
+              <Button
+                onClick={nextAction.onAction}
+                className="shrink-0 gap-2 shadow-sm font-medium w-full sm:w-auto"
+              >
+                {nextAction.actionLabel} <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Global Progress Metrics Strip */}
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+          <Card className="p-4 md:p-5 border-border/60 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-colors">
+            <div className="flex items-center justify-between text-muted-foreground mb-2">
+              <span className="text-xs font-medium">Approved Tasks</span>
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{approvedTaskCount}</span>
+              <span className="text-xs text-muted-foreground">/ {durationTasksCount} required</span>
+            </div>
+            <Progress value={(approvedTaskCount / (durationTasksCount || 1)) * 100} className="h-1.5 mt-3" />
+          </Card>
+
+          <Card className="p-4 md:p-5 border-border/60 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-colors">
+            <div className="flex items-center justify-between text-muted-foreground mb-2">
+              <span className="text-xs font-medium">Submissions Made</span>
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600">
+                <Upload className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{submissions.length}</span>
+              <span className="text-xs text-muted-foreground">milestones submitted</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              {pendingReviewCount > 0 ? `${pendingReviewCount} under evaluation` : "All reviews processed"}
+            </div>
+          </Card>
+
+          <Card className="p-4 md:p-5 border-border/60 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-colors">
+            <div className="flex items-center justify-between text-muted-foreground mb-2">
+              <span className="text-xs font-medium">Tasks Remaining</span>
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600">
+                <Clock className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{remainingCount}</span>
+              <span className="text-xs text-muted-foreground">tasks to complete</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 rounded-full ${remainingCount === 0 ? "bg-emerald-500" : "bg-amber-500"}`} />
+              {remainingCount === 0 ? "All requirements completed" : "Roadmap in progress"}
+            </div>
+          </Card>
+
+          <Card className="p-4 md:p-5 border-border/60 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-colors">
+            <div className="flex items-center justify-between text-muted-foreground mb-2">
+              <span className="text-xs font-medium">Certificate Status</span>
+              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600">
+                <Award className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm sm:text-base font-semibold text-foreground">
+                {internship.certificate_code ? "Released" : allRequiredApproved ? "Eligible" : "Locked"}
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-3 truncate">
+              {internship.certificate_code ? `ID: ${internship.certificate_code}` : `${remainingCount} tasks left`}
+            </div>
+          </Card>
         </div>
 
-        {/* Tab 1: Dashboard */}
-        <TabsContent value="dashboard" className="space-y-6">
-          {/* Internship Progress Flow (for new registration interns) */}
-          {internship.certificate_flow_version === 'payment_v1' && (
-            <Card className="p-4 md:p-6 border-blue-500/20 bg-blue-50/30 dark:bg-blue-950/10 space-y-6">
-              <div className="flex items-center justify-between border-b pb-3 border-border/40">
-                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2 text-blue-950 dark:text-blue-100">
-                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" /> Internship Progress
-                </h2>
-                <Badge variant="outline" className="text-xs border-blue-400 text-blue-600 dark:text-blue-300">
-                  New Registration Flow
+        {/* Tabbed Navigation System */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="inline-flex h-11 items-center justify-start rounded-xl bg-muted/60 p-1 text-muted-foreground border border-border/40 gap-1 w-max md:w-full md:grid md:grid-cols-8">
+              <TabsTrigger value="overview" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <CheckSquare className="h-3.5 w-3.5" /> Tasks
+                {resubmitCount > 0 && (
+                  <span className="h-4 w-4 rounded-full bg-rose-500 text-[10px] text-white flex items-center justify-center font-bold">
+                    {resubmitCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="offer" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <FileText className="h-3.5 w-3.5" /> Offer Letter
+              </TabsTrigger>
+              <TabsTrigger value="idcard" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <IdCard className="h-3.5 w-3.5" /> ID Card
+              </TabsTrigger>
+              <TabsTrigger value="certificate" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <Award className="h-3.5 w-3.5" /> Certificate
+              </TabsTrigger>
+              {showPaymentTab && (
+                <TabsTrigger value="payment" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                  <CreditCard className="h-3.5 w-3.5" /> Payment
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="announcements" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <Megaphone className="h-3.5 w-3.5" /> Announcements
+                {announcements.length > 0 && (
+                  <span className="h-4 px-1.5 rounded-full bg-primary/20 text-[10px] text-primary flex items-center justify-center font-bold">
+                    {announcements.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="feedback" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                <MessageSquare className="h-3.5 w-3.5" /> Feedback
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* ==============================================================
+              TAB 1: OVERVIEW
+             ============================================================== */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Internship Progress Flowchart */}
+            <Card className="p-5 md:p-6 border-border/60 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold tracking-tight text-foreground flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" /> Program Milestone Roadmap
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                    End-to-end certification workflow from registration to verified release.
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs w-max">
+                  {approvedTaskCount} of {durationTasksCount} Completed
                 </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative">
-                {/* Step 1: Application Submitted */}
-                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold mb-2 shadow-sm">
-                    ✓
+                {/* Milestone 1: Application Verified */}
+                <div className="flex flex-col p-4 rounded-xl border bg-card/60 shadow-sm relative space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 1</span>
+                    <div className="h-7 w-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                      ✓
+                    </div>
                   </div>
-                  <h4 className="font-semibold text-sm">Application Submitted</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Successfully registered</p>
+                  <h4 className="font-semibold text-sm text-foreground">Enrollment & Offer</h4>
+                  <p className="text-xs text-muted-foreground">Application verified and official offer issued.</p>
                 </div>
 
-                {/* Step 2: Tasks Completed & Approved */}
-                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
-                    allRequiredApproved ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
-                  }`}>
-                    {allRequiredApproved ? "✓" : "2"}
+                {/* Milestone 2: Technical Tasks */}
+                <div className={`flex flex-col p-4 rounded-xl border shadow-sm relative space-y-2 ${
+                  allRequiredApproved ? "bg-card/60 border-emerald-500/30" : "bg-card/80 border-primary/30"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 2</span>
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                      allRequiredApproved ? "bg-emerald-500 text-white" : "bg-primary text-primary-foreground"
+                    }`}>
+                      {allRequiredApproved ? "✓" : "2"}
+                    </div>
                   </div>
-                  <h4 className="font-semibold text-sm">Tasks Completed & Approved</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {approvedTaskCount} / {durationTasksCount} tasks approved
+                  <h4 className="font-semibold text-sm text-foreground">Task Evaluations</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {approvedTaskCount} / {durationTasksCount} tasks approved by evaluation team.
                   </p>
                 </div>
 
-                {/* Step 3: Payment Verification */}
-                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
-                    paymentRecord?.status === "paid" ? "bg-emerald-500 text-white" : allRequiredApproved ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {paymentRecord?.status === "paid" ? "✓" : "3"}
+                {/* Milestone 3: Compliance & Verification */}
+                <div className="flex flex-col p-4 rounded-xl border bg-card/60 shadow-sm relative space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 3</span>
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                      septemberExempt || paymentRecord?.status === "paid"
+                        ? "bg-emerald-500 text-white"
+                        : allRequiredApproved
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {septemberExempt || paymentRecord?.status === "paid" ? "✓" : "3"}
+                    </div>
                   </div>
-                  <h4 className="font-semibold text-sm">Payment Verification</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {paymentRecord?.status === "paid" ? "Payment verified" : paymentRecord?.status === "pending_verification" ? "Verification pending" : `₹${certificateFee}`}
+                  <h4 className="font-semibold text-sm text-foreground">
+                    {septemberExempt ? "Exemption Cleared" : "Verification"}
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    {septemberExempt
+                      ? "September 2026 batch payment-exempt."
+                      : paymentRecord?.status === "paid"
+                      ? "Fee verification confirmed."
+                      : paymentRecord?.status === "pending_verification"
+                      ? "Verification in review."
+                      : `₹${certificateFee} certification verification.`}
                   </p>
                 </div>
 
-                {/* Step 4: Certificate Generated */}
-                <div className="flex flex-col items-center text-center p-4 rounded-xl border bg-card/80 shadow-sm relative">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 shadow-sm ${
-                    internship.certificate_code ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {internship.certificate_code ? "✓" : "4"}
+                {/* Milestone 4: Certificate Released */}
+                <div className="flex flex-col p-4 rounded-xl border bg-card/60 shadow-sm relative space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 4</span>
+                    <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                      internship.certificate_code ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                    }`}>
+                      {internship.certificate_code ? "✓" : "4"}
+                    </div>
                   </div>
-                  <h4 className="font-semibold text-sm">Certificate Generated</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {internship.certificate_code ? "Certificate available" : "Get your certificate"}
+                  <h4 className="font-semibold text-sm text-foreground">Official Certificate</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {internship.certificate_code ? "Certificate available to download." : "Digital release by Admin."}
                   </p>
                 </div>
               </div>
             </Card>
-          )}
 
-          <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
-            <Stat label="Internship ID" value={internship.internship_code} mono />
-            <Stat label="College" value={(profile as any).college || "-"} />
-            <Stat label="Academic Year" value={(profile as any).year || "-"} />
-            <Stat label="Domain" value={internship.domain?.name ?? "-"} />
-            <Stat label="Duration" value={internship.duration || "1 Month"} />
-            <Stat label="Status" value={<Badge variant={internship.status === "completed" ? "default" : "secondary"} className="text-xs">{internship.status}</Badge>} />
-          </div>
+            {/* Program Information & Quick Credentials */}
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card className="p-5 border-border/60 shadow-sm md:col-span-2 space-y-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                  <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary" /> Enrollment Details
+                  </h3>
+                  <Badge variant="outline" className="text-xs">
+                    {COMPANY.udyam}
+                  </Badge>
+                </div>
 
-          <Card className="p-4 md:p-6 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
-              <h2 className="text-lg md:text-xl font-semibold">Progress</h2>
-              <div className="text-sm text-muted-foreground flex flex-col md:flex-row md:space-x-4 gap-1 md:gap-0">
-                <span>{approvedTaskCount} / {durationTasksCount} tasks approved</span>
-                <span className="font-medium text-foreground">{Math.max(0, durationTasksCount - approvedTaskCount)} tasks remaining</span>
-              </div>
-            </div>
-            <Progress value={internship.progress_percent} />
-          </Card>
-
-          <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-            <Card className="p-4 md:p-6 space-y-4">
-              <h3 className="font-semibold text-base md:text-lg flex items-center gap-2"><IdCard className="h-5 w-5 text-primary flex-shrink-0" /> Internship ID Card Preview</h3>
-              <div className="flex justify-center bg-muted/30 p-3 md:p-4 rounded-lg">
-                <div className="w-[160px] md:w-[180px] h-[250px] md:h-[280px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[7px] md:text-[8px]">
-                  {/* Header */}
-                  <div className="bg-primary text-primary-foreground p-2 md:p-2.5 text-center">
-                    <div className="font-bold text-[9px] md:text-[10px]">{COMPANY.name}</div>
-                    <div className="text-[4px] md:text-[5px] opacity-80">{COMPANY.tagline}</div>
-                    <div className="font-semibold mt-0.5 text-[7px] md:text-[8px]">INTERN ID CARD</div>
-                    <div className="text-[3px] md:text-[4px] opacity-70 mt-0.5">Udyam: {COMPANY.udyam}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs sm:text-sm">
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">Internship ID</div>
+                    <div className="font-mono font-semibold text-foreground mt-1">{internship.internship_code}</div>
                   </div>
-                  {/* Photo */}
-                  <div className="flex justify-center pt-2 md:pt-3">
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">Engineering Domain</div>
+                    <div className="font-medium text-foreground mt-1 truncate">{internship.domain?.name ?? "-"}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">Duration</div>
+                    <div className="font-medium text-foreground mt-1">{internship.duration || "1 Month"}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">College / University</div>
+                    <div className="font-medium text-foreground mt-1 truncate">{profile?.college || "Not specified"}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">Academic Year</div>
+                    <div className="font-medium text-foreground mt-1">{profile?.year || "Not specified"}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-[11px] text-muted-foreground">Started Date</div>
+                    <div className="font-medium text-foreground mt-1">
+                      {internship.started_at ? new Date(internship.started_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    Need to update your college, phone, or portfolio links?
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setActiveTab("profile")} className="w-full sm:w-auto text-xs">
+                    Edit Profile Details
+                  </Button>
+                </div>
+              </Card>
+
+              {/* ID Card Quick Snapshot */}
+              <Card className="p-5 border-border/60 shadow-sm flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
+                      <IdCard className="h-4 w-4 text-primary" /> Digital ID Card
+                    </h3>
+                    <Badge variant="outline" className="text-xs">
+                      Verified
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    Official digital credential for identity verification during project reviews and corporate submissions.
+                  </p>
+                </div>
+
+                <div className="flex justify-center py-2">
+                  <div className="w-[170px] h-[240px] rounded-xl border border-primary/20 bg-gradient-to-b from-card to-muted/40 shadow-md p-3 flex flex-col items-center justify-between text-center relative overflow-hidden">
+                    <div className="w-full bg-primary/10 text-primary rounded py-1 text-[9px] font-bold tracking-tight">
+                      {COMPANY.name}
+                    </div>
                     {photo ? (
-                      <img src={photo} alt="Student" className="w-14 h-16 md:w-16 md:h-[72px] rounded object-cover border" />
+                      <img src={photo} alt="Avatar" className="w-16 h-18 rounded-lg object-cover border shadow-sm" />
                     ) : (
-                      <div className="w-14 h-16 md:w-16 md:h-[72px] bg-muted flex items-center justify-center text-muted-foreground border text-[6px]">No Photo</div>
+                      <div className="w-16 h-18 rounded-lg bg-muted flex items-center justify-center text-[10px] text-muted-foreground border">
+                        No Photo
+                      </div>
                     )}
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-[10px] truncate max-w-[140px] text-foreground">{profile?.full_name}</div>
+                      <div className="font-mono text-[8px] text-muted-foreground">{internship.internship_code}</div>
+                    </div>
+                    <div className="w-full border-t border-border/60 pt-1 text-[7px] text-muted-foreground">
+                      Udyam: {COMPANY.udyam}
+                    </div>
                   </div>
-                  {/* Name */}
-                  <div className="text-center px-2 pt-1.5">
-                    <div className="font-bold text-[8px] md:text-[9px] leading-tight">{profile?.full_name}</div>
-                  </div>
-                  {/* Divider */}
-                  <div className="mx-2 mt-1 border-t border-primary/30" />
-                  {/* Info */}
-                  <div className="flex-1 px-2.5 pt-1.5 space-y-[3px] text-[5px] md:text-[6px]">
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">ID</span><span className="font-mono font-semibold text-right">{internship.internship_code}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Domain</span><span className="text-right leading-tight max-w-[90px]">{internship.domain?.name}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Duration</span><span>{internship.duration || "1 Month"}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Issue</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Valid</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Email</span><span className="truncate max-w-[90px] text-right">{profile?.email}</span></div>
-                  </div>
-                  {/* Footer */}
-                  <div className="bg-slate-900 h-1 mt-auto" />
+                </div>
+
+                <Button variant="outline" size="sm" onClick={() => setActiveTab("idcard")} className="w-full text-xs">
+                  View Full Card & Download
+                </Button>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 2: TASKS & ROADMAP
+             ============================================================== */}
+          <TabsContent value="tasks" className="space-y-6">
+            <Card className="p-5 md:p-6 border-border/60 shadow-sm space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold tracking-tight text-foreground flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-primary" /> Internship Tasks — {internship.domain?.name}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                    Submit deliverables for each milestone sequentially. Each task unlocks once the preceding task is approved.
+                  </p>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant={taskFilter === "all" ? "default" : "outline"}
+                    onClick={() => setTaskFilter("all")}
+                    className="h-8 text-xs rounded-lg"
+                  >
+                    All ({tasks.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={taskFilter === "available" ? "default" : "outline"}
+                    onClick={() => setTaskFilter("available")}
+                    className="h-8 text-xs rounded-lg"
+                  >
+                    To Do
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={taskFilter === "in_review" ? "default" : "outline"}
+                    onClick={() => setTaskFilter("in_review")}
+                    className="h-8 text-xs rounded-lg"
+                  >
+                    In Review ({pendingReviewCount})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={taskFilter === "approved" ? "default" : "outline"}
+                    onClick={() => setTaskFilter("approved")}
+                    className="h-8 text-xs rounded-lg"
+                  >
+                    Approved ({approvedTaskCount})
+                  </Button>
                 </div>
               </div>
-              <Button onClick={() => setActiveTab("idcard")} variant="outline" className="w-full">Manage ID Card</Button>
-            </Card>
 
-            <Card className="p-4 md:p-6 flex flex-col justify-between">
-              <div>
-                <h3 className="font-semibold text-base md:text-lg flex items-center gap-2 mb-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your YR NOVATECH internship certificate is available after all required tasks ({durationTasksCount}) are approved by Admin and the certificate is released.
+              {/* Task Roadmap List */}
+              <div className="space-y-4">
+                {tasks
+                  .filter((t) => {
+                    const sub = submissionByNo.get(t.no);
+                    const unlocked = isTaskUnlocked(t.no);
+                    if (taskFilter === "approved") return sub?.status === "approved";
+                    if (taskFilter === "in_review") return sub?.status === "pending_review" || sub?.status === "pending";
+                    if (taskFilter === "available") return unlocked && (!sub || sub?.status === "rejected" || sub?.status === "resubmit");
+                    return true;
+                  })
+                  .map((t) => (
+                    <TaskCard
+                      key={t.no}
+                      task={t}
+                      submission={submissionByNo.get(t.no)}
+                      unlocked={isTaskUnlocked(t.no)}
+                      profile={profile}
+                      internship={internship}
+                      onOpenSubmit={() => setSelectedTaskForModal(t)}
+                    />
+                  ))}
+
+                {tasks.length === 0 && (
+                  <div className="text-center py-12 text-sm text-muted-foreground">
+                    No curriculum tasks mapped for domain slug <code className="bg-muted px-1.5 py-0.5 rounded">{internship.domain?.slug ?? "unknown"}</code>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 3: OFFER LETTER
+             ============================================================== */}
+          <TabsContent value="offer" className="space-y-6">
+            <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" /> Official Offer Letter
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Verified internship enrollment document issued by {COMPANY.name}.
+                  </p>
+                </div>
+                <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-xs">
+                  Approved & Signed
+                </Badge>
+              </div>
+
+              <div className="p-4 rounded-xl bg-muted/40 border border-border/40 space-y-3 text-xs sm:text-sm">
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Offer Letter Code</span>
+                  <span className="font-mono font-semibold text-foreground">{internship.offer_letter_code ?? "Pending"}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Internship ID</span>
+                  <span className="font-mono font-semibold text-foreground">{internship.internship_code}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">MSME Udyam Registration</span>
+                  <span className="font-medium text-foreground">{COMPANY.udyam}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Engineering Track</span>
+                  <span className="font-medium text-foreground">{internship.domain?.name}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Duration</span>
+                  <span className="font-medium text-foreground">{internship.duration || "1 Month"}</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground">Issue Status</span>
+                  <span className="font-medium text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" /> Digitally Signed
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-blue-500/20 bg-blue-50/40 dark:bg-blue-950/20 p-4 text-xs sm:text-sm text-blue-900 dark:text-blue-200 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Linkedin className="h-4 w-4 text-blue-600" /> Milestone Task 1 Deliverable
+                </div>
+                <p className="leading-relaxed">
+                  Download this official offer letter and publish a post on your LinkedIn profile announcing your internship.
+                  Submit the post URL in Task 1 for approval.
                 </p>
               </div>
-              <Button onClick={() => setActiveTab("certificate")} className="w-full bg-gradient-primary text-primary-foreground mt-4 md:mt-6">View Certificate Status</Button>
-            </Card>
-          </div>
-        </TabsContent>
 
-        {/* Tab 2: Tasks */}
-        <TabsContent value="tasks">
-          <Card className="p-4 md:p-6">
-            <h2 className="text-lg md:text-xl font-semibold mb-2">Internship Tasks ({internship.domain?.name})</h2>
-            <p className="text-sm text-muted-foreground mb-4 md:mb-6">
-              Complete each task and submit it for admin review. Each task unlocks after the previous task is approved.
-            </p>
-            <div className="space-y-3 md:space-y-4">
-              {tasks.map((t) => (
-                <TaskRow
-                  key={t.no}
-                  task={t}
-                  submission={submissionByNo.get(t.no)}
-                  internshipId={internship.id}
-                  locked={!isTaskUnlocked(t.no)}
-                  onUpdated={load}
-                  profile={profile}
-                  internship={internship}
-                />
-              ))}
-              {tasks.length === 0 && (
-                <div className="text-center py-6 text-sm text-muted-foreground">
-                  No tasks found. Domain slug: <code className="bg-muted px-1 rounded">{internship.domain?.slug ?? "undefined"}</code>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button
+                  onClick={() => {
+                    toast.promise(
+                      downloadOfferLetterAnywhere({
+                        studentId: profile.id,
+                        fullName: profile?.full_name ?? "Intern",
+                        domain: internship.domain?.name ?? "",
+                        domainSlug: internship.domain?.slug,
+                        internshipCode: internship.internship_code,
+                        offerCode: internship.offer_letter_code,
+                        startedAt: internship.started_at,
+                        duration: internship.duration,
+                      }),
+                      {
+                        loading: "Generating official offer letter PDF...",
+                        success: "Downloaded successfully!",
+                        error: "Failed to download offer letter."
+                      }
+                    );
+                  }}
+                  className="flex-1 gap-2 font-medium"
+                >
+                  <Download className="h-4 w-4" /> Download Official PDF
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    toast.promise(
+                      viewOfferLetterFromStorage(profile.id),
+                      {
+                        loading: "Opening in-browser preview...",
+                        success: "Preview opened!",
+                        error: "Failed to open preview."
+                      }
+                    );
+                  }}
+                >
+                  <Eye className="h-4 w-4" /> In-Browser Preview
+                </Button>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 4: DIGITAL ID CARD
+             ============================================================== */}
+          <TabsContent value="idcard" className="space-y-6">
+            <Card className="p-6 md:p-8 max-w-md mx-auto border-border/60 shadow-sm space-y-6 text-center">
+              <div>
+                <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center justify-center gap-2">
+                  <IdCard className="h-5 w-5 text-primary" /> Digital Intern ID Card
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                  Official credential issued by {COMPANY.name}.
+                </p>
+              </div>
+
+              {/* Realistic High-Fidelity ID Card */}
+              <div className="flex justify-center py-2">
+                <div className="w-[220px] h-[340px] rounded-2xl border-2 border-primary/30 bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[9px]">
+                  {/* Top Header */}
+                  <div className="bg-primary text-primary-foreground p-3 text-center">
+                    <div className="font-extrabold text-[12px] tracking-tight">{COMPANY.name}</div>
+                    <div className="text-[6px] opacity-80">{COMPANY.tagline}</div>
+                    <div className="font-semibold mt-1 text-[8px] tracking-wider uppercase bg-primary-foreground/15 rounded py-0.5">
+                      INTERN ID CARD
+                    </div>
+                    <div className="text-[5px] opacity-75 mt-0.5">MSME Udyam: {COMPANY.udyam}</div>
+                  </div>
+
+                  {/* Student Photo */}
+                  <div className="flex justify-center pt-3">
+                    {photo ? (
+                      <img src={photo} alt="Student" className="w-[80px] h-[90px] rounded-lg object-cover border shadow-sm" />
+                    ) : (
+                      <div className="w-[80px] h-[90px] bg-muted rounded-lg flex flex-col items-center justify-center text-muted-foreground border text-[8px] gap-1">
+                        <User className="h-5 w-5 opacity-40" />
+                        <span>No Photo</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Student Name */}
+                  <div className="text-center px-3 pt-2">
+                    <div className="font-bold text-[11px] leading-tight text-foreground truncate">{profile?.full_name}</div>
+                  </div>
+
+                  <div className="mx-3 mt-1.5 border-t border-border/60" />
+
+                  {/* ID Details */}
+                  <div className="flex-1 px-3 pt-2 space-y-1 text-[7.5px]">
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Intern ID</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Domain</span><span className="text-right leading-tight max-w-[120px] truncate">{internship.domain?.name}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Duration</span><span>{internship.duration || "1 Month"}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Issued</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground font-medium">Email</span><span className="truncate max-w-[110px] text-right">{profile?.email}</span></div>
+                  </div>
+
+                  {/* Bottom Accent */}
+                  <div className="bg-slate-900 h-2 mt-auto" />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Button
+                  onClick={() => downloadIdCard({
+                    fullName: profile?.full_name ?? "Intern",
+                    internshipCode: internship.internship_code,
+                    domain: internship.domain?.name ?? "",
+                    photoDataUrl: profile?.avatar_url,
+                    email: profile?.email,
+                    duration: internship.duration,
+                  }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
+                  className="w-full gap-2 font-medium"
+                >
+                  <Download className="h-4 w-4" /> Download PDF ID Card
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveTab("profile")}
+                  className="w-full text-xs"
+                >
+                  Update Photo in Profile
+                </Button>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 5: CERTIFICATE
+             ============================================================== */}
+          <TabsContent value="certificate" className="space-y-6">
+            <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Award className="h-5 w-5 text-primary" /> Certificate of Completion
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Official verifiable certificate issued upon successful completion of all internship tasks.
+                  </p>
+                </div>
+
+                {internship.certificate_status === "revoked" ? (
+                  <Badge className="bg-rose-600 text-white text-xs">Revoked</Badge>
+                ) : internship.certificate_code ? (
+                  <Badge className="bg-emerald-600 text-white text-xs">Released</Badge>
+                ) : allRequiredApproved ? (
+                  <Badge className="bg-amber-500 text-white text-xs">Pending Release</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Locked ({approvedTaskCount}/{durationTasksCount})
+                  </Badge>
+                )}
+              </div>
+
+              {/* Exact September 2026 Batch Policy Box */}
+              <SeptemberExemptionNotice />
+
+              {/* Multi-State Status Cards */}
+              <div className="p-4 rounded-xl bg-muted/40 border border-border/40 space-y-3 text-xs sm:text-sm">
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Certificate Status</span>
+                  <span className="font-semibold text-foreground">
+                    {internship.certificate_status === "revoked"
+                      ? "Revoked"
+                      : internship.certificate_code
+                      ? "Digitally Issued"
+                      : allRequiredApproved
+                      ? "Awaiting Admin Release"
+                      : "Locked"}
+                  </span>
+                </div>
+                {internship.certificate_code && (
+                  <div className="flex justify-between items-center py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">Certificate ID Code</span>
+                    <span className="font-mono font-bold text-primary">{internship.certificate_code}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-1 border-b border-border/30">
+                  <span className="text-muted-foreground">Curriculum Deliverables</span>
+                  <span className="font-medium text-foreground">{approvedTaskCount} of {durationTasksCount} Approved</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground">Issuing Authority</span>
+                  <span className="font-medium text-foreground">{COMPANY.name}</span>
+                </div>
+              </div>
+
+              {/* State Explanations */}
+              {!internship.certificate_code && !allRequiredApproved && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs sm:text-sm space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" /> Certification Requirements Pending
+                  </div>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    You have {remainingCount} remaining tasks to get approved by the evaluation team. Once all required tasks are approved, your certificate will become eligible.
+                  </p>
                 </div>
               )}
-            </div>
-          </Card>
-        </TabsContent>
 
-        {/* Tab 4: Offer Letter */}
-        <TabsContent value="offer">
-          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
-            <div className="flex items-center justify-between border-b pb-3 md:pb-4">
-              <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><FileText className="h-5 w-5 text-blue-600 flex-shrink-0" /> Offer Letter Details</h2>
-              <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 text-xs">Approved</Badge>
-            </div>
-            
-            <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
-              <div className="flex justify-between border-b pb-2 gap-2">
-                <span className="text-muted-foreground">Offer ID Code:</span>
-                <span className="font-mono font-semibold text-right">{internship.offer_letter_code ?? "Pending"}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2 gap-2">
-                <span className="text-muted-foreground">Internship ID:</span>
-                <span className="font-mono font-semibold text-right">{internship.internship_code}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2 gap-2">
-                <span className="text-muted-foreground">Udyam Registration:</span>
-                <span className="font-semibold text-right">{COMPANY.udyam}</span>
-              </div>
-              <div className="flex justify-between border-b pb-2 gap-2">
-                <span className="text-muted-foreground">Issue Status:</span>
-                <span className="text-emerald-600 font-semibold">Approved & Signed</span>
-              </div>
-            </div>
+              {!internship.certificate_code && allRequiredApproved && septemberExempt && (
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-900 dark:text-blue-200 text-xs sm:text-sm space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" /> All Tasks Approved & Exemption Cleared!
+                  </div>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    Your batch is exempt from payment. Your certificate is queued for digital signature and release by the Administrator.
+                  </p>
+                </div>
+              )}
 
-            <div className="flex flex-col sm:flex-row gap-2 md:gap-3 pt-2">
+              {!internship.certificate_code && allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" && (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Payment Verified & Requirements Met!
+                  </div>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    Your verification payment is confirmed. Your certificate is queued for digital signature and release by the Administrator.
+                  </p>
+                </div>
+              )}
+
+              {internship.certificate_status === "revoked" && (
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-900 dark:text-rose-200 text-xs sm:text-sm space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4" /> Certificate Revoked
+                  </div>
+                  <p className="text-xs">Reason: {internship.certificate_revoke_reason || "Administrative review."}</p>
+                </div>
+              )}
+
               <Button
+                disabled={!internship.certificate_code || internship.certificate_status === "revoked"}
+                onClick={() => downloadCertificate({
+                  fullName: profile?.full_name ?? "Intern",
+                  domain: internship.domain?.name ?? "",
+                  internshipCode: internship.internship_code,
+                  certificateCode: internship.certificate_code,
+                  issuedAt: internship.certificate_issued_at,
+                  duration: internship.duration,
+                }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
+                className="w-full gap-2 font-medium"
+              >
+                <Download className="h-4 w-4" />
+                {internship.certificate_status === "revoked"
+                  ? "Certificate Revoked"
+                  : internship.certificate_code
+                  ? "Download Official Certificate PDF"
+                  : "Certificate Locked"}
+              </Button>
+            </Card>
+
+            {/* Embedded Payment Desk inside Certificate tab for non-exempt students */}
+            {requiresPayment && !internship.certificate_code && (
+              <div className="pt-2">
+                <CertificatePaymentDesk
+                  certificateFee={certificateFee}
+                  paymentTxId={paymentTxId}
+                  setPaymentTxId={setPaymentTxId}
+                  paymentScreenshot={paymentScreenshot}
+                  onPaymentScreenshot={onPaymentScreenshot}
+                  submittingPayment={submittingPayment}
+                  submitCertificatePayment={submitCertificatePayment}
+                  paymentRecord={paymentRecord}
+                  allRequiredApproved={allRequiredApproved}
+                  approvedTaskCount={approvedTaskCount}
+                  durationTasksCount={durationTasksCount}
+                  requiresPayment={requiresPayment}
+                  copiedKey={copiedKey}
+                  copyToClipboard={copyToClipboard}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 6: PAYMENT
+             ============================================================== */}
+          {showPaymentTab && (
+            <TabsContent value="payment" className="space-y-6">
+              <CertificatePaymentDesk
+                certificateFee={certificateFee}
+                paymentTxId={paymentTxId}
+                setPaymentTxId={setPaymentTxId}
+                paymentScreenshot={paymentScreenshot}
+                onPaymentScreenshot={onPaymentScreenshot}
+                submittingPayment={submittingPayment}
+                submitCertificatePayment={submitCertificatePayment}
+                paymentRecord={paymentRecord}
+                allRequiredApproved={allRequiredApproved}
+                approvedTaskCount={approvedTaskCount}
+                durationTasksCount={durationTasksCount}
+                requiresPayment={requiresPayment}
+                copiedKey={copiedKey}
+                copyToClipboard={copyToClipboard}
+              />
+            </TabsContent>
+          )}
+
+          {/* ==============================================================
+              TAB 7: ANNOUNCEMENTS
+             ============================================================== */}
+          <TabsContent value="announcements" className="space-y-6">
+            <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Megaphone className="h-5 w-5 text-primary" /> Official Announcements
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Program bulletins, schedule updates, and system notices.
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {announcements.length} Posted
+                </Badge>
+              </div>
+
+              <div className="space-y-4">
+                {announcements.map((ann) => (
+                  <div key={ann.id} className="p-4 rounded-xl border border-border/50 bg-card/60 shadow-sm space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <h4 className="font-semibold text-sm md:text-base text-foreground">{ann.title}</h4>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">
+                        {new Date(ann.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      </Badge>
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                      {ann.body}
+                    </p>
+                  </div>
+                ))}
+
+                {announcements.length === 0 && (
+                  <div className="text-center py-12 space-y-2">
+                    <Megaphone className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+                    <h4 className="font-semibold text-sm text-foreground">No Announcements Yet</h4>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                      Any schedule changes or program bulletins will appear here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 8: FEEDBACK
+             ============================================================== */}
+          <TabsContent value="feedback" className="space-y-6">
+            <FeedbackPanel profile={profile} />
+          </TabsContent>
+
+          {/* ==============================================================
+              TAB 9: PROFILE
+             ============================================================== */}
+          <TabsContent value="profile" className="space-y-6">
+            <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" /> Profile Settings & Credentials
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Manage your personal information and student credentials.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-5">
+                {/* Avatar Uploader */}
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border/40">
+                  <Avatar className="h-16 w-16 rounded-xl border">
+                    {photo ? <AvatarImage src={photo} className="object-cover" /> : null}
+                    <AvatarFallback className="rounded-xl font-bold">{getInitials(profile?.full_name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <Label className="text-xs font-semibold">Profile Photo (Max 600KB)</Label>
+                    <Input type="file" accept="image/*" onChange={onPhoto} className="text-xs" />
+                    <p className="text-[11px] text-muted-foreground">Used on your verified digital ID card.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Email Address (Read-Only)</Label>
+                  <Input value={profile?.email ?? ""} disabled className="bg-muted text-muted-foreground text-xs" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="full_name" className="text-xs font-semibold">Full Legal Name</Label>
+                  <Input id="full_name" name="full_name" defaultValue={profile?.full_name ?? ""} required className="text-xs" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone" className="text-xs font-semibold">Contact Phone</Label>
+                    <Input id="phone" name="phone" defaultValue={profile?.phone ?? ""} className="text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="year" className="text-xs font-semibold">Academic Year</Label>
+                    <Input id="year" name="year" defaultValue={profile?.year ?? ""} placeholder="e.g. 3rd Year" className="text-xs" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="college" className="text-xs font-semibold">College / University</Label>
+                    <Input id="college" name="college" defaultValue={profile?.college ?? ""} className="text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="department" className="text-xs font-semibold">Department / Stream</Label>
+                    <Input id="department" name="department" defaultValue={profile?.department ?? ""} placeholder="e.g. Computer Science" className="text-xs" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="github_url" className="text-xs font-semibold">GitHub Profile URL</Label>
+                  <Input id="github_url" name="github_url" type="url" defaultValue={profile?.github_url ?? ""} placeholder="https://github.com/username" className="text-xs" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="linkedin_url" className="text-xs font-semibold">LinkedIn Profile URL</Label>
+                  <Input id="linkedin_url" name="linkedin_url" type="url" defaultValue={profile?.linkedin_url ?? ""} placeholder="https://linkedin.com/in/username" className="text-xs" />
+                </div>
+
+                <Button type="submit" disabled={saving} className="w-full gap-2 font-medium">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Profile Details"}
+                </Button>
+              </form>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+
+      {/* Focused Task Submission Dialog */}
+      {selectedTaskForModal && (
+        <TaskSubmissionModal
+          task={selectedTaskForModal}
+          submission={submissionByNo.get(selectedTaskForModal.no)}
+          internshipId={internship.id}
+          open={!!selectedTaskForModal}
+          onClose={() => setSelectedTaskForModal(null)}
+          onSuccess={() => {
+            setSelectedTaskForModal(null);
+            load();
+          }}
+        />
+      )}
+
+      {/* Force Change Password Dialog */}
+      <Dialog open={!!profile?.must_change_password}>
+        <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Secure Password Required</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleForceChangePassword} className="space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              You are currently logged in with your temporary default credentials. Please choose a secure password to protect your internship records.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="force-pw">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="force-pw"
+                  type={showForcePw ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimum 6 characters"
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowForcePw(!showForcePw)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showForcePw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <Button type="submit" disabled={pwBusy} className="w-full font-medium">
+              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Password & Continue"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* =========================================================================
+   SEPTEMBER EXEMPTION NOTICE (EXACT WORDING COMPONENT)
+   ========================================================================= */
+function SeptemberExemptionNotice() {
+  return (
+    <div className="p-4 sm:p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500/50 space-y-2">
+      <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+        IMPORTANT BATCH POLICY
+      </p>
+      <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+        SEPTEMBER REGISTERED STUDENTS BATCH DOESN&rsquo;T HAVE TO PAY FOR THE CERTIFICATE.
+      </p>
+      <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 leading-relaxed">
+        Only September 2026 registered students are exempt. For all other batches, verification payment of &#8377;100 is required after completing all internship tasks.
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================================
+   CERTIFICATE PAYMENT DESK (ENLARGED QR & TRANSACTION ID DESK)
+   ========================================================================= */
+function CertificatePaymentDesk({
+  certificateFee,
+  paymentTxId,
+  setPaymentTxId,
+  paymentScreenshot,
+  onPaymentScreenshot,
+  submittingPayment,
+  submitCertificatePayment,
+  paymentRecord,
+  allRequiredApproved,
+  approvedTaskCount,
+  durationTasksCount,
+  requiresPayment,
+  copiedKey,
+  copyToClipboard,
+}: {
+  certificateFee: number;
+  paymentTxId: string;
+  setPaymentTxId: (val: string) => void;
+  paymentScreenshot: string | null;
+  onPaymentScreenshot: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  submittingPayment: boolean;
+  submitCertificatePayment: () => void;
+  paymentRecord: any;
+  allRequiredApproved: boolean;
+  approvedTaskCount: number;
+  durationTasksCount: number;
+  requiresPayment: boolean;
+  copiedKey: string | null;
+  copyToClipboard: (text: string, key: string, label?: string) => void;
+}) {
+  return (
+    <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+      {/* Title & Fee */}
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <div className="space-y-1">
+          <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" /> Certificate Verification Payment
+          </h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Verification desk for processing certificate issuance and compliance.
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="text-[11px] text-muted-foreground block">Certificate Fee</span>
+          <span className="text-lg font-bold text-primary">&#8377;{certificateFee}</span>
+        </div>
+      </div>
+
+      {/* Exact September 2026 Batch Policy Box */}
+      <SeptemberExemptionNotice />
+
+      {/* Payment Details Container */}
+      <div className="p-5 md:p-6 rounded-2xl bg-muted/30 border border-border/60 space-y-6">
+        <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" /> Payment Details
+        </h4>
+
+        <div className="grid gap-3.5 sm:grid-cols-2 text-xs sm:text-sm">
+          <div className="p-3.5 rounded-xl bg-background border border-border/50 space-y-1">
+            <span className="text-xs text-muted-foreground">Certificate Fee</span>
+            <div className="text-base font-bold text-foreground">&#8377;{certificateFee}</div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-background border border-border/50 space-y-1">
+            <span className="text-xs text-muted-foreground">Official UPI ID</span>
+            <div className="flex items-center justify-between gap-2 mt-0.5">
+              <code className="font-mono font-bold text-sm text-foreground truncate">
+                {CERTIFICATE_UPI_ID}
+              </code>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => copyToClipboard(CERTIFICATE_UPI_ID, "upi-desk", "UPI ID copied")}
+                className="h-7 text-xs px-2 gap-1 shrink-0"
+              >
+                {copiedKey === "upi-desk" ? (
+                  <Check className="h-3 w-3 text-emerald-600" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+                Copy
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Enlarged High-Resolution QR Card */}
+        <div className="flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl bg-white dark:bg-card border-2 border-primary/20 shadow-sm space-y-3">
+          <div className="relative p-2 sm:p-3 bg-white rounded-xl border shadow-inner">
+            <img
+              src={CERTIFICATE_QR_SRC}
+              alt="Official YR NOVATECH UPI QR Code"
+              className="w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] md:w-[300px] md:h-[300px] aspect-square object-contain rounded-lg"
+            />
+          </div>
+          <p className="text-xs sm:text-sm font-semibold text-center text-foreground">
+            Official YR NOVATECH QR Code
+          </p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap justify-center text-center">
+            <span>Scan with Google Pay, PhonePe, Paytm, or BHIM to pay &#8377;{certificateFee}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Transaction ID / UTR Form Desk */}
+      <div className="space-y-4 pt-1">
+        <div className="space-y-1.5">
+          <Label htmlFor="payment-tx-id" className="text-xs font-semibold">
+            Transaction ID / UTR {requiresPayment && <span className="text-rose-500">*</span>}
+          </Label>
+          <Input
+            id="payment-tx-id"
+            placeholder="Enter your UPI transaction ID / UTR"
+            value={paymentTxId}
+            onChange={(e) => setPaymentTxId(e.target.value)}
+            className="font-mono text-sm"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {requiresPayment
+              ? "Required. Enter your 12-digit UPI transaction ID / UTR number from your payment app."
+              : "Optional for your batch — certificate payment is exempt."}
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="payment-screenshot" className="text-xs font-semibold">
+            Payment Screenshot (Optional)
+          </Label>
+          <Input
+            id="payment-screenshot"
+            type="file"
+            accept="image/*"
+            onChange={onPaymentScreenshot}
+            className="text-xs"
+          />
+          {paymentScreenshot && (
+            <p className="text-[11px] text-emerald-600 flex items-center gap-1">
+              <Check className="h-3 w-3" /> Screenshot attached
+            </p>
+          )}
+        </div>
+
+        {/* Submission Status Alerts & Gating */}
+        {requiresPayment && (
+          <>
+            {!allRequiredApproved && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                <p className="font-semibold">Deliverables Incomplete</p>
+                <p>Payment submission will unlock after all required tasks are approved ({approvedTaskCount} / {durationTasksCount} approved).</p>
+              </div>
+            )}
+
+            {paymentRecord?.status === "pending_verification" && (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs sm:text-sm text-amber-900 dark:text-amber-200 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" /> Payment Under Verification
+                </div>
+                <p className="text-xs">Transaction ID: <span className="font-mono font-semibold">{paymentRecord.transaction_id}</span></p>
+                <p className="text-xs text-muted-foreground">
+                  Submitted on {new Date(paymentRecord.submitted_at).toLocaleDateString()}. Your transaction is now pending Admin verification.
+                </p>
+              </div>
+            )}
+
+            {paymentRecord?.status === "rejected" && (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs sm:text-sm text-rose-900 dark:text-rose-200 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4" /> Verification Rejected
+                </div>
+                <p className="text-xs">
+                  {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : "Your submitted transaction ID could not be verified. Please enter a valid Transaction ID / UTR above and retry."}
+                </p>
+              </div>
+            )}
+
+            {paymentRecord?.status === "paid" && (
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4" /> Payment Verified
+                </div>
+                <p className="text-xs">
+                  Your certificate payment has been verified by the Admin. Your certificate is now eligible for release.
+                </p>
+              </div>
+            )}
+
+            {allRequiredApproved && paymentRecord?.status !== "pending_verification" && (
+              <Button
+                onClick={submitCertificatePayment}
+                disabled={submittingPayment || !paymentTxId.trim()}
+                className="w-full gap-2 font-medium"
+              >
+                {submittingPayment ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Submitting Payment for Verification...
+                  </>
+                ) : paymentRecord?.status === "rejected" ? (
+                  "Retry Payment Verification"
+                ) : (
+                  "Submit Payment for Verification"
+                )}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* =========================================================================
+   TASK CARD COMPONENT
+   ========================================================================= */
+function TaskCard({
+  task,
+  submission,
+  unlocked,
+  profile,
+  internship,
+  onOpenSubmit,
+}: {
+  task: TaskDef;
+  submission: any;
+  unlocked: boolean;
+  profile: any;
+  internship: any;
+  onOpenSubmit: () => void;
+}) {
+  const status = submission?.status as string | undefined;
+  const canSubmit = unlocked && (!submission || status === "rejected" || status === "resubmit");
+
+  return (
+    <div className={`p-4 md:p-5 rounded-xl border transition-all ${
+      status === "approved"
+        ? "bg-emerald-500/5 border-emerald-500/20"
+        : status === "rejected" || status === "resubmit"
+        ? "bg-rose-500/5 border-rose-500/20"
+        : unlocked
+        ? "bg-card border-border/80 shadow-sm"
+        : "bg-muted/30 border-border/40 opacity-70"
+    }`}>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="space-y-2 flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted font-semibold text-muted-foreground">
+              Task {task.no}
+            </span>
+            <h4 className="font-semibold text-sm md:text-base text-foreground tracking-tight">
+              {task.title}
+            </h4>
+
+            {/* Status Pills */}
+            {status === "approved" && (
+              <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Approved
+              </Badge>
+            )}
+            {(status === "pending_review" || status === "pending") && (
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] gap-1">
+                <Clock className="h-3 w-3" /> In Review
+              </Badge>
+            )}
+            {(status === "rejected" || status === "resubmit") && (
+              <Badge variant="destructive" className="text-[10px] gap-1">
+                <AlertTriangle className="h-3 w-3" /> Needs Revision
+              </Badge>
+            )}
+            {!status && unlocked && (
+              <Badge variant="outline" className="text-primary border-primary/30 text-[10px] gap-1">
+                <Sparkles className="h-3 w-3" /> Ready to Start
+              </Badge>
+            )}
+            {!unlocked && (
+              <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
+                <Lock className="h-3 w-3" /> Locked
+              </Badge>
+            )}
+          </div>
+
+          <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+            {task.description}
+          </p>
+
+          {/* Task 1 Offer Letter Shortcut */}
+          {task.no === 1 && task.requires.linkedin && internship?.offer_letter_code && profile && (
+            <div className="pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 gap-1.5"
                 onClick={() => {
                   toast.promise(
                     downloadOfferLetterAnywhere({
@@ -649,573 +2000,95 @@ function Dashboard() {
                       duration: internship.duration,
                     }),
                     {
-                      loading: "Downloading offer letter PDF...",
-                      success: "Downloaded successfully!",
-                      error: "Failed to download offer letter PDF."
-                    }
-                  );
-                }}
-                className="flex-1 bg-gradient-primary text-primary-foreground"
-              >
-                Download PDF
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  toast.promise(
-                    viewOfferLetterFromStorage(profile.id),
-                    {
-                      loading: "Opening offer letter preview...",
-                      success: "Opened!",
-                      error: "Failed to open offer letter preview."
+                      loading: "Downloading offer letter...",
+                      success: "Offer letter ready!",
+                      error: "Failed to download."
                     }
                   );
                 }}
               >
-                View Offer Letter
+                <FileText className="h-3.5 w-3.5 text-blue-600" /> Download Offer Letter to Share
               </Button>
             </div>
-          </Card>
-        </TabsContent>
+          )}
 
-        {/* Tab 5: ID Card */}
-        <TabsContent value="idcard">
-          <Card className="p-4 md:p-6 max-w-sm mx-auto space-y-4 md:space-y-6 text-center shadow-elegant">
-            <h2 className="text-lg md:text-xl font-semibold flex items-center justify-center gap-2"><IdCard className="h-5 w-5 text-primary flex-shrink-0" /> Digital ID Card</h2>
+          {/* Reviewer Feedback Callout */}
+          {submission?.feedback && (
+            <div className="p-3 rounded-lg bg-accent/60 border border-border/40 text-xs text-foreground space-y-1">
+              <span className="font-semibold text-primary flex items-center gap-1">
+                <MessageSquare className="h-3 w-3" /> Evaluation Feedback:
+              </span>
+              <p className="text-muted-foreground italic">&ldquo;{submission.feedback}&rdquo;</p>
+            </div>
+          )}
 
-            {internship.status === "pending" || internship.status === "rejected" ? (
-              <div className="py-8">
-                <p className="text-amber-600 font-medium">Your ID Card will be available after your application is approved.</p>
-                <p className="text-sm text-muted-foreground mt-2">Current status: <Badge variant={internship.status === "pending" ? "secondary" : "destructive"}>{internship.status}</Badge></p>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-center">
-                  <div className="w-[200px] h-[310px] rounded-xl border bg-card text-card-foreground shadow-elegant overflow-hidden flex flex-col relative text-[9px] border-primary/20">
-                    {/* Header */}
-                    <div className="bg-primary text-primary-foreground p-3 text-center">
-                      <div className="font-bold text-[11px]">{COMPANY.name}</div>
-                      <div className="text-[6px] opacity-80">{COMPANY.tagline}</div>
-                      <div className="font-semibold mt-0.5 text-[8px]">INTERN ID CARD</div>
-                      <div className="text-[5px] opacity-70 mt-0.5">Udyam: {COMPANY.udyam}</div>
-                    </div>
-                    {/* Photo */}
-                    <div className="flex justify-center pt-3">
-                      {photo ? (
-                        <img src={photo} alt="Student" className="w-[72px] h-[80px] rounded object-cover border shadow-sm" />
-                      ) : (
-                        <div className="w-[72px] h-[80px] bg-muted flex items-center justify-center text-muted-foreground border text-[7px]">No Photo</div>
-                      )}
-                    </div>
-                    {/* Name */}
-                    <div className="text-center px-3 pt-2">
-                      <div className="font-bold text-[10px] leading-tight">{profile?.full_name}</div>
-                    </div>
-                    {/* Divider */}
-                    <div className="mx-3 mt-1.5 border-t border-primary/30" />
-                    {/* Info */}
-                    <div className="flex-1 px-3 pt-2 space-y-1.5 text-[7px]">
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">ID</span><span className="font-mono font-semibold">{internship.internship_code}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Domain</span><span className="text-right leading-tight max-w-[110px]">{internship.domain?.name}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Duration</span><span>{internship.duration || "1 Month"}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Issue</span><span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Valid</span><span>{new Date(Date.now() + (parseInt(internship.duration) || 1) * 30 * 86400000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground font-medium">Email</span><span className="truncate max-w-[110px] text-right">{profile?.email}</span></div>
-                    </div>
-                    {/* Footer */}
-                    <div className="bg-slate-900 h-1.5 mt-auto" />
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => downloadIdCard({
-                    fullName: profile?.full_name ?? "Intern",
-                    internshipCode: internship.internship_code,
-                    domain: internship.domain?.name ?? "",
-                    photoDataUrl: profile?.avatar_url,
-                    email: profile?.email,
-                    duration: internship.duration,
-                  }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
-                  className="w-full bg-gradient-primary text-primary-foreground"
-                >
-                  Download PDF ID Card
-                </Button>
-              </>
-            )}
-          </Card>
-        </TabsContent>
-
-        {/* Tab 5.5: Payment — visible to every registered intern, including the
-            grandfathered September 2026 batch who are exempt from paying. */}
-        {showPaymentTab && (
-          <TabsContent value="payment">
-            <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
-              <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary flex-shrink-0" /> Certificate Payment
-              </h2>
-
-              {/* Payment information (fee, UPI, official QR) is shown to EVERY
-                  registered intern. September 2026 interns are payment-EXEMPT,
-                  not payment-section-exempt. */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Certificate Fee:</span><span className="font-semibold">&#8377;{certificateFee}</span></div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Payment Method:</span>
-                    <span className="text-sm font-semibold">UPI</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">UPI ID:</span>
-                    <span className="font-mono text-sm font-semibold">{CERTIFICATE_UPI_ID}</span>
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  <img
-                    src={CERTIFICATE_QR_SRC}
-                    alt="Official YR NOVATECH UPI QR Code"
-                    className="w-full max-w-xs rounded-lg border bg-white p-2"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-center">Official YR NOVATECH QR Code</p>
-              </div>
-
-              {/* IMPORTANT NOTE — displayed to ALL registered students. */}
-              <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500 dark:border-emerald-500 space-y-2">
-                <p className="text-sm font-bold uppercase tracking-wide text-emerald-900 dark:text-emerald-100">Important Note</p>
-                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">{SEPTEMBER_EXEMPT_NOTICE}</p>
-                {septemberExempt ? (
-                  <p className="text-sm text-emerald-900 dark:text-emerald-100">
-                    Payment is not mandatory for your batch. You do not need to pay, submit a UTR,
-                    upload a screenshot or complete payment verification. Your certificate continues
-                    through the existing flow: all required tasks approved, then an Admin releases it.
-                  </p>
-                ) : (
-                  <p className="text-sm text-emerald-900 dark:text-emerald-100">
-                    Only the September 2026 registered batch is exempt. For all other registrations,
-                    payment of &#8377;{certificateFee} becomes required once every required internship
-                    task has been approved.
-                  </p>
-                )}
-              </div>
-
-              {/* Transaction ID / UTR + optional screenshot — shown to ALL
-                  registered students. Only payment-required interns submit them. */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="payment-tx-id">Transaction ID / UTR</Label>
-                  <Input
-                    id="payment-tx-id"
-                    placeholder="Enter Transaction ID / UTR"
-                    value={paymentTxId}
-                    onChange={(e) => setPaymentTxId(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {requiresPayment
-                      ? "Required. Submitted to the Admin for payment verification."
-                      : "Optional. Not required for your batch — your certificate payment is exempt."}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="payment-screenshot">Payment Screenshot (Optional)</Label>
-                  <Input id="payment-screenshot" type="file" accept="image/*" onChange={onPaymentScreenshot} className="text-sm" />
-                  {paymentScreenshot && <p className="text-xs text-muted-foreground">Screenshot attached (optional).</p>}
-                </div>
-
-                {requiresPayment && (
-                  <>
-                    {!allRequiredApproved && (
-                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                        Payment submission becomes available after all required internship tasks are approved. ({approvedTaskCount} / {durationTasksCount} approved)
-                      </div>
-                    )}
-
-                    {paymentRecord?.status === "pending_verification" && (
-                      <>
-                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                          Payment submitted successfully. Your payment is waiting for Admin verification.
-                        </div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div className="flex justify-between"><span>Transaction ID:</span><span className="font-mono">{paymentRecord.transaction_id}</span></div>
-                          <div className="flex justify-between"><span>Submitted:</span><span>{new Date(paymentRecord.submitted_at).toLocaleDateString()}</span></div>
-                          <div className="flex justify-between"><span>Status:</span><span>pending_verification</span></div>
-                          <div className="flex justify-between"><span>Amount:</span><span>&#8377;{paymentRecord.amount}</span></div>
-                        </div>
-                      </>
-                    )}
-
-                    {paymentRecord?.status === "rejected" && (
-                      <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
-                        &#10007; Payment was rejected. {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : ""} Enter a valid Transaction ID / UTR above and retry.
-                      </div>
-                    )}
-
-                    {paymentRecord?.status === "paid" && (
-                      <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
-                        &#10003; Payment verified! Your certificate is eligible for Admin release.
-                      </div>
-                    )}
-
-                    {allRequiredApproved && paymentRecord?.status !== "pending_verification" && (
-                      <Button
-                        onClick={submitCertificatePayment}
-                        disabled={submittingPayment || !paymentTxId.trim()}
-                        className="w-full bg-gradient-primary text-primary-foreground"
-                      >
-                        {submittingPayment
-                          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Submitting...</>
-                          : paymentRecord?.status === "rejected" ? "Retry Payment" : "Submit Payment"}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            </Card>
-          </TabsContent>
-        )}
-
-        {/* Tab 6: Certificate */}
-        <TabsContent value="certificate">
-          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
-            <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><Award className="h-5 w-5 text-primary flex-shrink-0" /> Certificate of Completion</h2>
-
-            <p className="text-sm text-muted-foreground">
-              Your certificate is unlocked only after {requiresPayment ? "completing all tasks, verifying payment, and" : ""} the admin reviews and approves all required tasks ({durationTasksCount}) and releases the certificate.
-            </p>
-
-            {/* Certificate Status Card */}
-            <div className="p-4 border rounded-lg bg-muted/30 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span>Certificate Status:</span>
-                {internship.certificate_status === "revoked" ? (
-                  <Badge className="bg-red-600">Revoked</Badge>
-                ) : internship.certificate_code ? (
-                  <Badge className="bg-emerald-600">Released</Badge>
-                ) : allRequiredApproved && !requiresPayment ? (
-                  <Badge className="bg-amber-500">Pending Admin Release</Badge>
-                ) : allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" ? (
-                  <Badge className="bg-amber-500">Pending Admin Release</Badge>
-                ) : (
-                  <Badge variant="outline">Locked ({approvedTaskCount} / {durationTasksCount} Tasks Approved)</Badge>
-                )}
-              </div>
-              {internship.certificate_code && (
-                <div className="flex justify-between">
-                  <span>Certificate ID:</span>
-                  <span className="font-mono font-semibold">{internship.certificate_code}</span>
-                </div>
+          {/* Deliverables Links */}
+          {submission && (
+            <div className="flex gap-2.5 pt-1 text-xs flex-wrap items-center">
+              <span className="text-[11px] text-muted-foreground">Submitted:</span>
+              {task.no === 1 && submission.project_url && (
+                <a href={submission.project_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                  <Linkedin className="h-3 w-3" /> LinkedIn Post
+                </a>
               )}
-              {internship.certificate_status === "revoked" && (
-                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200 space-y-1">
-                  <p className="font-semibold">&#10007; Certificate Revoked</p>
-                  {internship.certificate_revoke_reason && (
-                    <p className="text-xs">Reason: {internship.certificate_revoke_reason}</p>
-                  )}
-                  <p className="text-xs">Contact admin if you believe this is an error.</p>
-                </div>
+              {submission.github_url && (
+                <a href={submission.github_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <Github className="h-3 w-3" /> GitHub Repo
+                </a>
+              )}
+              {task.no !== 1 && submission.project_url && (
+                <a href={submission.project_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <ExternalLink className="h-3 w-3" /> Live Project
+                </a>
+              )}
+              {submission.drive_url && (
+                <a href={submission.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <FolderOpen className="h-3 w-3" /> Drive Assets
+                </a>
               )}
             </div>
+          )}
+        </div>
 
-            {/* Certificate payment status summary. The full payment section
-                (fee, UPI ID, official QR, IMPORTANT NOTE, Transaction ID / UTR
-                and the optional screenshot upload) lives on the Payment tab, so
-                there is exactly one Transaction ID / UTR field in the page. */}
-            {!internship.certificate_code && (
-              <div className="border rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  {paymentRecord?.status === "paid" ? (
-                    <><span className="text-emerald-500">&#10003;</span> Certificate Payment &mdash; Verified</>
-                  ) : paymentRecord?.status === "pending_verification" ? (
-                    <><span className="text-amber-500">&#8987;</span> Certificate Payment &mdash; Pending Verification</>
-                  ) : !allRequiredApproved ? (
-                    <><span className="text-muted-foreground">&#128274;</span> Certificate Payment &mdash; Locked</>
-                  ) : (
-                    <><span className="text-blue-500">&#128275;</span> Certificate Payment &mdash; Unlocked</>
-                  )}
-                </h3>
-                {!allRequiredApproved ? (
-                  <p className="text-sm text-muted-foreground">
-                    Complete and get approval for all {durationTasksCount} required internship tasks to unlock certificate payment.
-                  </p>
-                ) : paymentRecord?.status === "paid" ? (
-                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                    Payment verified. Your certificate is eligible for Admin release.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    All required tasks are approved. Submit your payment on the Payment tab.
-                  </p>
-                )}
-                <Button variant="outline" className="w-full" onClick={() => setActiveTab("payment")}>
-                  Go to Payment
-                </Button>
-              </div>
-            )}
-
-            {/* Certificate Status Messages (legacy + new after payment) */}
-            {!internship.certificate_code && !allRequiredApproved && (
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-                Complete all {durationTasksCount} tasks and get them approved by Admin. Certificate will remain locked until Admin releases it.
-              </div>
-            )}
-
-            {!internship.certificate_code && allRequiredApproved && !requiresPayment && (
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
-                All required tasks are approved! Your certificate is pending Admin release.
-              </div>
-            )}
-
-            {!internship.certificate_code && allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" && (
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
-                Payment verified and all tasks approved! Your certificate is pending Admin release.
-              </div>
-            )}
-
-            {septemberExempt && !internship.certificate_code && (
-              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
-                <p className="font-semibold">Your batch doesn&rsquo;t have to pay for the certificate.</p>
-                <p className="mt-1">Your certificate eligibility depends only on task approval and Admin release.</p>
-              </div>
-            )}
-
-            <Button
-              disabled={!internship.certificate_code || internship.certificate_status === "revoked"}
-              onClick={() => downloadCertificate({
-                fullName: profile?.full_name ?? "Intern",
-                domain: internship.domain?.name ?? "",
-                internshipCode: internship.internship_code,
-                certificateCode: internship.certificate_code,
-                issuedAt: internship.certificate_issued_at,
-                duration: internship.duration,
-              }).catch(err => toast.error("Download failed: " + (err?.message ?? "Unknown error")))}
-              className="w-full bg-gradient-primary text-primary-foreground"
-            >
-              {internship.certificate_status === "revoked" ? "Certificate Revoked" : internship.certificate_code ? "Download Certificate PDF" : "Locked"}
-            </Button>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 7: Profile */}
-        <TabsContent value="profile">
-          <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
-            <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><User className="h-5 w-5 text-primary flex-shrink-0" /> Edit My Profile</h2>
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="flex items-center gap-4">
-                {photo ? <img src={photo} alt="me" className="h-20 w-20 rounded-full object-cover border" /> : <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center text-xs text-muted-foreground">No photo</div>}
-                <div>
-                  <Label>Student photo (max 600KB)</Label>
-                  <Input type="file" accept="image/*" onChange={onPhoto} />
-                </div>
-              </div>
-              <div><Label>Email (Cannot be modified)</Label><Input value={profile?.email ?? ""} disabled /></div>
-              <div><Label htmlFor="full_name">Full name</Label><Input id="full_name" name="full_name" defaultValue={profile?.full_name ?? ""} required /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label htmlFor="phone">Phone</Label><Input id="phone" name="phone" defaultValue={profile?.phone ?? ""} /></div>
-                <div><Label htmlFor="year">Year</Label><Input id="year" name="year" defaultValue={profile?.year ?? ""} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label htmlFor="college">College</Label><Input id="college" name="college" defaultValue={profile?.college ?? ""} /></div>
-                <div><Label htmlFor="department">Department</Label><Input id="department" name="department" defaultValue={profile?.department ?? ""} /></div>
-              </div>
-              <div><Label htmlFor="github_url">GitHub Profile Link</Label><Input id="github_url" name="github_url" type="url" defaultValue={profile?.github_url ?? ""} placeholder="https://github.com/username" /></div>
-              <div><Label htmlFor="linkedin_url">LinkedIn Profile Link</Label><Input id="linkedin_url" name="linkedin_url" type="url" defaultValue={profile?.linkedin_url ?? ""} /></div>
-              <Button type="submit" disabled={saving} className="bg-gradient-primary text-primary-foreground">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Profile Details"}</Button>
-            </form>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 8: Feedback */}
-        <TabsContent value="feedback">
-          <FeedbackPanel profile={profile} />
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={!!profile?.must_change_password}>
-        <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Change Password Required</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleForceChangePassword} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              You are currently logged in with your default password (your phone number). Please set a secure password to access your YR NOVATECH dashboard.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="force-pw">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="force-pw"
-                  type={showForcePw ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Min 6 characters"
-                  required
-                  className="pr-10"
-                />
-                <button type="button" onClick={() => setShowForcePw(!showForcePw)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showForcePw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" disabled={pwBusy} className="w-full bg-gradient-primary text-primary-foreground">
-              {pwBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Password & Continue"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
+        {/* Action Button */}
+        <div className="shrink-0 flex items-center">
+          <Button
+            size="sm"
+            disabled={!canSubmit}
+            variant={canSubmit ? "default" : "outline"}
+            onClick={onOpenSubmit}
+            className="w-full md:w-auto text-xs gap-1.5 h-8 font-medium"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {submission ? (status === "rejected" || status === "resubmit" ? "Resubmit Deliverables" : "Update") : "Submit Deliverables"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function FeedbackPanel({ profile }: { profile: any }) {
-  const [rating, setRating] = useState(0);
-  const [message, setMessage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [existingFeedback, setExistingFeedback] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!profile?.id) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("feedback")
-        .select("id, user_id, rating, message, created_at")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false });
-      if (error) console.error("[feedback] load error:", error.code, error.message, error.details, error.hint);
-      setExistingFeedback(data ?? []);
-    })();
-  }, [profile?.id]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (rating === 0) return toast.error("Please select a rating.");
-    if (message.trim().length < 10) return toast.error("Feedback must be at least 10 characters.");
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.from("feedback").insert({
-        user_id: profile.id,
-        rating,
-        message: message.trim(),
-      });
-      if (error) return toast.error(error.message);
-      toast.success("Feedback submitted! Thank you.");
-      setSubmitted(true);
-      setMessage("");
-      setRating(0);
-      const { data: refreshed, error: refreshErr } = await supabase
-        .from("feedback")
-        .select("id, user_id, rating, message, created_at")
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false });
-      if (refreshErr) console.error("[feedback] re-fetch error:", refreshErr.code, refreshErr.message);
-      setExistingFeedback(refreshed ?? []);
-    } catch (err: any) {
-      toast.error("Failed to submit feedback: " + (err?.message ?? "Unknown error"));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Card className="p-4 md:p-6 max-w-xl mx-auto space-y-4 md:space-y-6">
-      <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary flex-shrink-0" /> Submit Feedback</h2>
-      <p className="text-sm text-muted-foreground">Share your experience about the internship program.</p>
-
-      {submitted && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-          Thank you for your feedback!
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label>Rating</Label>
-          <div className="flex gap-1 mt-1">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setRating(s)}
-                className="focus:outline-none"
-              >
-                <Star
-                  className={`h-6 w-6 ${s <= rating ? "fill-primary text-primary" : "text-muted-foreground"}`}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <Label htmlFor="feedback-msg">Your Feedback</Label>
-          <Textarea
-            id="feedback-msg"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={4}
-            required
-            placeholder="Tell us about your experience..."
-            minLength={10}
-          />
-        </div>
-        <Button type="submit" disabled={submitting} className="bg-gradient-primary text-primary-foreground">
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Feedback"}
-        </Button>
-      </form>
-
-      {existingFeedback.length > 0 && (
-        <div className="space-y-3 pt-4 border-t">
-          <h3 className="font-semibold text-sm">Your Previous Feedback</h3>
-          {existingFeedback.map((fb) => (
-            <div key={fb.id} className="p-3 rounded-lg border bg-muted/30 space-y-1">
-              <div className="flex gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className={`h-3 w-3 ${i < fb.rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
-                ))}
-              </div>
-              <p className="text-sm text-foreground/90">{fb.message}</p>
-              <p className="text-xs text-muted-foreground">{new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function Stat({ label, value, mono }: { label: string; value: any; mono?: boolean }) {
-  return (
-    <Card className="p-3 md:p-5">
-      <div className="text-[10px] md:text-xs text-muted-foreground">{label}</div>
-      <div className={`text-sm md:text-lg font-semibold mt-1 break-words ${mono ? "font-mono" : ""}`}>{value}</div>
-    </Card>
-  );
-}
-
-function DownloadCard({ icon: Icon, title, desc, available, onClick }: any) {
-  return (
-    <Card className="p-5 flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center"><Icon className="h-5 w-5 text-primary-foreground" /></div>
-        <div>
-          <div className="font-semibold">{title}</div>
-          <div className="text-xs text-muted-foreground">{desc}</div>
-        </div>
-      </div>
-      <Button disabled={!available} onClick={onClick} variant={available ? "default" : "outline"} className={available ? "bg-gradient-primary text-primary-foreground" : ""}>
-        {available ? "Download PDF" : "Locked"}
-      </Button>
-    </Card>
-  );
-}
-
-function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, internship }: { task: TaskDef; submission: any; internshipId: string; locked: boolean; onUpdated: () => void; profile?: any; internship?: any }) {
-  const [open, setOpen] = useState(false);
+/* =========================================================================
+   TASK SUBMISSION MODAL COMPONENT
+   ========================================================================= */
+function TaskSubmissionModal({
+  task,
+  submission,
+  internshipId,
+  open,
+  onClose,
+  onSuccess,
+}: {
+  task: TaskDef;
+  submission: any;
+  internshipId: string;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const [busy, setBusy] = useState(false);
-  const status = submission?.status as string | undefined;
-  const canSubmit = !locked && (!submission || status === "rejected" || status === "resubmit");
 
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const payload: any = {
@@ -1237,74 +2110,284 @@ function TaskRow({ task, submission, internshipId, locked, onUpdated, profile, i
       : await supabase.from("submissions").upsert(payload, { onConflict: "internship_id,task_no" });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Submitted for review");
-    setOpen(false);
-    onUpdated();
+    toast.success("Deliverables submitted for administrative evaluation!");
+    onSuccess();
   }
 
   return (
-    <div className="border rounded-lg p-3 md:p-4">
-      <div className="flex items-start justify-between gap-2 md:gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs text-muted-foreground">Task {task.no}</span>
-            <h3 className="font-semibold text-sm md:text-base">{task.title}</h3>
-            {task.no === 1 && <Linkedin className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />}
-            {status && <Badge variant={status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"} className="text-xs">{status}</Badge>}
-          </div>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1">{task.description}</p>
-          {task.no === 1 && task.requires.linkedin && internship?.offer_letter_code && profile && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2 text-xs"
-              onClick={() => {
-                toast.promise(
-                  downloadOfferLetterAnywhere({
-                    studentId: profile.id,
-                    fullName: profile?.full_name ?? "Intern",
-                    domain: internship.domain?.name ?? "",
-                    domainSlug: internship.domain?.slug,
-                    internshipCode: internship.internship_code,
-                    offerCode: internship.offer_letter_code,
-                    startedAt: internship.started_at,
-                    duration: internship.duration,
-                  }),
-                  { loading: "Downloading offer letter...", success: "Downloaded!", error: "Failed to download." }
-                );
-              }}
-            >
-              <FileText className="h-3.5 w-3.5 mr-1" /> Download Offer Letter to Post
-            </Button>
-          )}
-          {submission?.feedback && <p className="text-xs mt-2 p-2 bg-accent rounded"><b>Reviewer:</b> {submission.feedback}</p>}
-          {submission && (
-            <div className="flex gap-2 md:gap-3 mt-2 text-xs flex-wrap">
-              {task.no === 1 && submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Linkedin className="h-3 w-3"/>LinkedIn</a>}
-              {submission.github_url && <a href={submission.github_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><Github className="h-3 w-3"/>GitHub</a>}
-              {task.no !== 1 && submission.project_url && <a href={submission.project_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><ExternalLink className="h-3 w-3"/>Project</a>}
-              {submission.drive_url && <a href={submission.drive_url} target="_blank" rel="noopener" className="text-primary underline inline-flex items-center gap-1"><FolderOpen className="h-3 w-3"/>Drive</a>}
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+            <CheckSquare className="h-4 w-4 text-primary" /> Task {task.no}: {task.title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {task.description}
+          </p>
+
+          {task.requires.linkedin && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">LinkedIn Post URL</Label>
+              <Input
+                name="linkedin"
+                type="url"
+                defaultValue={submission?.project_url ?? ""}
+                placeholder="https://www.linkedin.com/posts/..."
+                required
+                className="text-xs"
+              />
             </div>
           )}
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={!canSubmit} variant={canSubmit ? "default" : "outline"} className="flex-shrink-0">
-              <Upload className="h-3.5 w-3.5 mr-1"/>{submission ? "Resubmit" : "Submit"}
+
+          {task.requires.github && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">GitHub Repository URL</Label>
+              <Input
+                name="github"
+                type="url"
+                defaultValue={submission?.github_url ?? ""}
+                placeholder="https://github.com/your-username/repo"
+                required
+                className="text-xs"
+              />
+            </div>
+          )}
+
+          {task.requires.project && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Live Project / Deployment URL</Label>
+              <Input
+                name="project"
+                type="url"
+                defaultValue={submission?.project_url ?? ""}
+                placeholder="https://your-app.vercel.app"
+                required
+                className="text-xs"
+              />
+            </div>
+          )}
+
+          {task.requires.drive && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Google Drive Link (Reports / Demos)</Label>
+              <Input
+                name="drive"
+                type="url"
+                defaultValue={submission?.drive_url ?? ""}
+                placeholder="https://drive.google.com/..."
+                required={!task.requires.github}
+                className="text-xs"
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Implementation Notes (Optional)</Label>
+            <Textarea
+              name="notes"
+              rows={3}
+              defaultValue={submission?.notes ?? ""}
+              placeholder="Highlight any key libraries, design decisions, or challenges..."
+              className="text-xs"
+            />
+          </div>
+
+          <div className="flex gap-2.5 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 text-xs">
+              Cancel
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Task {task.no}: {task.title}</DialogTitle></DialogHeader>
-            <form onSubmit={submit} className="space-y-3">
-              {task.requires.linkedin && <div><Label>LinkedIn Post URL</Label><Input name="linkedin" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://www.linkedin.com/posts/..." required /></div>}
-              {task.requires.github && <div><Label>GitHub URL</Label><Input name="github" type="url" defaultValue={submission?.github_url ?? ""} placeholder="https://github.com/you/repo" required /></div>}
-              {task.requires.project && <div><Label>Project URL</Label><Input name="project" type="url" defaultValue={submission?.project_url ?? ""} placeholder="https://…" required /></div>}
-              {task.requires.drive && <div><Label>Google Drive URL</Label><Input name="drive" type="url" defaultValue={submission?.drive_url ?? ""} placeholder="https://drive.google.com/…" required /></div>}
-              <div><Label>Notes (optional)</Label><Textarea name="notes" rows={3} defaultValue={submission?.notes ?? ""} /></div>
-              <Button type="submit" disabled={busy} className="w-full bg-gradient-primary text-primary-foreground">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : "Submit for review"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            <Button type="submit" disabled={busy} className="flex-1 text-xs font-medium">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit for Evaluation"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* =========================================================================
+   FEEDBACK PANEL COMPONENT
+   ========================================================================= */
+function FeedbackPanel({ profile }: { profile: any }) {
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [existingFeedback, setExistingFeedback] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("feedback")
+        .select("id, user_id, rating, message, created_at")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+      if (error) console.error("[feedback] load error:", error.code, error.message);
+      setExistingFeedback(data ?? []);
+    })();
+  }, [profile?.id]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (rating === 0) return toast.error("Please select a star rating");
+    if (message.trim().length < 10) return toast.error("Feedback must be at least 10 characters");
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("feedback").insert({
+        user_id: profile.id,
+        rating,
+        message: message.trim(),
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Thank you! Your feedback has been received.");
+      setMessage("");
+      setRating(0);
+      const { data: refreshed } = await supabase
+        .from("feedback")
+        .select("id, user_id, rating, message, created_at")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+      setExistingFeedback(refreshed ?? []);
+    } catch (err: any) {
+      toast.error("Failed to submit feedback: " + (err?.message ?? "Unknown error"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <div className="space-y-1">
+          <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" /> Program Feedback Desk
+          </h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Share your learning experience, mentorship feedback, and suggestions.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Your Rating</Label>
+          <div className="flex items-center gap-1.5 pt-1">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onMouseEnter={() => setHoverRating(s)}
+                onMouseLeave={() => setHoverRating(0)}
+                onClick={() => setRating(s)}
+                className="p-1 rounded hover:bg-muted/60 transition-colors focus:outline-none"
+              >
+                <Star
+                  className={`h-6 w-6 transition-colors ${
+                    s <= (hoverRating || rating)
+                      ? "fill-amber-400 text-amber-400"
+                      : "text-muted-foreground/40"
+                  }`}
+                />
+              </button>
+            ))}
+            <span className="text-xs font-semibold text-muted-foreground ml-2">
+              {rating > 0 ? `${rating} of 5 Stars` : "Select stars"}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="feedback-msg" className="text-xs font-semibold">
+            Your Comments & Review
+          </Label>
+          <Textarea
+            id="feedback-msg"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            required
+            minLength={10}
+            placeholder="Tell us about the challenges, learnings, and mentor support..."
+            className="text-xs leading-relaxed"
+          />
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>Minimum 10 characters</span>
+            <span>{message.length} characters</span>
+          </div>
+        </div>
+
+        <Button type="submit" disabled={submitting} className="w-full gap-2 font-medium">
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Feedback"}
+        </Button>
+      </form>
+
+      {existingFeedback.length > 0 && (
+        <div className="space-y-3 pt-4 border-t border-border/40">
+          <h4 className="font-semibold text-xs text-foreground uppercase tracking-wider">
+            Previous Submissions ({existingFeedback.length})
+          </h4>
+          <div className="space-y-2.5">
+            {existingFeedback.map((fb) => (
+              <div key={fb.id} className="p-3.5 rounded-xl border border-border/40 bg-muted/30 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-3 w-3 ${i < fb.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(fb.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </div>
+                <p className="text-foreground/90 leading-relaxed">{fb.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* =========================================================================
+   SKELETON LOADER
+   ========================================================================= */
+function DashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="border-b border-border/60 bg-card/50 p-6 md:p-8 animate-pulse">
+        <div className="container mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-2xl bg-muted" />
+            <div className="space-y-2">
+              <div className="h-6 w-48 rounded bg-muted" />
+              <div className="h-4 w-32 rounded bg-muted" />
+            </div>
+          </div>
+          <div className="hidden sm:flex gap-2">
+            <div className="h-9 w-28 rounded-lg bg-muted" />
+            <div className="h-9 w-28 rounded-lg bg-muted" />
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        <div className="h-24 rounded-2xl bg-muted/60 animate-pulse" />
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 rounded-xl bg-muted/60 animate-pulse" />
+          ))}
+        </div>
+        <div className="h-11 rounded-xl bg-muted/40 animate-pulse" />
+        <div className="h-64 rounded-2xl bg-muted/50 animate-pulse" />
       </div>
     </div>
   );
