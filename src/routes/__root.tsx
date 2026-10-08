@@ -91,6 +91,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "robots", content: "index, follow, max-image-preview:large" },
       { name: "theme-color", content: "#2563eb" },
       { name: "google-adsense-account", content: "ca-pub-7591764247912152" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "YR NOVATECH" },
       { property: "og:title", content: "YR NOVATECH - Innovate. Develop. Deliver." },
       {
         property: "og:description",
@@ -115,7 +119,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "canonical", href: "https://www.yrnovatech.in" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/__fallback/yr-tech-logo.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon-180.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" },
@@ -193,6 +199,25 @@ function RootComponent() {
       void import("@/lib/supabase-diagnostics").then((m) =>
         m.installSupabaseDiagnostics(),
       );
+    }
+  }, []);
+
+  // Register the PWA service worker. Client-only and production-only; never
+  // runs during SSR and never blocks rendering or auth bootstrap. The worker
+  // itself only caches immutable hashed build assets and is network-only for
+  // everything else (Supabase/auth/API/navigations), so it can never serve
+  // stale authenticated data.
+  useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      const onLoad = () => {
+        void navigator.serviceWorker
+          .register("/sw.js")
+          .catch((err) =>
+            console.warn("[pwa] service worker registration failed:", err),
+          );
+      };
+      window.addEventListener("load", onLoad);
+      return () => window.removeEventListener("load", onLoad);
     }
   }, []);
 
