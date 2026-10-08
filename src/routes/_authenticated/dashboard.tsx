@@ -210,23 +210,27 @@ export function Dashboard() {
 
       // Submissions and Certificate Payment queries
       if (internshipData?.id) {
-        const [{ data: s, error: sErr }, { data: annData }] = await Promise.all([
-          supabase
-            .from("submissions")
-            .select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at")
-            .eq("internship_id", internshipData.id)
-            .order("task_no"),
-          (supabase as any)
-            .from("announcements")
-            .select("id, title, body, created_at, active")
-            .eq("active", true)
-            .order("created_at", { ascending: false })
-            .catch(() => ({ data: [] })),
-        ]);
+        const { data: s, error: sErr } = await supabase
+          .from("submissions")
+          .select("id, task_no, status, project_url, github_url, drive_url, notes, feedback, submitted_at, reviewed_at")
+          .eq("internship_id", internshipData.id)
+          .order("task_no");
 
         if (sErr) console.error("[dashboard] submissions query error:", sErr.code, sErr.message);
         setSubmissions(s ?? []);
-        setAnnouncements(annData ?? []);
+
+        let announcementsData: any[] = [];
+        try {
+          const { data: annData } = await (supabase as any)
+            .from("announcements")
+            .select("id, title, body, created_at, active")
+            .eq("active", true)
+            .order("created_at", { ascending: false });
+          announcementsData = annData ?? [];
+        } catch (annErr: any) {
+          console.warn("[dashboard] announcements query failed:", annErr?.message);
+        }
+        setAnnouncements(announcementsData);
 
         try {
           const [{ data: payData }, { data: feeData }] = await Promise.all([
