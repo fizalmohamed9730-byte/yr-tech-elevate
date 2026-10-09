@@ -1,11 +1,9 @@
 /**
  * Client-side image downscaling.
  *
- * Profile photos and payment screenshots were previously stored as base64 data
- * URLs directly in Postgres text columns (`profiles.avatar_url`,
- * `certificate_payments.payment_screenshot_url`). A 600KB photo became ~820KB
- * of base64 text and a 2MB screenshot became ~2.7MB, and every Admin list
- * query re-downloaded all of them.
+ * Profile photos were previously stored as base64 data URLs directly in
+ * Postgres text columns (`profiles.avatar_url`). A 600KB photo became ~820KB
+ * of base64 text, and every Admin list query re-downloaded all of them.
  *
  * Downscaling before the base64 encode keeps those columns small without
  * changing any authorization or storage rules.
@@ -13,9 +11,6 @@
 
 /** Avatars are rendered at 32-80px and printed at ~30x36mm on ID cards. */
 export const AVATAR_MAX_DIM = 320;
-
-/** Payment screenshots must stay legible for amount verification. */
-export const SCREENSHOT_MAX_DIM = 1280;
 
 const JPEG_QUALITY = 0.8;
 

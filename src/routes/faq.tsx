@@ -26,13 +26,13 @@ export const Route = createFileRoute("/faq")({
       {
         name: "description",
         content:
-          "Answers about YR NOVATECH software services, internships, domains, durations, task submissions, certificates, certificate fees, payment verification and how to reach us.",
+          "Answers about YR NOVATECH software services, internships, domains, durations, task submissions, certificates and how to reach us.",
       },
       { property: "og:title", content: `FAQ — ${COMPANY.name}` },
       {
         property: "og:description",
         content:
-          "Straight answers about YR NOVATECH's software services, internship program, certificates and payments.",
+          "Straight answers about YR NOVATECH's software services, internship program and certificates.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://www.yrnovatech.in/faq" },
@@ -56,12 +56,12 @@ export const Route = createFileRoute("/faq")({
   component: Faq,
 });
 
-type FAQCategory = "All" | "Internship" | "Certificates" | "Payments" | "Services" | "General";
+type FAQCategory = "All" | "Internship" | "Certificates" | "Services" | "General";
 
 interface FAQItem {
   q: string;
   a: string;
-  category: "Internship" | "Certificates" | "Payments" | "Services" | "General";
+  category: "Internship" | "Certificates" | "Services" | "General";
   link?: { to: "/refund-policy" | "/services" | "/internship" | "/projects" | "/resources" | "/careers" | "/contact" | "/privacy-policy" | "/about"; label: string };
 }
 
@@ -89,8 +89,8 @@ const faqs: FAQItem[] = [
   },
   {
     q: "Is registration free?",
-    a: "Yes. Registration for the internship program is completely free, and there is no fee to apply or participate. A certificate processing fee may apply in certain flows and is transparently shown in your account before payment.",
-    category: "Payments",
+    a: "Yes. Registration for the internship program is completely free, and there is no fee to apply, participate or receive your certificate. There are no payment steps and no hidden charges.",
+    category: "Internship",
   },
   {
     q: "How does the internship program work?",
@@ -99,7 +99,7 @@ const faqs: FAQItem[] = [
   },
   {
     q: "Will I definitely receive a certificate?",
-    a: "Certificates are issued to interns who complete all required tasks for their selected duration and receive approval for those tasks. Where a certificate payment requirement applies, the payment must also be made and verified. Issuance is based on the completeness and quality of your submitted work.",
+    a: "Certificates are issued to interns who complete all required tasks for their selected duration and receive approval for those tasks. Issuance is based on the completeness and quality of your submitted work.",
     category: "Certificates",
   },
   {
@@ -113,22 +113,10 @@ const faqs: FAQItem[] = [
     category: "Certificates",
   },
   {
-    q: "What payments are involved?",
-    a: "Where a certificate processing fee applies, the amount is shown in your account before payment. Payment is made using the payment method displayed in your account (UPI), and you provide the transaction or UTR reference for verification. Payments are verified manually, so payment status is always subject to verification. See our Refund & Cancellation Policy for details.",
-    category: "Payments",
-    link: { to: "/refund-policy", label: "Read the Refund & Cancellation Policy" },
-  },
-  {
-    q: "Can fees be refunded?",
-    a: "Refunds are considered on a case-by-case basis, at our discretion and after verification. They are not guaranteed and are generally not available after a verified payment and successful certificate issuance. See our Refund & Cancellation Policy for the full details.",
-    category: "Payments",
-    link: { to: "/refund-policy", label: "Read the Refund & Cancellation Policy" },
-  },
-  {
-    q: "Do September 2026 registered students have to pay the certificate fee?",
-    a: "No. Students who registered during September 2026 are exempt from the certificate payment requirement. The certificate payment section still appears in their account, but no payment, transaction reference or screenshot is required from them, and their certificate process is otherwise unchanged.",
-    category: "Payments",
-    link: { to: "/internship", label: "Certificate process details" },
+    q: "How much does the internship cost?",
+    a: "Nothing. Registration, participation and certificate issuance are completely free. There are no processing fees, no payment steps and no hidden charges at any stage of the program.",
+    category: "Internship",
+    link: { to: "/internship", label: "See the certificate process" },
   },
   {
     q: "What services does YR NOVATECH provide?",
@@ -168,7 +156,7 @@ const faqs: FAQItem[] = [
   },
 ];
 
-const categories: FAQCategory[] = ["All", "Internship", "Certificates", "Payments", "Services", "General"];
+const categories: FAQCategory[] = ["All", "Internship", "Certificates", "Services", "General"];
 
 function Faq() {
   const [selectedCategory, setSelectedCategory] = useState<FAQCategory>("All");
@@ -216,7 +204,7 @@ function Faq() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search questions or keywords (e.g. certificates, UPI, domains)..."
+            placeholder="Search questions or keywords (e.g. certificates, domains, tasks)..."
             className="pl-11 pr-4 py-3 h-12 text-sm rounded-xl border-border bg-card shadow-sm"
           />
         </div>

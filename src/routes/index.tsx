@@ -233,8 +233,8 @@ const homeFaqs = [
     label: "Internship details",
   },
   {
-    q: "Do companies charge a certificate fee?",
-    a: "Certificate handling for the internship is described openly, including the fee and the payment process, along with which cohorts are exempt. Everything is set out before you commit.",
+    q: "Is the internship free?",
+    a: "Yes. Registration, participation and certificate issuance are completely free. There are no payment steps, no processing fees and no hidden charges at any stage.",
     to: "/faq" as const,
     label: "Read the full FAQ",
   },
@@ -816,7 +816,7 @@ function Index() {
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
                 Answers that match how this site and our programs actually behave. The full FAQ
-                covers payments, certificates, domains, duration and company information.
+                covers certificates, domains, duration and company information.
               </p>
             </div>
           </Reveal>
@@ -914,9 +914,9 @@ function Index() {
           <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
             <h2 className="text-lg font-bold text-foreground mb-2">Company information &amp; policies</h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-5 max-w-3xl">
-              Everything about how we handle your data, the terms of using this site, and refunds
-              for the internship certificate fee is published in plain language. Nothing below is
-              hidden behind marketing copy.
+              Everything about how we handle your data, the terms of using this site, and our
+              internship policies is published in plain language. Nothing below is hidden behind
+              marketing copy.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline">

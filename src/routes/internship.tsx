@@ -47,11 +47,6 @@ import {
   Target,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  CERTIFICATE_FEE,
-  CERTIFICATE_UPI_ID,
-  SEPTEMBER_EXEMPT_NOTICE,
-} from "@/lib/certificate-payment";
 
 interface InternshipFaq {
   q: string;
@@ -78,11 +73,11 @@ const internshipFaqs: InternshipFaq[] = [
   },
   {
     q: "Will I definitely receive a certificate?",
-    a: "Certificates are issued to interns who complete all required tasks for their selected duration and receive approval for those tasks. Where a certificate payment requirement applies, the payment must also be made and verified. Issuance is based on the completeness and quality of your submitted work.",
+    a: "Certificates are issued to interns who complete all required tasks for their selected duration and receive approval for those tasks. Issuance is based on the completeness and quality of your submitted work.",
   },
   {
-    q: "What payments are involved?",
-    a: "Registration and participation are free. Where a certificate processing fee applies, the amount is shown in your account before payment. Payment is made using the payment method displayed in your account (UPI), and you provide the transaction or UTR reference for verification. Payments are verified manually, so payment status is always subject to verification. See our Refund & Cancellation Policy for details.",
+    q: "How much does the internship cost?",
+    a: "Registration, participation and certificate issuance are completely free. There are no payment steps, no processing fees and no hidden charges at any stage of the program.",
   },
 ];
 
@@ -90,12 +85,12 @@ export const Route = createFileRoute("/internship")({
   head: () => ({
     meta: [
       {
-        title: "Internship Program: Domains, Tasks, Certificate & Fees | YR NOVATECH",
+        title: "Internship Program: Domains, Tasks & Certificate | YR NOVATECH",
       },
       {
         name: "description",
         content:
-          "A detailed guide to the YR NOVATECH online project-based internship: 6 engineering domains, 1/2/3-month durations, how tasks are submitted and approved, public certificate verification, and the ₹100 certificate fee paid by UPI with UTR verification.",
+          "A detailed guide to the YR NOVATECH online project-based internship: 6 engineering domains, 1/2/3-month durations, how tasks are submitted and approved, and public certificate verification. The program is completely free.",
       },
       {
         property: "og:title",
@@ -104,7 +99,7 @@ export const Route = createFileRoute("/internship")({
       {
         property: "og:description",
         content:
-          "How the YR NOVATECH internship works: domains, durations, task submissions, admin review, certificate issuance, verification and the certificate fee.",
+          "How the YR NOVATECH internship works: domains, durations, task submissions, admin review, certificate issuance and verification — all completely free.",
       },
       { property: "og:url", content: "https://www.yrnovatech.in/internship" },
     ],
@@ -301,19 +296,14 @@ const certificateSteps = [
     desc: "All required tasks for your selected duration must be submitted and approved before a certificate can be issued.",
   },
   {
-    icon: Wallet,
-    title: "Pay the certificate fee",
-    desc: `A one-time certificate processing fee of ₹${CERTIFICATE_FEE} applies, paid by UPI from your dashboard (see the exemption notice below).`,
-  },
-  {
     icon: ShieldCheck,
-    title: "Admin verifies the payment",
-    desc: "An admin checks your Transaction ID / UTR against the payment record. Verification is manual, so the status is always subject to confirmation.",
+    title: "Admin reviews and releases",
+    desc: "Once every required task is approved, the admin reviews your record and releases your certificate. There is no fee at any stage.",
   },
   {
     icon: Award,
     title: "Certificate issued",
-    desc: "Once tasks are approved and any payment is verified, an admin releases your certificate with a unique, publicly verifiable code.",
+    desc: "Your certificate is issued with a unique, publicly verifiable code that you can download and share.",
   },
 ];
 
@@ -531,7 +521,7 @@ function Internship() {
             </Link>{" "}
             or jump to{" "}
             <a href="#certificate" className="text-primary font-medium hover:underline">
-              certificate fee details
+              certificate process details
             </a>
             .
           </p>
@@ -982,15 +972,15 @@ function Internship() {
           </Card>
         </div>
       </Section>
-      {/* Certificate, Fee & September Exemption */}
+      {/* Certificate & Verification */}
       <Section id="certificate" className="!pt-0">
         <SectionHeading
-          eyebrow="Certificate & Fee"
+          eyebrow="Certificate"
           title="How the Certificate Works"
           description="Certificates are issued only after your work is approved — then verified once, usable forever."
         />
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto mb-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto mb-6">
           {certificateSteps.map((s) => (
             <Card key={s.title} className="p-5 border border-border h-full">
               <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3">
@@ -1003,12 +993,12 @@ function Internship() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 max-w-6xl mx-auto">
-          {/* Fee + payment process */}
+          {/* Free certification process */}
           <Card className="p-6 border border-border bg-card rounded-2xl">
             <div className="flex items-center gap-2.5 mb-4">
               <Wallet className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base text-foreground">
-                Certificate fee and payment process
+                Free certification process
               </h3>
             </div>
 
@@ -1018,16 +1008,12 @@ function Internship() {
                 <span className="font-semibold text-foreground">Free</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Certificate processing fee</span>
-                <span className="font-semibold text-foreground">₹{CERTIFICATE_FEE} (one-time)</span>
+                <span className="text-muted-foreground">Certificate issuance</span>
+                <span className="font-semibold text-foreground">Free</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Payment method</span>
-                <span className="font-semibold text-foreground">UPI</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">UPI ID</span>
-                <span className="font-mono font-semibold text-foreground">{CERTIFICATE_UPI_ID}</span>
+                <span className="text-muted-foreground">Hidden charges</span>
+                <span className="font-semibold text-foreground">None</span>
               </div>
             </div>
 
@@ -1037,8 +1023,7 @@ function Internship() {
                   1
                 </span>
                 <span>
-                  Pay ₹{CERTIFICATE_FEE} to the UPI ID above using any UPI app. The fee, the UPI ID
-                  and the official QR code are also shown inside your dashboard before you pay.
+                  Complete every required task for your selected duration and get each one approved.
                 </span>
               </li>
               <li className="flex gap-2.5 text-sm text-muted-foreground leading-relaxed">
@@ -1046,8 +1031,8 @@ function Internship() {
                   2
                 </span>
                 <span>
-                  Enter the Transaction ID / UTR from your UPI app in the payment section of your
-                  dashboard, and attach the payment screenshot if you have one.
+                  Once all required tasks are approved, an admin reviews your record and releases your
+                  certificate.
                 </span>
               </li>
               <li className="flex gap-2.5 text-sm text-muted-foreground leading-relaxed">
@@ -1055,28 +1040,14 @@ function Internship() {
                   3
                 </span>
                 <span>
-                  An admin manually verifies the UTR against the incoming payment. Your status shows
-                  as pending until that check is done, so payment status is always subject to
-                  verification.
-                </span>
-              </li>
-              <li className="flex gap-2.5 text-sm text-muted-foreground leading-relaxed">
-                <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                  4
-                </span>
-                <span>
-                  Once verification passes and your required tasks are approved, an admin issues your
-                  certificate with a unique code.
+                  Download your certificate with a unique, publicly verifiable code. No fee is
+                  collected at any stage.
                 </span>
               </li>
             </ol>
 
             <p className="text-xs text-muted-foreground leading-relaxed mt-4 pt-4 border-t border-border/60">
-              Questions about refunds? Read the{" "}
-              <Link to="/refund-policy" className="text-primary hover:underline">
-                Refund &amp; Cancellation Policy
-              </Link>
-              . Questions about how your details and payment records are handled? See the{" "}
+              Questions about how your details are handled? See the{" "}
               <Link to="/privacy-policy" className="text-primary hover:underline">
                 Privacy Policy
               </Link>
@@ -1084,24 +1055,8 @@ function Internship() {
             </p>
           </Card>
 
-          {/* September 2026 exemption + verification */}
+          {/* Verification */}
           <div className="space-y-6">
-            <Card className="p-6 border border-emerald-500/30 bg-emerald-500/5 rounded-2xl">
-              <div className="flex items-center gap-2.5 mb-3">
-                <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="font-semibold text-base text-foreground">September 2026 cohort</h3>
-              </div>
-              <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 mb-3">
-                {SEPTEMBER_EXEMPT_NOTICE}
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Informational: students who registered between 1 September 2026 and 30 September 2026
-                (UTC) belong to the payment-exempt batch. They do not need to pay the ₹{CERTIFICATE_FEE} certificate fee, submit a UTR or upload a screenshot — their
-                certificate follows the same path as everyone else: all required tasks approved, then
-                released by an admin. For every other registration, the certificate fee becomes
-                required once all required tasks have been approved.
-              </p>
-            </Card>
 
             <Card className="p-6 border border-border bg-card rounded-2xl">
               <div className="flex items-center gap-2.5 mb-3">
@@ -1290,7 +1245,7 @@ function Internship() {
         <SectionHeading
           eyebrow="How to Apply"
           title="Application Process"
-          description="Five steps from signup to your first task. Registration is free — you only pay the certificate fee later, if it applies to your batch."
+          description="Five steps from signup to your first task. Registration, participation and certification are completely free."
         />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 max-w-6xl mx-auto">
@@ -1349,7 +1304,7 @@ function Internship() {
         <SectionHeading
           eyebrow="Internship FAQ"
           title="Internship Questions, Answered"
-          description="The questions we hear most often about the program, tasks, certificates and payments."
+          description="The questions we hear most often about the program, tasks and certificates."
         />
 
         <div className="max-w-3xl mx-auto space-y-3">
@@ -1373,7 +1328,7 @@ function Internship() {
           <Link to="/faq" className="text-primary font-medium hover:underline">
             full FAQ
           </Link>{" "}
-          covers registration, refunds and contact details in more depth.
+          covers registration, certificates and contact details in more depth.
         </p>
       </Section>
 

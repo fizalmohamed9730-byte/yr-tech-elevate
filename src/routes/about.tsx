@@ -200,14 +200,14 @@ const legalCards = [
     icon: Scale,
     title: "Terms & Conditions",
     description:
-      "Review the rules governing use of the website, accounts, services, internship participation, submissions, certificates, and payments.",
+      "Review the rules governing use of the website, accounts, services, internship participation, submissions, and certificates.",
     to: "/terms-and-conditions",
   },
   {
     icon: RotateCcw,
     title: "Refund & Cancellation Policy",
     description:
-      "Review the applicable rules for payments, cancellation, verification, rejection, and refunds.",
+      "The internship is free — no payments are collected, so no fees are charged and no refunds apply.",
     to: "/refund-policy",
   },
 ];
@@ -476,7 +476,7 @@ function About() {
           <SectionHeading
             eyebrow="Policies & Legal Information"
             title="Policies & Legal Information"
-            description="Key policies that govern the use of our website, services, internship program, and payments."
+            description="Key policies that govern the use of our website, services, and internship program."
           />
         </Reveal>
         <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
@@ -537,7 +537,7 @@ function About() {
             {
               to: "/faq" as const,
               title: "Frequently asked questions",
-              body: "Straight answers on services, certificates, payments, durations and company information.",
+              body: "Straight answers on services, certificates, durations and company information.",
             },
             {
               to: "/careers" as const,

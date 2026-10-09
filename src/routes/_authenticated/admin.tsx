@@ -24,7 +24,6 @@ import {
   PieChart, Pie, Cell, BarChart, Bar
 } from "recharts";
 import { getTasksForSlug } from "@/lib/tasks";
-import { isSeptember2026Exempt } from "@/lib/certificate-payment";
 import { getInitials } from "@/lib/utils";
 import { useAdminTheme } from "@/hooks/use-admin-theme";
 
@@ -39,9 +38,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage
 });
 
-type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "payments" | "feedback" | "enquiries" | "analytics" | "announcements";
+type Section = "dashboard" | "interns" | "applications" | "tasks" | "submissions" | "offers" | "idcards" | "certificates" | "feedback" | "enquiries" | "analytics" | "announcements";
 
-type SectionKey = "profiles" | "internships" | "submissions" | "projects" | "projectSubmissions" | "domains" | "enquiries" | "announcements" | "feedback" | "discovery" | "certificatePayments";
+type SectionKey = "profiles" | "internships" | "submissions" | "projects" | "projectSubmissions" | "domains" | "enquiries" | "announcements" | "feedback" | "discovery";
 type SectionError = { error: string | null; ts: number };
 
 const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] = [
@@ -53,7 +52,6 @@ const NAV_ITEMS: { id: Section; label: string; icon: any; badgeKey?: string }[] 
   { id: "offers", label: "Offer Letters", icon: Mail },
   { id: "idcards", label: "ID Cards", icon: CreditCard },
   { id: "certificates", label: "Certificates", icon: Award },
-  { id: "payments", label: "Payments", icon: CreditCard },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
   { id: "enquiries", label: "Enquiries", icon: Mail, badgeKey: "enquiries" },
   { id: "announcements", label: "Announcements", icon: Megaphone },
@@ -172,20 +170,18 @@ function AdminPage() {
     projects: { error: null, ts: 0 }, projectSubmissions: { error: null, ts: 0 }, domains: { error: null, ts: 0 },
     enquiries: { error: null, ts: 0 }, announcements: { error: null, ts: 0 },     feedback: { error: null, ts: 0 },
     discovery: { error: null, ts: 0 },
-    certificatePayments: { error: null, ts: 0 },
   });
   const [sectionLoading, setSectionLoading] = useState<Record<SectionKey, boolean>>({
     profiles: false, internships: false, submissions: false,
     projects: false, projectSubmissions: false, domains: false,
     enquiries: false, announcements: false, feedback: false,
-    discovery: false, certificatePayments: false,
+    discovery: false,
   });
   const lastReloadSucceeded = useRef(false);
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterDiscovery, setFilterDiscovery] = useState("all");
   const [discoveryData, setDiscoveryData] = useState<any[]>([]);
   const [discoveryColumnsMissing, setDiscoveryColumnsMissing] = useState(false);
-  const [certificatePayments, setCertificatePayments] = useState<any[]>([]);
 
   async function safeQuery<T = any>(label: string, builder: { then: Function }): Promise<{ data: T[]; failed: boolean; supabaseError?: { code?: string; message?: string; details?: string; hint?: string; status?: number } }> {
     try {
@@ -246,24 +242,6 @@ function AdminPage() {
     void fetchPhoto(profileId);
   }, [fetchPhoto]);
 
-  const fetchPaymentScreenshot = useCallback(async (paymentId: string) => {
-    const { data, error } = await supabase
-      .from("certificate_payments")
-      .select("payment_screenshot_url")
-      .eq("id", paymentId)
-      .maybeSingle();
-    if (error) {
-      toast.error("Failed to load screenshot");
-      return;
-    }
-    const url = data?.payment_screenshot_url;
-    if (!url) {
-      toast.error("No screenshot attached");
-      return;
-    }
-    window.open(url, "_blank", "noopener");
-  }, []);
-
   function isSchemaMismatchError(err: any): boolean {
     if (!err) return false;
     const code = err.code;
@@ -274,21 +252,6 @@ function AdminPage() {
     );
   }
 
-  function isTableNotFoundError(err: any): boolean {
-    if (!err) return false;
-    const code = err.code;
-    const msg = err.message ?? "";
-    return (
-      code === "42P01" ||
-      code === "PGRST204" ||
-      code === "42703" ||
-      msg.includes("does not exist") ||
-      msg.includes("relation") ||
-      msg.includes("column") ||
-      msg.includes("schema cache")
-    );
-  }
-
   async function reload() {
     if (reloadInProgress.current) return;
     reloadInProgress.current = true;
@@ -296,7 +259,7 @@ function AdminPage() {
       profiles: true, internships: true, submissions: true,
       projects: true, projectSubmissions: true, domains: true,
       enquiries: true, announcements: true, feedback: true,
-      discovery: true, certificatePayments: true,
+      discovery: true,
     });
     try {
       const db = supabase as any;
@@ -329,31 +292,23 @@ function AdminPage() {
       const i = rawInterns.map((intern: any) => ({ ...intern, student: studentMap.get(intern.student_id) ?? null }));
 
       if (i.length > 0) {
-        const extRes = await safeQuery("internships_extended", (supabase as any).from("internships").select("id, certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoked_by, certificate_revoke_reason"));
+        const extRes = await safeQuery("internships_extended", (supabase as any).from("internships").select("id, certificate_status, certificate_revoked_at, certificate_revoked_by, certificate_revoke_reason"));
         if (!extRes.failed && extRes.data.length > 0) {
           const extMap = new Map<string, any>();
           for (const row of extRes.data) extMap.set(row.id, row);
           for (const intern of i) {
             const ext = extMap.get(intern.id);
             if (ext) {
-              intern.certificate_flow_version = ext.certificate_flow_version ?? "legacy";
               intern.certificate_status = ext.certificate_status ?? "none";
               intern.certificate_revoked_at = ext.certificate_revoked_at ?? null;
               intern.certificate_revoked_by = ext.certificate_revoked_by ?? null;
               intern.certificate_revoke_reason = ext.certificate_revoke_reason ?? null;
             } else {
-              intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
               intern.certificate_status = "none";
             }
           }
-        } else if (extRes.failed && isSchemaMismatchError(extRes.supabaseError)) {
-          for (const intern of i) {
-            intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
-            intern.certificate_status = intern.certificate_status ?? "none";
-          }
         } else {
           for (const intern of i) {
-            intern.certificate_flow_version = intern.certificate_flow_version ?? "legacy";
             intern.certificate_status = intern.certificate_status ?? "none";
           }
         }
@@ -374,18 +329,6 @@ function AdminPage() {
       const discoveryRecords = discRes.failed ? [] : discRes.data;
       setDiscoveryData(discoveryRecords);
       setDiscoveryColumnsMissing(discRes.failed && (discRes.supabaseError?.code === "42703" || discRes.supabaseError?.code === "PGRST204"));
-
-      let cpRes: { data: any[]; failed: boolean; supabaseError?: any };
-      try {
-        // `payment_screenshot_url` is a base64 data URL (up to ~2MB). It is
-        // deliberately NOT selected here — see fetchPaymentScreenshot() — so the
-        // 60s poll no longer re-downloads every payment proof image.
-        cpRes = await safeQuery("certificatePayments", supabase.from("certificate_payments").select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, verified_by, rejection_reason, created_at, updated_at").order("created_at", { ascending: false }));
-      } catch {
-        cpRes = { data: [], failed: true, supabaseError: { code: "THROW", message: "Unknown certificate_payments error" } };
-      }
-      const cpData = cpRes.failed ? [] : cpRes.data;
-      setCertificatePayments(cpData);
 
       const internshipMap = new Map<string, any>();
       for (const int of i) internshipMap.set(int.id, int);
@@ -465,15 +408,6 @@ function AdminPage() {
           })(),
           ts: Date.now(),
         },
-        certificatePayments: {
-          error: (() => {
-            if (!cpRes.failed) return null;
-            if (isTableNotFoundError(cpRes.supabaseError)) return null;
-            if (isSchemaMismatchError(cpRes.supabaseError)) return null;
-            return cpRes.supabaseError?.message || "Certificate payments unavailable";
-          })(),
-          ts: Date.now(),
-        },
         discovery: {
           error: (() => {
             if (!discRes.failed) return null;
@@ -494,7 +428,7 @@ function AdminPage() {
         profiles: false, internships: false, submissions: false,
         projects: false, projectSubmissions: false, domains: false,
         enquiries: false, announcements: false, feedback: false,
-        discovery: false, certificatePayments: false,
+        discovery: false,
       });
     }
   }
@@ -555,24 +489,6 @@ function AdminPage() {
     }
     return map;
   }, [internships]);
-
-  // September 2026 registered interns are exempt from the certificate payment.
-  // The intern's registration timestamp lives on the profile row (i.student).
-  const septemberExemptByInternship = useMemo(() => {
-    const map = new Map<string, boolean>();
-    for (const i of internships) {
-      map.set(i.id, isSeptember2026Exempt(i.student?.created_at ?? null));
-    }
-    return map;
-  }, [internships]);
-
-  // Payment only applies to payment_v1 interns outside the exempt batch.
-  const paymentRequiredFor = useCallback(
-    (internship: any) =>
-      internship.certificate_flow_version === "payment_v1" &&
-      !septemberExemptByInternship.get(internship.id),
-    [septemberExemptByInternship],
-  );
 
   const internshipByStudent = useMemo(() => {
     const map = new Map<string, any>();
@@ -814,27 +730,6 @@ function AdminPage() {
     } finally {
       setReissuing(false);
     }
-  }
-
-  async function verifyPayment(paymentId: string) {
-    const { error } = await (supabase as any)
-      .from("certificate_payments")
-      .update({ status: "paid", paid_at: new Date().toISOString(), verified_at: new Date().toISOString(), verified_by: routeCtx?.user?.id ?? null })
-      .eq("id", paymentId);
-    if (error) return toast.error("Failed to verify payment: " + error.message);
-    toast.success("Payment verified!");
-    reload();
-  }
-
-  async function rejectPayment(paymentId: string) {
-    const reason = window.prompt("Rejection reason (optional):");
-    const { error } = await (supabase as any)
-      .from("certificate_payments")
-      .update({ status: "rejected", rejection_reason: reason || null })
-      .eq("id", paymentId);
-    if (error) return toast.error("Failed to reject payment: " + error.message);
-    toast.success("Payment rejected.");
-    reload();
   }
 
   async function handleSendOfferLetterEmail(intern: any) {
@@ -1462,9 +1357,7 @@ function AdminPage() {
           {internships.filter(i => i.certificate_status === "revoked").map((i) => {
             const ta = approvedCountByInternship.get(i.id) ?? 0;
             const required = requiredCountByInternship.get(i.id) ?? 5;
-            const paymentRequired = paymentRequiredFor(i);
-            const paymentPaid = !paymentRequired || certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid");
-            const canReissue = ta >= required && paymentPaid;
+            const canReissue = ta >= required;
             return (
               <tr key={i.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
                 <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{i.internship_code}</td>
@@ -1504,19 +1397,14 @@ function AdminPage() {
       }).map((i) => {
         const ta = approvedCountByInternship.get(i.id) ?? 0;
         const required = requiredCountByInternship.get(i.id) ?? 5;
-        const paymentRequired = paymentRequiredFor(i);
-        const paymentPaid = !paymentRequired || certificatePayments.some((cp: any) => cp.internship_id === i.id && cp.status === "paid");
-        const canIssue = paymentPaid;
         return (<div key={i.id} className="flex items-center justify-between gap-3 py-2 border-b border-(--admin-card-border) last:border-0">
           <div>
             <span className="text-(--admin-text) font-medium">{i.student?.full_name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.internship_code}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{i.domain?.name}</span>
             <span className="text-xs text-(--admin-text-muted) ml-2">{ta}/{required} tasks</span>
-            {paymentRequired && !paymentPaid && <span className="text-xs text-amber-500 ml-2">(Payment pending)</span>}
-            {!paymentRequired && septemberExemptByInternship.get(i.id) && <span className="text-xs text-emerald-500 ml-2">(Sept 2026 batch — payment exempt)</span>}
           </div>
-          <Button size="sm" className={`text-xs text-white ${canIssue ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`} disabled={!canIssue} onClick={() => issueCertificate(i.id)}>
+          <Button size="sm" className="text-xs text-white bg-blue-600 hover:bg-blue-700" onClick={() => issueCertificate(i.id)}>
             <Award className="h-3 w-3 mr-1" /> Issue Certificate
           </Button>
         </div>);
@@ -1586,109 +1474,6 @@ function AdminPage() {
       </div>
     </DialogContent>
   </Dialog>
-</div>
-)}
-
-{/* ============ CERTIFICATE PAYMENTS ============ */}
-{activeSection === "payments" && (
-<div className="space-y-6">
-  <h2 className="text-lg font-semibold text-(--admin-text)">Certificate Payments</h2>
-
-  {/* Pending Verification */}
-  {certificatePayments.filter((p: any) => p.status === "pending_verification").length > 0 && (
-    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-amber-500">Pending Verification ({certificatePayments.filter((p: any) => p.status === "pending_verification").length})</h3></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Domain</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Screenshot</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Submitted</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Actions</th>
-        </tr></thead><tbody>
-          {certificatePayments.filter((p: any) => p.status === "pending_verification").map((p: any) => {
-            const intern = internships.find((i: any) => i.id === p.internship_id);
-            return (
-              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
-                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span><br/><span className="text-xs text-(--admin-text-muted)">{intern?.internship_code}</span></td>
-                <td className="py-3 px-3 text-(--admin-text)">{intern?.domain?.name ?? "-"}</td>
-                <td className="py-3 px-3 text-(--admin-text) font-semibold">&#8377;{p.amount}</td>
-                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
-                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)"><Button size="sm" variant="link" className="h-auto p-0 text-xs text-blue-500 hover:underline" onClick={() => fetchPaymentScreenshot(p.id)}>View</Button></td>
-                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{new Date(p.submitted_at).toLocaleDateString()}</td>
-                <td className="py-3 px-3 space-x-1 whitespace-nowrap">
-                  <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => verifyPayment(p.id)}>Verify</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-600" onClick={() => rejectPayment(p.id)}>Reject</Button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody></table>
-      </div>
-    </div>
-  )}
-
-  {certificatePayments.filter((p: any) => p.status === "pending_verification").length === 0 && (
-    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl p-5 text-center">
-      <p className="text-sm text-(--admin-text-muted)">No pending certificate payments.</p>
-    </div>
-  )}
-
-  {/* Verified Payments */}
-  {certificatePayments.filter((p: any) => p.status === "paid").length > 0 && (
-    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-emerald-500">Verified ({certificatePayments.filter((p: any) => p.status === "paid").length})</h3></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Verified</th>
-        </tr></thead><tbody>
-          {certificatePayments.filter((p: any) => p.status === "paid").map((p: any) => {
-            const intern = internships.find((i: any) => i.id === p.internship_id);
-            return (
-              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
-                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span></td>
-                <td className="py-3 px-3 text-(--admin-text)">&#8377;{p.amount}</td>
-                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
-                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.verified_at ? new Date(p.verified_at).toLocaleDateString() : "-"}</td>
-              </tr>
-            );
-          })}
-        </tbody></table>
-      </div>
-    </div>
-  )}
-
-  {/* Rejected Payments */}
-  {certificatePayments.filter((p: any) => p.status === "rejected").length > 0 && (
-    <div className="bg-(--admin-card) border border-(--admin-card-border) rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-(--admin-card-border)"><h3 className="text-sm font-semibold text-red-500">Rejected ({certificatePayments.filter((p: any) => p.status === "rejected").length})</h3></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm"><thead><tr className="border-b border-(--admin-card-border)">
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Intern</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Amount</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Transaction ID</th>
-          <th className="text-left py-3 px-3 text-[11px] font-medium text-(--admin-text-muted) uppercase">Reason</th>
-        </tr></thead><tbody>
-          {certificatePayments.filter((p: any) => p.status === "rejected").map((p: any) => {
-            const intern = internships.find((i: any) => i.id === p.internship_id);
-            return (
-              <tr key={p.id} className="border-b border-(--admin-card-border) hover:bg-(--admin-table-hover)">
-                <td className="py-3 px-3"><span className="text-(--admin-text) font-medium">{intern?.student?.full_name ?? "Unknown"}</span></td>
-                <td className="py-3 px-3 text-(--admin-text)">&#8377;{p.amount}</td>
-                <td className="py-3 px-3 font-mono text-xs text-(--admin-text-secondary)">{p.transaction_id}</td>
-                <td className="py-3 px-3 text-xs text-(--admin-text-secondary)">{p.rejection_reason || "-"}</td>
-              </tr>
-            );
-          })}
-        </tbody></table>
-      </div>
-    </div>
-  )}
 </div>
 )}
 

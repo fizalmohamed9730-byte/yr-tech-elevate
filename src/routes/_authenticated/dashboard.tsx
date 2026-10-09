@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Award, FileText, IdCard, Github, ExternalLink, FolderOpen, Linkedin,
   Loader2, Upload, User, ShieldCheck, Eye, EyeOff, MessageSquare, Star,
-  CreditCard, CheckCircle, CheckCircle2, Clock, AlertTriangle, AlertCircle,
+  CheckCircle, CheckCircle2, Clock, AlertTriangle, AlertCircle,
   Calendar, Megaphone, Copy, Check, Sparkles, ChevronRight, ArrowRight,
   BookOpen, Download, LayoutDashboard, Filter, RefreshCw, Info, Lock,
   ChevronDown, Send, CheckCheck, HelpCircle, Layers, CheckSquare
@@ -23,14 +23,7 @@ import {
 import { getTasksForSlug, type TaskDef } from "@/lib/tasks";
 import { downloadCertificate, downloadOfferLetterAnywhere, downloadIdCard, viewOfferLetterFromStorage } from "@/lib/pdf";
 import { COMPANY } from "@/lib/company";
-import { fileToResizedDataUrl, AVATAR_MAX_DIM, SCREENSHOT_MAX_DIM } from "@/lib/image";
-import {
-  CERTIFICATE_FEE,
-  CERTIFICATE_UPI_ID,
-  CERTIFICATE_QR_SRC,
-  SEPTEMBER_EXEMPT_NOTICE,
-  isSeptember2026Exempt,
-} from "@/lib/certificate-payment";
+import { fileToResizedDataUrl, AVATAR_MAX_DIM } from "@/lib/image";
 import { getInitials } from "@/lib/utils";
 import { z } from "zod";
 
@@ -48,7 +41,6 @@ export function Dashboard() {
   const routeCtx = useRouteContext({ from: "/_authenticated" }) as { user?: any };
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const [registeredAt, setRegisteredAt] = useState<string | null>(null);
   const [internship, setInternship] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -66,12 +58,6 @@ export function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
 
-  // Certificate payment states
-  const [paymentRecord, setPaymentRecord] = useState<any>(null);
-  const [certificateFee, setCertificateFee] = useState<number>(CERTIFICATE_FEE);
-  const [paymentTxId, setPaymentTxId] = useState("");
-  const [paymentScreenshot, setPaymentScreenshot] = useState<string | null>(null);
-  const [submittingPayment, setSubmittingPayment] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   function copyToClipboard(text: string, key: string, label: string = "Copied") {
@@ -114,19 +100,6 @@ export function Dashboard() {
 
       if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message);
 
-      let regDate: string | null = p?.created_at ?? null;
-      try {
-        const { data: regRow } = await supabase
-          .from("profiles")
-          .select("created_at")
-          .eq("id", userId)
-          .maybeSingle();
-        if (regRow?.created_at) regDate = regRow.created_at;
-      } catch (regErr: any) {
-        console.warn("[dashboard] registration date lookup failed:", regErr?.message);
-      }
-      setRegisteredAt(regDate);
-
       if (iErr) {
         console.error("[dashboard] internships query error:", iErr.code, iErr.message);
         setLoadError("Failed to load internship data. Database error: " + (iErr.message ?? iErr.code ?? "unknown"));
@@ -138,20 +111,18 @@ export function Dashboard() {
       setPhoto(p?.avatar_url ?? null);
 
       let internshipData = i;
-      let flowVersion = (internshipData as any)?.certificate_flow_version ?? "legacy";
       let certStatus = (internshipData as any)?.certificate_status ?? "none";
       let certRevokedAt = (internshipData as any)?.certificate_revoked_at ?? null;
       let certRevokeReason = (internshipData as any)?.certificate_revoke_reason ?? null;
 
-      // Step 2: Fetch certificate_flow_version + revocation columns separately (tolerant)
+      // Step 2: Fetch certificate status + revocation columns separately (tolerant)
       if (internshipData?.id) {
         try {
           const { data: extData } = await (supabase as any)
             .from("internships")
-            .select("certificate_flow_version, certificate_status, certificate_revoked_at, certificate_revoke_reason")
+            .select("certificate_status, certificate_revoked_at, certificate_revoke_reason")
             .eq("id", internshipData.id)
             .maybeSingle();
-          if (extData?.certificate_flow_version) flowVersion = extData.certificate_flow_version;
           if (extData?.certificate_status) certStatus = extData.certificate_status;
           if (extData?.certificate_revoked_at) certRevokedAt = extData.certificate_revoked_at;
           if (extData?.certificate_revoke_reason) certRevokeReason = extData.certificate_revoke_reason;
@@ -159,7 +130,6 @@ export function Dashboard() {
 
         internshipData = {
           ...(internshipData as any),
-          certificate_flow_version: flowVersion,
           certificate_status: certStatus,
           certificate_revoked_at: certRevokedAt,
           certificate_revoke_reason: certRevokeReason,
@@ -182,7 +152,6 @@ export function Dashboard() {
           if (upd) {
             internshipData = {
               ...upd,
-              certificate_flow_version: flowVersion,
               certificate_status: certStatus,
               certificate_revoked_at: certRevokedAt,
               certificate_revoke_reason: certRevokeReason,
@@ -208,7 +177,7 @@ export function Dashboard() {
         }
       }
 
-      // Submissions and Certificate Payment queries
+      // Submissions and Announcements queries
       if (internshipData?.id) {
         const { data: s, error: sErr } = await supabase
           .from("submissions")
@@ -231,24 +200,6 @@ export function Dashboard() {
           console.warn("[dashboard] announcements query failed:", annErr?.message);
         }
         setAnnouncements(announcementsData);
-
-        try {
-          const [{ data: payData }, { data: feeData }] = await Promise.all([
-            supabase
-              .from("certificate_payments")
-              .select("id, internship_id, amount, currency, upi_id, transaction_id, status, submitted_at, paid_at, verified_at, rejection_reason")
-              .eq("internship_id", internshipData.id)
-              .maybeSingle(),
-            supabase
-              .from("app_settings")
-              .select("value")
-              .eq("key", "certificate_fee")
-              .maybeSingle(),
-          ]);
-
-          setPaymentRecord(payData ?? null);
-          setCertificateFee(feeData?.value ? (typeof feeData.value === "number" ? feeData.value : Number(feeData.value)) : CERTIFICATE_FEE);
-        } catch {}
       }
     } catch (err: any) {
       console.error("[dashboard] load error:", err);
@@ -257,80 +208,11 @@ export function Dashboard() {
     }
   }
 
-  async function submitCertificatePayment() {
-    if (!internship?.id) return;
-    // September 2026 batch is payment-exempt: never create a payment record.
-    if (isSeptember2026Exempt(registeredAt)) return;
-
-    const trimmedTxId = paymentTxId.trim();
-    if (!trimmedTxId) {
-      return toast.error("Please enter your Transaction / UTR ID");
-    }
-    if (!allRequiredApproved) {
-      return toast.error("Complete and get approval for all required tasks first");
-    }
-    if (paymentRecord?.status === "paid") {
-      return toast.error("Payment already verified");
-    }
-
-    setSubmittingPayment(true);
-    try {
-      if (paymentRecord?.status === "rejected") {
-        const { error } = await (supabase as any)
-          .from("certificate_payments")
-          .update({
-            transaction_id: trimmedTxId,
-            payment_screenshot_url: paymentScreenshot,
-            status: "pending_verification",
-            rejection_reason: null,
-            submitted_at: new Date().toISOString(),
-          })
-          .eq("id", paymentRecord.id);
-        if (error) {
-          console.error("[dashboard] payment retry error:", error.code, error.message);
-          return toast.error("Failed to submit payment: " + error.message);
-        }
-      } else {
-        const { error } = await (supabase as any)
-          .from("certificate_payments")
-          .upsert({
-            internship_id: internship.id,
-            amount: certificateFee,
-            currency: "INR",
-            transaction_id: trimmedTxId,
-            payment_screenshot_url: paymentScreenshot,
-            status: "pending_verification",
-            submitted_at: new Date().toISOString(),
-          }, { onConflict: "internship_id" });
-        if (error) {
-          console.error("[dashboard] payment submit error:", error.code, error.message);
-          return toast.error("Failed to submit payment: " + error.message);
-        }
-      }
-      toast.success("Payment submitted successfully. Your transaction is now pending Admin verification.");
-      setPaymentTxId("");
-      setPaymentScreenshot(null);
-      load();
-    } catch (err: any) {
-      console.error("[dashboard] payment submit threw:", err?.message);
-      toast.error("Failed to submit payment: " + (err?.message ?? "Unknown error"));
-    } finally {
-      setSubmittingPayment(false);
-    }
-  }
-
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 600 * 1024) return toast.error("Photo must be under 600KB");
     setPhoto(await fileToResizedDataUrl(file, AVATAR_MAX_DIM));
-  }
-
-  async function onPaymentScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return toast.error("Screenshot must be under 2MB");
-    setPaymentScreenshot(await fileToResizedDataUrl(file, SCREENSHOT_MAX_DIM));
   }
 
   const profileSchema = z.object({
@@ -403,10 +285,6 @@ export function Dashboard() {
   }).length;
   const remainingCount = Math.max(0, durationTasksCount - approvedTaskCount);
   const allRequiredApproved = tasks.length > 0 && tasks.every((t) => submissionByNo.get(t.no)?.status === "approved");
-
-  const septemberExempt = isSeptember2026Exempt(registeredAt);
-  const requiresPayment = internship?.certificate_flow_version === "payment_v1" && !septemberExempt;
-  const showPaymentTab = true;
 
   function isTaskUnlocked(taskNo: number): boolean {
     if (taskNo === 1) return true;
@@ -485,47 +363,6 @@ export function Dashboard() {
         };
       }
 
-      if (requiresPayment) {
-        if (paymentRecord?.status === "paid") {
-          return {
-            type: "info" as const,
-            badge: "Verification Completed",
-            title: "Payment Verified — Ready for Admin Release",
-            description: "Compliance verified! Your certificate is queued for administrative digital signature.",
-            actionLabel: "View Certificate Status",
-            onAction: () => setActiveTab("certificate"),
-          };
-        }
-        if (paymentRecord?.status === "pending_verification") {
-          return {
-            type: "info" as const,
-            badge: "Verification Pending",
-            title: "Payment Verification in Progress",
-            description: `UTR ${paymentRecord.transaction_id || "submitted"} is being verified by finance administrators.`,
-            actionLabel: "Check Payment Details",
-            onAction: () => setActiveTab("certificate"),
-          };
-        }
-        if (paymentRecord?.status === "rejected") {
-          return {
-            type: "warning" as const,
-            badge: "Payment Action Needed",
-            title: "Payment Verification Notice",
-            description: paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : "Please update your transaction details to proceed.",
-            actionLabel: "Review Payment",
-            onAction: () => setActiveTab("certificate"),
-          };
-        }
-        return {
-          type: "primary" as const,
-          badge: "Final Step",
-          title: "All Tasks Approved — Submit Certificate Verification",
-          description: `All ${durationTasksCount} required deliverables approved. Complete verification to unlock certificate generation.`,
-          actionLabel: "Proceed to Payment",
-          onAction: () => setActiveTab("certificate"),
-        };
-      }
-
       return {
         type: "info" as const,
         badge: "Ready for Release",
@@ -544,7 +381,7 @@ export function Dashboard() {
       actionLabel: "View Tasks",
       onAction: () => setActiveTab("tasks"),
     };
-  }, [internship, tasks, submissionByNo, allRequiredApproved, requiresPayment, paymentRecord, durationTasksCount]);
+  }, [internship, tasks, submissionByNo, allRequiredApproved, durationTasksCount]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -615,11 +452,6 @@ export function Dashboard() {
                   <Badge variant={internship.status === "completed" ? "default" : "secondary"} className="capitalize text-xs font-medium">
                     {internship.status}
                   </Badge>
-                  {septemberExempt && (
-                    <Badge variant="outline" className="text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 text-[11px]">
-                      Sept 2026 Batch
-                    </Badge>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground flex-wrap">
@@ -806,7 +638,7 @@ export function Dashboard() {
         {/* Tabbed Navigation System */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
-            <TabsList className="inline-flex h-11 items-center justify-start rounded-xl bg-muted/60 p-1 text-muted-foreground border border-border/40 gap-1 w-max md:w-full md:grid md:grid-cols-8">
+            <TabsList className="inline-flex h-11 items-center justify-start rounded-xl bg-muted/60 p-1 text-muted-foreground border border-border/40 gap-1 w-max md:w-full md:grid md:grid-cols-7">
               <TabsTrigger value="overview" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                 <LayoutDashboard className="h-3.5 w-3.5" /> Overview
               </TabsTrigger>
@@ -827,11 +659,6 @@ export function Dashboard() {
               <TabsTrigger value="certificate" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                 <Award className="h-3.5 w-3.5" /> Certificate
               </TabsTrigger>
-              {showPaymentTab && (
-                <TabsTrigger value="payment" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                  <CreditCard className="h-3.5 w-3.5" /> Payment
-                </TabsTrigger>
-              )}
               <TabsTrigger value="announcements" className="rounded-lg text-xs md:text-sm font-medium px-3.5 py-1.5 gap-2 whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                 <Megaphone className="h-3.5 w-3.5" /> Announcements
                 {announcements.length > 0 && (
@@ -897,31 +724,27 @@ export function Dashboard() {
                   </p>
                 </div>
 
-                {/* Milestone 3: Compliance & Verification */}
+                {/* Milestone 3: Admin Sign-off */}
                 <div className="flex flex-col p-4 rounded-xl border bg-card/60 shadow-sm relative space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Step 3</span>
                     <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                      septemberExempt || paymentRecord?.status === "paid"
+                      internship.certificate_code
                         ? "bg-emerald-500 text-white"
                         : allRequiredApproved
                         ? "bg-amber-500 text-white"
                         : "bg-muted text-muted-foreground"
                     }`}>
-                      {septemberExempt || paymentRecord?.status === "paid" ? "✓" : "3"}
+                      {internship.certificate_code ? "✓" : "3"}
                     </div>
                   </div>
-                  <h4 className="font-semibold text-sm text-foreground">
-                    {septemberExempt ? "Exemption Cleared" : "Verification"}
-                  </h4>
+                  <h4 className="font-semibold text-sm text-foreground">Admin Sign-off</h4>
                   <p className="text-xs text-muted-foreground">
-                    {septemberExempt
-                      ? "September 2026 batch payment-exempt."
-                      : paymentRecord?.status === "paid"
-                      ? "Fee verification confirmed."
-                      : paymentRecord?.status === "pending_verification"
-                      ? "Verification in review."
-                      : `₹${certificateFee} certification verification.`}
+                    {internship.certificate_code
+                      ? "Approved and released by Admin."
+                      : allRequiredApproved
+                      ? "Awaiting final release by Admin."
+                      : "Released by Admin after approvals."}
                   </p>
                 </div>
 
@@ -1342,9 +1165,6 @@ export function Dashboard() {
                 )}
               </div>
 
-              {/* Exact September 2026 Batch Policy Box */}
-              <SeptemberExemptionNotice />
-
               {/* Multi-State Status Cards */}
               <div className="p-4 rounded-xl bg-muted/40 border border-border/40 space-y-3 text-xs sm:text-sm">
                 <div className="flex justify-between items-center py-1 border-b border-border/30">
@@ -1387,24 +1207,13 @@ export function Dashboard() {
                 </div>
               )}
 
-              {!internship.certificate_code && allRequiredApproved && septemberExempt && (
+              {!internship.certificate_code && allRequiredApproved && (
                 <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-900 dark:text-blue-200 text-xs sm:text-sm space-y-1">
                   <div className="font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-blue-600" /> All Tasks Approved & Exemption Cleared!
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" /> All Tasks Approved!
                   </div>
                   <p className="text-xs leading-relaxed opacity-90">
-                    Your batch is exempt from payment. Your certificate is queued for digital signature and release by the Administrator.
-                  </p>
-                </div>
-              )}
-
-              {!internship.certificate_code && allRequiredApproved && requiresPayment && paymentRecord?.status === "paid" && (
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs sm:text-sm space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Payment Verified & Requirements Met!
-                  </div>
-                  <p className="text-xs leading-relaxed opacity-90">
-                    Your verification payment is confirmed. Your certificate is queued for digital signature and release by the Administrator.
+                    All required deliverables are approved. Your certificate is queued for digital signature and release by the Administrator.
                   </p>
                 </div>
               )}
@@ -1438,56 +1247,10 @@ export function Dashboard() {
                   : "Certificate Locked"}
               </Button>
             </Card>
-
-            {/* Embedded Payment Desk inside Certificate tab for non-exempt students */}
-            {requiresPayment && !internship.certificate_code && (
-              <div className="pt-2">
-                <CertificatePaymentDesk
-                  certificateFee={certificateFee}
-                  paymentTxId={paymentTxId}
-                  setPaymentTxId={setPaymentTxId}
-                  paymentScreenshot={paymentScreenshot}
-                  onPaymentScreenshot={onPaymentScreenshot}
-                  submittingPayment={submittingPayment}
-                  submitCertificatePayment={submitCertificatePayment}
-                  paymentRecord={paymentRecord}
-                  allRequiredApproved={allRequiredApproved}
-                  approvedTaskCount={approvedTaskCount}
-                  durationTasksCount={durationTasksCount}
-                  requiresPayment={requiresPayment}
-                  copiedKey={copiedKey}
-                  copyToClipboard={copyToClipboard}
-                />
-              </div>
-            )}
           </TabsContent>
 
           {/* ==============================================================
-              TAB 6: PAYMENT
-             ============================================================== */}
-          {showPaymentTab && (
-            <TabsContent value="payment" className="space-y-6">
-              <CertificatePaymentDesk
-                certificateFee={certificateFee}
-                paymentTxId={paymentTxId}
-                setPaymentTxId={setPaymentTxId}
-                paymentScreenshot={paymentScreenshot}
-                onPaymentScreenshot={onPaymentScreenshot}
-                submittingPayment={submittingPayment}
-                submitCertificatePayment={submitCertificatePayment}
-                paymentRecord={paymentRecord}
-                allRequiredApproved={allRequiredApproved}
-                approvedTaskCount={approvedTaskCount}
-                durationTasksCount={durationTasksCount}
-                requiresPayment={requiresPayment}
-                copiedKey={copiedKey}
-                copyToClipboard={copyToClipboard}
-              />
-            </TabsContent>
-          )}
-
-          {/* ==============================================================
-              TAB 7: ANNOUNCEMENTS
+              TAB 6: ANNOUNCEMENTS
              ============================================================== */}
           <TabsContent value="announcements" className="space-y-6">
             <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
@@ -1534,14 +1297,14 @@ export function Dashboard() {
           </TabsContent>
 
           {/* ==============================================================
-              TAB 8: FEEDBACK
+              TAB 7: FEEDBACK
              ============================================================== */}
           <TabsContent value="feedback" className="space-y-6">
             <FeedbackPanel profile={profile} />
           </TabsContent>
 
           {/* ==============================================================
-              TAB 9: PROFILE
+              TAB 8: PROFILE
              ============================================================== */}
           <TabsContent value="profile" className="space-y-6">
             <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
@@ -1674,240 +1437,6 @@ export function Dashboard() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-/* =========================================================================
-   SEPTEMBER EXEMPTION NOTICE (EXACT WORDING COMPONENT)
-   ========================================================================= */
-function SeptemberExemptionNotice() {
-  return (
-    <div className="p-4 sm:p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500/50 space-y-2">
-      <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-        IMPORTANT BATCH POLICY
-      </p>
-      <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
-        SEPTEMBER REGISTERED STUDENTS BATCH DOESN&rsquo;T HAVE TO PAY FOR THE CERTIFICATE.
-      </p>
-      <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 leading-relaxed">
-        Only September 2026 registered students are exempt. For all other batches, verification payment of &#8377;100 is required after completing all internship tasks.
-      </p>
-    </div>
-  );
-}
-
-/* =========================================================================
-   CERTIFICATE PAYMENT DESK (ENLARGED QR & TRANSACTION ID DESK)
-   ========================================================================= */
-function CertificatePaymentDesk({
-  certificateFee,
-  paymentTxId,
-  setPaymentTxId,
-  paymentScreenshot,
-  onPaymentScreenshot,
-  submittingPayment,
-  submitCertificatePayment,
-  paymentRecord,
-  allRequiredApproved,
-  approvedTaskCount,
-  durationTasksCount,
-  requiresPayment,
-  copiedKey,
-  copyToClipboard,
-}: {
-  certificateFee: number;
-  paymentTxId: string;
-  setPaymentTxId: (val: string) => void;
-  paymentScreenshot: string | null;
-  onPaymentScreenshot: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  submittingPayment: boolean;
-  submitCertificatePayment: () => void;
-  paymentRecord: any;
-  allRequiredApproved: boolean;
-  approvedTaskCount: number;
-  durationTasksCount: number;
-  requiresPayment: boolean;
-  copiedKey: string | null;
-  copyToClipboard: (text: string, key: string, label?: string) => void;
-}) {
-  return (
-    <Card className="p-6 md:p-8 max-w-2xl mx-auto border-border/60 shadow-sm space-y-6">
-      {/* Title & Fee */}
-      <div className="flex items-center justify-between border-b border-border/40 pb-4">
-        <div className="space-y-1">
-          <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" /> Certificate Verification Payment
-          </h3>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Verification desk for processing certificate issuance and compliance.
-          </p>
-        </div>
-        <div className="text-right">
-          <span className="text-[11px] text-muted-foreground block">Certificate Fee</span>
-          <span className="text-lg font-bold text-primary">&#8377;{certificateFee}</span>
-        </div>
-      </div>
-
-      {/* Exact September 2026 Batch Policy Box */}
-      <SeptemberExemptionNotice />
-
-      {/* Payment Details Container */}
-      <div className="p-5 md:p-6 rounded-2xl bg-muted/30 border border-border/60 space-y-6">
-        <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-primary" /> Payment Details
-        </h4>
-
-        <div className="grid gap-3.5 sm:grid-cols-2 text-xs sm:text-sm">
-          <div className="p-3.5 rounded-xl bg-background border border-border/50 space-y-1">
-            <span className="text-xs text-muted-foreground">Certificate Fee</span>
-            <div className="text-base font-bold text-foreground">&#8377;{certificateFee}</div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-background border border-border/50 space-y-1">
-            <span className="text-xs text-muted-foreground">Official UPI ID</span>
-            <div className="flex items-center justify-between gap-2 mt-0.5">
-              <code className="font-mono font-bold text-sm text-foreground truncate">
-                {CERTIFICATE_UPI_ID}
-              </code>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => copyToClipboard(CERTIFICATE_UPI_ID, "upi-desk", "UPI ID copied")}
-                className="h-7 text-xs px-2 gap-1 shrink-0"
-              >
-                {copiedKey === "upi-desk" ? (
-                  <Check className="h-3 w-3 text-emerald-600" />
-                ) : (
-                  <Copy className="h-3 w-3" />
-                )}
-                Copy
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Enlarged High-Resolution QR Card */}
-        <div className="flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl bg-white dark:bg-card border-2 border-primary/20 shadow-sm space-y-3">
-          <div className="relative p-2 sm:p-3 bg-white rounded-xl border shadow-inner">
-            <img
-              src={CERTIFICATE_QR_SRC}
-              alt="Official YR NOVATECH UPI QR Code"
-              className="w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] md:w-[300px] md:h-[300px] aspect-square object-contain rounded-lg"
-            />
-          </div>
-          <p className="text-xs sm:text-sm font-semibold text-center text-foreground">
-            Official YR NOVATECH QR Code
-          </p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap justify-center text-center">
-            <span>Scan with Google Pay, PhonePe, Paytm, or BHIM to pay &#8377;{certificateFee}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction ID / UTR Form Desk */}
-      <div className="space-y-4 pt-1">
-        <div className="space-y-1.5">
-          <Label htmlFor="payment-tx-id" className="text-xs font-semibold">
-            Transaction ID / UTR {requiresPayment && <span className="text-rose-500">*</span>}
-          </Label>
-          <Input
-            id="payment-tx-id"
-            placeholder="Enter your UPI transaction ID / UTR"
-            value={paymentTxId}
-            onChange={(e) => setPaymentTxId(e.target.value)}
-            className="font-mono text-sm"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            {requiresPayment
-              ? "Required. Enter your 12-digit UPI transaction ID / UTR number from your payment app."
-              : "Optional for your batch — certificate payment is exempt."}
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="payment-screenshot" className="text-xs font-semibold">
-            Payment Screenshot (Optional)
-          </Label>
-          <Input
-            id="payment-screenshot"
-            type="file"
-            accept="image/*"
-            onChange={onPaymentScreenshot}
-            className="text-xs"
-          />
-          {paymentScreenshot && (
-            <p className="text-[11px] text-emerald-600 flex items-center gap-1">
-              <Check className="h-3 w-3" /> Screenshot attached
-            </p>
-          )}
-        </div>
-
-        {/* Submission Status Alerts & Gating */}
-        {requiresPayment && (
-          <>
-            {!allRequiredApproved && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 space-y-1">
-                <p className="font-semibold">Deliverables Incomplete</p>
-                <p>Payment submission will unlock after all required tasks are approved ({approvedTaskCount} / {durationTasksCount} approved).</p>
-              </div>
-            )}
-
-            {paymentRecord?.status === "pending_verification" && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs sm:text-sm text-amber-900 dark:text-amber-200 space-y-1.5">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" /> Payment Under Verification
-                </div>
-                <p className="text-xs">Transaction ID: <span className="font-mono font-semibold">{paymentRecord.transaction_id}</span></p>
-                <p className="text-xs text-muted-foreground">
-                  Submitted on {new Date(paymentRecord.submitted_at).toLocaleDateString()}. Your transaction is now pending Admin verification.
-                </p>
-              </div>
-            )}
-
-            {paymentRecord?.status === "rejected" && (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs sm:text-sm text-rose-900 dark:text-rose-200 space-y-1.5">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="h-4 w-4" /> Verification Rejected
-                </div>
-                <p className="text-xs">
-                  {paymentRecord.rejection_reason ? `Reason: ${paymentRecord.rejection_reason}` : "Your submitted transaction ID could not be verified. Please enter a valid Transaction ID / UTR above and retry."}
-                </p>
-              </div>
-            )}
-
-            {paymentRecord?.status === "paid" && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 space-y-1.5">
-                <div className="font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4" /> Payment Verified
-                </div>
-                <p className="text-xs">
-                  Your certificate payment has been verified by the Admin. Your certificate is now eligible for release.
-                </p>
-              </div>
-            )}
-
-            {allRequiredApproved && paymentRecord?.status !== "pending_verification" && (
-              <Button
-                onClick={submitCertificatePayment}
-                disabled={submittingPayment || !paymentTxId.trim()}
-                className="w-full gap-2 font-medium"
-              >
-                {submittingPayment ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Submitting Payment for Verification...
-                  </>
-                ) : paymentRecord?.status === "rejected" ? (
-                  "Retry Payment Verification"
-                ) : (
-                  "Submit Payment for Verification"
-                )}
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-    </Card>
   );
 }
 

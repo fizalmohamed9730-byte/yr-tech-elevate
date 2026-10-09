@@ -1427,3 +1427,284 @@ END $$;
 -- 8. Notify PostgREST to reload schema
 -- -----------------------------------------------------------------------------
 NOTIFY pgrst, 'reload schema';
+
+-- =============================================================================
+-- 22. REMOVE CERTIFICATE PAYMENT SYSTEM
+--      Mirrors 20261009000000_remove_certificate_payment_system.sql
+-- =============================================================================
+-- GOAL:
+--   Make the internship certificate completely free for every intern and every
+--   batch. Certificate release requires only approved required tasks + an admin
+--   release. certificate_payments / app_settings / certificate_flow_version are
+--   intentionally left in place, unused; no data is deleted or mass-modified.
+-- =============================================================================
+
+-- 1. Ensure certificate lifecycle columns exist (idempotent)
+ALTER TABLE public.internships
+  ADD COLUMN IF NOT EXISTS certificate_status text NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS certificate_revoked_at timestamptz,
+  ADD COLUMN IF NOT EXISTS certificate_revoked_by uuid,
+  ADD COLUMN IF NOT EXISTS certificate_revoke_reason text;
+
+UPDATE public.internships
+SET certificate_status = 'issued'
+WHERE certificate_code IS NOT NULL AND certificate_status = 'none';
+
+-- 2. Ensure the certificate audit log exists (idempotent)
+CREATE TABLE IF NOT EXISTS public.certificate_audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  internship_id uuid NOT NULL REFERENCES public.internships(id) ON DELETE CASCADE,
+  action text NOT NULL,
+  admin_id uuid NOT NULL,
+  old_certificate_code text,
+  new_certificate_code text,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_certificate_audit_log_internship
+  ON public.certificate_audit_log(internship_id);
+
+ALTER TABLE public.certificate_audit_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins read certificate audit log" ON public.certificate_audit_log;
+CREATE POLICY "Admins read certificate audit log" ON public.certificate_audit_log
+  FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Service inserts certificate audit log" ON public.certificate_audit_log;
+CREATE POLICY "Service inserts certificate audit log" ON public.certificate_audit_log
+  FOR INSERT TO authenticated
+  WITH CHECK (true);
+
+-- 3. Remove the payment guard (trigger + function) if present
+DO $$
+BEGIN
+  IF to_regclass('public.certificate_payments') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS certificate_payments_guard ON public.certificate_payments;
+  END IF;
+END $$;
+DROP FUNCTION IF EXISTS public.certificate_payments_guard();
+
+-- 4. handle_new_user(): never assign a payment flow to new interns
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_role public.app_role;
+  v_domain uuid;
+  v_duration text;
+  v_internship_id uuid;
+BEGIN
+  IF COALESCE(NULLIF(NEW.raw_user_meta_data->>'role',''), 'intern') = 'admin' THEN
+    v_role := 'admin';
+  ELSE
+    v_role := 'intern';
+  END IF;
+
+  INSERT INTO public.profiles (
+    id, user_id, email, full_name, phone, college, department, year,
+    avatar_url, must_change_password, role, duration, selected_domain,
+    country, discovery_source, discovery_other
+  )
+  VALUES (
+    NEW.id,
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    NULLIF(NEW.raw_user_meta_data->>'phone',''),
+    NULLIF(NEW.raw_user_meta_data->>'college',''),
+    NULLIF(NEW.raw_user_meta_data->>'department',''),
+    NULLIF(NEW.raw_user_meta_data->>'year',''),
+    NULLIF(NEW.raw_user_meta_data->>'avatar_url',''),
+    COALESCE((NEW.raw_user_meta_data->>'must_change_password')::boolean, false),
+    v_role,
+    COALESCE(NEW.raw_user_meta_data->>'duration', '1 Month'),
+    NULLIF(NEW.raw_user_meta_data->>'domain_id',''),
+    NULLIF(NEW.raw_user_meta_data->>'country',''),
+    NULLIF(NEW.raw_user_meta_data->>'discovery_source',''),
+    NULLIF(NEW.raw_user_meta_data->>'discovery_other','')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    phone = COALESCE(EXCLUDED.phone, public.profiles.phone),
+    college = COALESCE(EXCLUDED.college, public.profiles.college),
+    department = COALESCE(EXCLUDED.department, public.profiles.department),
+    year = COALESCE(EXCLUDED.year, public.profiles.year),
+    role = EXCLUDED.role,
+    country = COALESCE(EXCLUDED.country, public.profiles.country),
+    discovery_source = COALESCE(EXCLUDED.discovery_source, public.profiles.discovery_source),
+    discovery_other = COALESCE(EXCLUDED.discovery_other, public.profiles.discovery_other);
+
+  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, v_role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+
+  v_domain := NULL;
+  IF NEW.raw_user_meta_data->>'domain_id'
+     ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+    v_domain := (NEW.raw_user_meta_data->>'domain_id')::uuid;
+  END IF;
+
+  v_duration := COALESCE(NEW.raw_user_meta_data->>'duration', '1 Month');
+
+  -- certificate_flow_version is intentionally NOT written anymore.
+  IF v_domain IS NOT NULL AND v_role = 'intern' THEN
+    INSERT INTO public.internships (student_id, domain_id, duration, status)
+    VALUES (NEW.id, v_domain, v_duration, 'active')
+    ON CONFLICT (student_id) DO NOTHING
+    RETURNING id INTO v_internship_id;
+
+    UPDATE public.profiles
+    SET internship_id = COALESCE(v_internship_id, internship_id)
+    WHERE id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 5. issue_certificate(): admin-only, domain-aware, NO payment gate
+CREATE OR REPLACE FUNCTION public.issue_certificate(p_internship_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id uuid;
+  v_internship record;
+  v_approved int;
+  v_required int;
+  v_code text;
+BEGIN
+  v_admin_id := auth.uid();
+  IF NOT public.has_role(v_admin_id, 'admin') THEN
+    RAISE EXCEPTION 'Only admins can issue certificates';
+  END IF;
+
+  SELECT i.*, d.slug AS domain_slug INTO v_internship
+    FROM public.internships i
+    LEFT JOIN public.domains d ON d.id = i.domain_id
+    WHERE i.id = p_internship_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Internship not found';
+  END IF;
+
+  IF v_internship.certificate_code IS NOT NULL AND v_internship.certificate_status = 'issued' THEN
+    RETURN jsonb_build_object('error', 'Certificate already issued: ' || v_internship.certificate_code);
+  END IF;
+
+  SELECT count(*) INTO v_approved
+    FROM public.submissions
+    WHERE internship_id = p_internship_id AND status = 'approved';
+
+  v_required := CASE
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '1 Month' THEN 5
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '2 Months' THEN 7
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '3 Months' THEN 10
+    WHEN v_internship.duration = '1 Month' THEN 3
+    WHEN v_internship.duration = '2 Months' THEN 4
+    ELSE 5
+  END;
+
+  IF v_approved < v_required THEN
+    RAISE EXCEPTION 'Cannot issue certificate: % of % required tasks approved', v_approved, v_required;
+  END IF;
+
+  v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
+
+  UPDATE public.internships
+    SET certificate_code     = v_code,
+        certificate_issued_at = now(),
+        certificate_released_by = v_admin_id,
+        certificate_released_at = now(),
+        certificate_status    = 'issued'
+  WHERE id = p_internship_id;
+
+  INSERT INTO public.certificate_audit_log (internship_id, action, admin_id, old_certificate_code, new_certificate_code, reason)
+  VALUES (p_internship_id, 'issued', v_admin_id, v_internship.certificate_code, v_code, 'Initial issue');
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'certificate_code', v_code,
+    'issued_at', now()::text,
+    'released_by', v_admin_id::text
+  );
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.issue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.issue_certificate(uuid) TO authenticated;
+
+-- 6. reissue_certificate(): admin-only, domain-aware, NO payment gate
+CREATE OR REPLACE FUNCTION public.reissue_certificate(p_internship_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id uuid;
+  v_internship record;
+  v_approved int;
+  v_required int;
+  v_code text;
+BEGIN
+  v_admin_id := auth.uid();
+  IF NOT public.has_role(v_admin_id, 'admin') THEN
+    RAISE EXCEPTION 'Only admins can reissue certificates';
+  END IF;
+
+  SELECT i.*, d.slug AS domain_slug INTO v_internship
+    FROM public.internships i
+    LEFT JOIN public.domains d ON d.id = i.domain_id
+    WHERE i.id = p_internship_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Internship not found';
+  END IF;
+
+  IF v_internship.certificate_status <> 'revoked' THEN
+    RETURN jsonb_build_object('error', 'Certificate is not in revoked status (current: ' || v_internship.certificate_status || ')');
+  END IF;
+
+  SELECT count(*) INTO v_approved
+    FROM public.submissions
+    WHERE internship_id = p_internship_id AND status = 'approved';
+
+  v_required := CASE
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '1 Month' THEN 5
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '2 Months' THEN 7
+    WHEN v_internship.domain_slug IN ('artificial-intelligence', 'full-stack') AND v_internship.duration = '3 Months' THEN 10
+    WHEN v_internship.duration = '1 Month' THEN 3
+    WHEN v_internship.duration = '2 Months' THEN 4
+    ELSE 5
+  END;
+
+  IF v_approved < v_required THEN
+    RAISE EXCEPTION 'Cannot reissue: only % of % required tasks are approved', v_approved, v_required;
+  END IF;
+
+  v_code := 'YRNT-CERT-' || upper(substring(gen_random_uuid()::text, 1, 8));
+
+  UPDATE public.internships
+    SET certificate_code     = v_code,
+        certificate_issued_at = now(),
+        certificate_released_by = v_admin_id,
+        certificate_released_at = now(),
+        certificate_status    = 'issued',
+        certificate_revoked_at  = NULL,
+        certificate_revoked_by  = NULL,
+        certificate_revoke_reason = NULL
+  WHERE id = p_internship_id;
+
+  INSERT INTO public.certificate_audit_log (internship_id, action, admin_id, old_certificate_code, new_certificate_code, reason)
+  VALUES (p_internship_id, 'reissued', v_admin_id, NULL, v_code, 'Re-issued after revocation');
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'certificate_code', v_code,
+    'issued_at', now()::text,
+    'released_by', v_admin_id::text
+  );
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.reissue_certificate(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reissue_certificate(uuid) TO authenticated;
+
+-- 7. Notify PostgREST to reload schema
+NOTIFY pgrst, 'reload schema';

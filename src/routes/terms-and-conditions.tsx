@@ -9,8 +9,6 @@ import {
   CheckCircle2,
   Scale,
   Award,
-  CreditCard,
-  Mail,
   ArrowRight,
 } from "lucide-react";
 
@@ -21,13 +19,13 @@ export const Route = createFileRoute("/terms-and-conditions")({
       {
         name: "description",
         content:
-          "Terms and Conditions governing use of the YR NOVATECH website, accounts, services, internship participation, task submissions, certificates, and payments.",
+          "Terms and Conditions governing use of the YR NOVATECH website, accounts, services, internship participation, task submissions, and certificates.",
       },
       { property: "og:title", content: `Terms & Conditions — ${COMPANY.name}` },
       {
         property: "og:description",
         content:
-          "Rules governing use of the YR NOVATECH website, internship program, submissions, certificates, and payments.",
+          "Rules governing use of the YR NOVATECH website, internship program, submissions, and certificates.",
       },
       { property: "og:url", content: "https://www.yrnovatech.in/terms-and-conditions" },
     ],
@@ -54,9 +52,9 @@ function TermsAndConditions() {
       desc: "Certificates feature tamper-proof public verification codes.",
     },
     {
-      icon: CreditCard,
-      title: "Transparent Fees",
-      desc: "Free enrollment. Any processing fees are shown clearly in-app.",
+      icon: CheckCircle2,
+      title: "Free Program",
+      desc: "No registration, participation or certificate fees at any stage.",
     },
   ];
 
@@ -76,10 +74,10 @@ function TermsAndConditions() {
         </p>
         <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
           <Badge variant="outline" className="text-xs font-normal border-border">
-            Last updated: September 2026
+            Last updated: October 2026
           </Badge>
           <span>•</span>
-          <span>Version 2.0</span>
+          <span>Version 3.0</span>
         </div>
       </div>
 
@@ -108,8 +106,7 @@ function TermsAndConditions() {
             <p className="text-sm text-muted-foreground leading-relaxed">
               These Terms &amp; Conditions ("Terms") govern your access to and use of the {COMPANY.name}{" "}
               website (www.yrnovatech.in) and the services provided through it, including account
-              registration, the internship program, task submissions, certificates, and payments made
-              where applicable.
+              registration, the internship program, task submissions, and certificates.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
               By accessing or using this website or any of our services, you agree to be bound by
@@ -231,11 +228,10 @@ function TermsAndConditions() {
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Certificates are issued to interns who successfully complete all required tasks for
-              their selected duration and receive approval for those tasks. Where a certificate
-              payment requirement applies to the intern's internship flow, the relevant payment must
-              also be made and verified. Certificate eligibility is at the discretion of{" "}
-              {COMPANY.name}, based on the completeness and quality of the submitted work. Completing
-              a program does not guarantee a certificate, employment, or any specific career outcome.
+              their selected duration and receive approval for those tasks. Certificate eligibility is
+              at the discretion of {COMPANY.name}, based on the completeness and quality of the
+              submitted work. Completing a program does not guarantee a certificate, employment, or any
+              specific career outcome.
             </p>
           </section>
 
@@ -261,14 +257,13 @@ function TermsAndConditions() {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">10</span>
-              Certificate Payment, where applicable
+              Fees
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Certain internship flows include a certificate processing fee, which is communicated to
-              the intern within their account dashboard at the appropriate stage. Payment, where
-              applicable, is made via the payment method shown in the account (UPI). You must provide
-              the exact transaction or UTR reference and, where requested, a payment screenshot. The
-              fee amount is displayed clearly before payment.
+              The {COMPANY.name} internship program is free. There is no registration fee, no
+              participation fee and no certificate fee. Interns are never asked to make a payment,
+              transfer money, provide a transaction reference, or upload a payment screenshot. Any
+              request for payment that claims to come from {COMPANY.name} is not authorised by us.
             </p>
           </section>
 
@@ -278,23 +273,6 @@ function TermsAndConditions() {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">11</span>
-              Payment Verification
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Payments are verified manually by our team using the transaction details and screenshot
-              you provide. Until verification is complete, a payment is marked as pending. Once
-              verified, it is marked as paid. If verification fails, the payment is marked as rejected
-              with a reason, and you may resubmit with correct or additional details. A certificate is
-              issued only after verification of payment where a payment requirement applies.
-            </p>
-          </section>
-
-          <hr className="border-border" />
-
-          {/* Section 12 */}
-          <section className="space-y-3">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">12</span>
               User Responsibilities
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -311,10 +289,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 13 */}
+          {/* Section 12 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">13</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">12</span>
               Prohibited Activities
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">You agree not to:</p>
@@ -330,10 +308,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 14 */}
+          {/* Section 13 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">14</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">13</span>
               Intellectual Property
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -347,18 +325,35 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 15 */}
+          {/* Section 14 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">15</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">14</span>
               Website Content
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               We publish content such as articles, resources, internship details, and company
               information for general informational purposes. While we strive for accuracy, content
               may be updated from time to time and is provided without warranty of any kind. Nothing
-              on this website constitutes a promise or guarantee of employment, placement,
-              certification, or refund.
+              on this website constitutes a promise or guarantee of employment, placement, or
+              certification.
+            </p>
+          </section>
+
+          <hr className="border-border" />
+
+          {/* Section 15 */}
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">15</span>
+              Third-Party Services
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This website relies on third-party infrastructure providers, including but not limited
+              to a cloud database and authentication platform (Supabase) for data storage,
+              authentication, and file storage, and an email delivery service for sending
+              notifications such as offer letters and certificates. These providers have their own
+              terms and privacy policies, which we encourage you to review.
             </p>
           </section>
 
@@ -368,25 +363,6 @@ function TermsAndConditions() {
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">16</span>
-              Third-Party Services
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              This website relies on third-party infrastructure providers, including but not limited
-              to a cloud database and authentication platform (Supabase) for data storage,
-              authentication, and file storage, and an email delivery service for sending
-              notifications such as offer letters and certificates. These providers have their own
-              terms and privacy policies, which we encourage you to review. Certain payment steps are
-              conducted through the payment method shown in your account; we do not collect or store
-              your bank or card details.
-            </p>
-          </section>
-
-          <hr className="border-border" />
-
-          {/* Section 17 */}
-          <section className="space-y-3">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">17</span>
               Service Availability
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -399,10 +375,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 18 */}
+          {/* Section 17 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">18</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">17</span>
               Disclaimer
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -416,10 +392,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 19 */}
+          {/* Section 18 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">19</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">18</span>
               Limitation of Liability
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -432,10 +408,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 20 */}
+          {/* Section 19 */}
           <section className="space-y-3">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">20</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">19</span>
               Changes to Terms
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -447,10 +423,10 @@ function TermsAndConditions() {
 
           <hr className="border-border" />
 
-          {/* Section 21 */}
+          {/* Section 20 */}
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">21</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">20</span>
               Contact Information
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">

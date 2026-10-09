@@ -68,27 +68,6 @@ export type Database = {
         }
         Relationships: []
       }
-      app_settings: {
-        Row: {
-          key: string
-          updated_at: string
-          updated_by: string | null
-          value: Json
-        }
-        Insert: {
-          key: string
-          updated_at?: string
-          updated_by?: string | null
-          value: Json
-        }
-        Update: {
-          key?: string
-          updated_at?: string
-          updated_by?: string | null
-          value?: Json
-        }
-        Relationships: []
-      }
       domains: {
         Row: {
           active: boolean
@@ -123,7 +102,6 @@ export type Database = {
         Row: {
           batch_id: string | null
           certificate_code: string | null
-          certificate_flow_version: string
           certificate_issued_at: string | null
           certificate_released_at: string | null
           certificate_released_by: string | null
@@ -148,7 +126,6 @@ export type Database = {
         Insert: {
           batch_id?: string | null
           certificate_code?: string | null
-          certificate_flow_version?: string
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
@@ -173,7 +150,6 @@ export type Database = {
         Update: {
           batch_id?: string | null
           certificate_code?: string | null
-          certificate_flow_version?: string
           certificate_issued_at?: string | null
           certificate_released_at?: string | null
           certificate_released_by?: string | null
@@ -208,75 +184,6 @@ export type Database = {
             columns: ["domain_id"]
             isOneToOne: false
             referencedRelation: "domains"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      certificate_payments: {
-        Row: {
-          amount: number
-          created_at: string
-          currency: string
-          id: string
-          internship_id: string
-          paid_at: string | null
-          payment_screenshot_url: string | null
-          rejection_reason: string | null
-          status: string
-          submitted_at: string
-          transaction_id: string
-          updated_at: string
-          upi_id: string
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          currency?: string
-          id?: string
-          internship_id: string
-          paid_at?: string | null
-          payment_screenshot_url?: string | null
-          rejection_reason?: string | null
-          status?: string
-          submitted_at?: string
-          transaction_id: string
-          updated_at?: string
-          upi_id?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          currency?: string
-          id?: string
-          internship_id?: string
-          paid_at?: string | null
-          payment_screenshot_url?: string | null
-          rejection_reason?: string | null
-          status?: string
-          submitted_at?: string
-          transaction_id?: string
-          updated_at?: string
-          upi_id?: string
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "certificate_payments_internship_id_fkey"
-            columns: ["internship_id"]
-            isOneToOne: true
-            referencedRelation: "internships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "certificate_payments_verified_by_fkey"
-            columns: ["verified_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
