@@ -773,9 +773,6 @@ export function Dashboard() {
                   <h3 className="font-semibold text-sm md:text-base text-foreground flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-primary" /> Enrollment Details
                   </h3>
-                  <Badge variant="outline" className="text-xs">
-                    {COMPANY.udyam}
-                  </Badge>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs sm:text-sm">
@@ -848,9 +845,6 @@ export function Dashboard() {
                     <div className="space-y-0.5">
                       <div className="font-bold text-[10px] truncate max-w-[140px] text-foreground">{profile?.full_name}</div>
                       <div className="font-mono text-[8px] text-muted-foreground">{internship.internship_code}</div>
-                    </div>
-                    <div className="w-full border-t border-border/60 pt-1 text-[7px] text-muted-foreground">
-                      Udyam: {COMPANY.udyam}
                     </div>
                   </div>
                 </div>
@@ -975,10 +969,6 @@ export function Dashboard() {
                   <span className="font-mono font-semibold text-foreground">{internship.internship_code}</span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">MSME Udyam Registration</span>
-                  <span className="font-medium text-foreground">{COMPANY.udyam}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-border/30">
                   <span className="text-muted-foreground">Engineering Track</span>
                   <span className="font-medium text-foreground">{internship.domain?.name}</span>
                 </div>
@@ -1074,7 +1064,6 @@ export function Dashboard() {
                     <div className="font-semibold mt-1 text-[8px] tracking-wider uppercase bg-primary-foreground/15 rounded py-0.5">
                       INTERN ID CARD
                     </div>
-                    <div className="text-[5px] opacity-75 mt-0.5">MSME Udyam: {COMPANY.udyam}</div>
                   </div>
 
                   {/* Student Photo */}
