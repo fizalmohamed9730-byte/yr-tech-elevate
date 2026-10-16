@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { createFileRoute, Link, redirect, useRouteContext } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1381,9 +1381,9 @@ export function Dashboard() {
           internshipId={internship.id}
           open={!!selectedTaskForModal}
           onClose={() => setSelectedTaskForModal(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setSelectedTaskForModal(null);
-            load();
+            await load();
           }}
         />
       )}
@@ -1606,39 +1606,182 @@ function TaskSubmissionModal({
   internshipId: string;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
 }) {
   const [busy, setBusy] = useState(false);
+  const isSubmittingRef = useRef(false);
+
+  function normalizeUrl(url: string): string {
+    const trimmed = url.trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  }
+
+  function isValidHttpUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (isSubmittingRef.current || busy) return;
+
     const fd = new FormData(e.currentTarget);
-    const payload: any = {
-      internship_id: internshipId,
-      task_no: task.no,
-      github_url: (fd.get("github") as string) || null,
-      project_url: task.no === 1
-        ? (fd.get("linkedin") as string) || null
-        : (fd.get("project") as string) || null,
-      drive_url: (fd.get("drive") as string) || null,
-      notes: (fd.get("notes") as string) || null,
-      status: "pending_review",
-      feedback: null,
-      submitted_at: new Date().toISOString(),
-    };
+    const rawGithub = (fd.get("github") as string) || "";
+    const rawProject = (task.no === 1 ? (fd.get("linkedin") as string) : (fd.get("project") as string)) || "";
+    const rawDrive = (fd.get("drive") as string) || "";
+    const rawNotes = (fd.get("notes") as string) || "";
+
+    const githubUrl = rawGithub.trim() ? normalizeUrl(rawGithub) : null;
+    const projectUrl = rawProject.trim() ? normalizeUrl(rawProject) : null;
+    const driveUrl = rawDrive.trim() ? normalizeUrl(rawDrive) : null;
+    const notes = rawNotes.trim() || null;
+
+    // Client-side format validation
+    if (task.requires.linkedin && (!projectUrl || !isValidHttpUrl(projectUrl))) {
+      return toast.error("Please enter a valid LinkedIn post URL.");
+    }
+    if (task.requires.github && (!githubUrl || !isValidHttpUrl(githubUrl))) {
+      return toast.error("Please enter a valid GitHub repository URL.");
+    }
+    if (task.requires.project && (!projectUrl || !isValidHttpUrl(projectUrl))) {
+      return toast.error("Please enter a valid live deployment / project URL.");
+    }
+    if (task.requires.drive && driveUrl && !isValidHttpUrl(driveUrl)) {
+      return toast.error("Please enter a valid Google Drive URL.");
+    }
+
+    isSubmittingRef.current = true;
     setBusy(true);
-    const { error } = submission
-      ? await supabase.from("submissions").update(payload).eq("id", submission.id)
-      : await supabase.from("submissions").upsert(payload, { onConflict: "internship_id,task_no" });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Deliverables submitted for administrative evaluation!");
-    onSuccess();
+
+    try {
+      const now = new Date().toISOString();
+
+      if (submission?.id) {
+        // RESUBMISSION / UPDATE:
+        // Update the existing submission record.
+        // NOTE: feedback is preserved (never overwritten with null) so historical
+        // evaluator remarks remain in the audit trail.
+        const updatePayload: any = {
+          github_url: githubUrl,
+          project_url: projectUrl,
+          drive_url: driveUrl,
+          notes,
+          status: "pending_review",
+          submitted_at: now,
+        };
+
+        const { data, error } = await supabase
+          .from("submissions")
+          .update(updatePayload)
+          .eq("id", submission.id)
+          .select("id, status, task_no, submitted_at")
+          .maybeSingle();
+
+        if (error) {
+          console.error("[submission] update error:", error.code, error.message);
+          toast.error("Submission update failed: " + error.message);
+          return;
+        }
+
+        if (!data) {
+          // If update by ID matched 0 rows (e.g. permission or status constraint),
+          // fallback to upsert on (internship_id, task_no)
+          const fallbackPayload: any = {
+            internship_id: internshipId,
+            task_no: task.no,
+            github_url: githubUrl,
+            project_url: projectUrl,
+            drive_url: driveUrl,
+            notes,
+            status: "pending_review",
+            submitted_at: now,
+          };
+          const { data: upsertData, error: upsertErr } = await supabase
+            .from("submissions")
+            .upsert(fallbackPayload, { onConflict: "internship_id,task_no" })
+            .select("id, status, task_no, submitted_at")
+            .maybeSingle();
+
+          if (upsertErr) {
+            console.error("[submission] upsert fallback error:", upsertErr.code, upsertErr.message);
+            toast.error("Failed to save submission: " + upsertErr.message);
+            return;
+          }
+          if (!upsertData) {
+            toast.error("Submission could not be confirmed. Please check your connection and retry.");
+            return;
+          }
+        }
+
+        toast.success("Task deliverables resubmitted for administrative evaluation!");
+        await onSuccess();
+      } else {
+        // FIRST-TIME SUBMISSION:
+        const insertPayload: any = {
+          internship_id: internshipId,
+          task_no: task.no,
+          github_url: githubUrl,
+          project_url: projectUrl,
+          drive_url: driveUrl,
+          notes,
+          status: "pending_review",
+          submitted_at: now,
+        };
+
+        const { data, error } = await supabase
+          .from("submissions")
+          .upsert(insertPayload, { onConflict: "internship_id,task_no" })
+          .select("id, status, task_no, submitted_at")
+          .maybeSingle();
+
+        if (error) {
+          console.error("[submission] insert error:", error.code, error.message);
+          toast.error("Submission failed: " + error.message);
+          return;
+        }
+
+        if (!data) {
+          toast.error("Submission could not be confirmed in database. Please retry.");
+          return;
+        }
+
+        toast.success("Deliverables submitted for administrative evaluation!");
+        await onSuccess();
+      }
+    } catch (err: any) {
+      console.error("[submission] unexpected exception:", err);
+      toast.error("An unexpected error occurred: " + (err?.message ?? "Please try again"));
+    } finally {
+      isSubmittingRef.current = false;
+      setBusy(false);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v && !busy) onClose();
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-md"
+        onPointerDownOutside={(e) => {
+          if (busy) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (busy) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (busy) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
             <CheckSquare className="h-4 w-4 text-primary" /> Task {task.no}: {task.title}
@@ -1659,6 +1802,7 @@ function TaskSubmissionModal({
                 defaultValue={submission?.project_url ?? ""}
                 placeholder="https://www.linkedin.com/posts/..."
                 required
+                disabled={busy}
                 className="text-xs"
               />
             </div>
@@ -1673,6 +1817,7 @@ function TaskSubmissionModal({
                 defaultValue={submission?.github_url ?? ""}
                 placeholder="https://github.com/your-username/repo"
                 required
+                disabled={busy}
                 className="text-xs"
               />
             </div>
@@ -1687,6 +1832,7 @@ function TaskSubmissionModal({
                 defaultValue={submission?.project_url ?? ""}
                 placeholder="https://your-app.vercel.app"
                 required
+                disabled={busy}
                 className="text-xs"
               />
             </div>
@@ -1701,6 +1847,7 @@ function TaskSubmissionModal({
                 defaultValue={submission?.drive_url ?? ""}
                 placeholder="https://drive.google.com/..."
                 required={!task.requires.github}
+                disabled={busy}
                 className="text-xs"
               />
             </div>
@@ -1713,16 +1860,35 @@ function TaskSubmissionModal({
               rows={3}
               defaultValue={submission?.notes ?? ""}
               placeholder="Highlight any key libraries, design decisions, or challenges..."
+              disabled={busy}
               className="text-xs"
             />
           </div>
 
           <div className="flex gap-2.5 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1 text-xs">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={onClose}
+              className="flex-1 text-xs"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={busy} className="flex-1 text-xs font-medium">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit for Evaluation"}
+            <Button
+              type="submit"
+              disabled={busy}
+              className="flex-1 text-xs font-medium"
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Submitting...
+                </>
+              ) : submission ? (
+                "Resubmit for Evaluation"
+              ) : (
+                "Submit for Evaluation"
+              )}
             </Button>
           </div>
         </form>
