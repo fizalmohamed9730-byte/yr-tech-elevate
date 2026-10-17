@@ -15,6 +15,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { COMPANY } from "@/lib/company";
+import { ADSENSE_CLIENT } from "@/lib/ads";
 
 function NotFoundComponent() {
   return (
@@ -90,7 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "YR NOVATECH" },
       { name: "robots", content: "index, follow, max-image-preview:large" },
       { name: "theme-color", content: "#2563eb" },
-      { name: "google-adsense-account", content: "ca-pub-7591764247912152" },
+      { name: "google-adsense-account", content: ADSENSE_CLIENT },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
@@ -158,7 +159,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         async: true,
-        src: "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7591764247912152",
+        src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`,
         crossOrigin: "anonymous",
       },
     ],

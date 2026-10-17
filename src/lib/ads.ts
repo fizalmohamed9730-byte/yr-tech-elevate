@@ -1,4 +1,13 @@
-export const ADSENSE_CLIENT = "ca-pub-7591764247912152";
+const DEFAULT_ADSENSE_CLIENT = "ca-pub-7591764247912152";
+
+/**
+ * AdSense publisher ID (public identifier, never a secret).
+ * Override at build time with VITE_ADSENSE_CLIENT; falls back to the
+ * existing publisher ID so current behaviour is unchanged when unset.
+ */
+export const ADSENSE_CLIENT: string =
+  (import.meta.env.VITE_ADSENSE_CLIENT as string | undefined)?.trim() ||
+  DEFAULT_ADSENSE_CLIENT;
 
 /**
  * Ad unit slot IDs.

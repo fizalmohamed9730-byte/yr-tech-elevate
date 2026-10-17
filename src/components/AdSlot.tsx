@@ -36,7 +36,7 @@ export function AdSlot({ slot, className = "" }: AdSlotProps) {
   if (!enabled) return null;
 
   return (
-    <div className={`mx-auto w-full max-w-5xl ${className}`}>
+    <div className={`mx-auto w-full max-w-5xl min-h-[90px] ${className}`}>
       <ins
         className="adsbygoogle block"
         style={{ display: "block" }}
