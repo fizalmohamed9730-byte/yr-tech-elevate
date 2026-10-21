@@ -1,0 +1,60 @@
+diff --git a/.recovery/admin.tsx.redesign.original.tsx b/.recovery/admin.tsx.redesign.fixed.tsx
+index 0cb0634..796a459 100644
+--- a/.recovery/admin.tsx.redesign.original.tsx
++++ b/.recovery/admin.tsx.redesign.fixed.tsx
+@@ -1161,6 +1161,27 @@ export function AdminPage() {
+     URL.revokeObjectURL(a.href);
+   }
+ 
++  // Filtered Task Submissions
++  const filteredSubmissions = useMemo(() => {
++    let list = submissions;
++    if (taskFilterStatus === "pending") {
++      list = list.filter((s) => s.status === "pending" || s.status === "pending_review");
++    } else if (taskFilterStatus === "resubmit") {
++      list = list.filter((s) => s.status === "resubmit" || s.status === "rejected");
++    } else if (taskFilterStatus === "approved") {
++      list = list.filter((s) => s.status === "approved");
++    }
++    if (searchTerm.trim() && activeSection === "tasks") {
++      const q = searchTerm.toLowerCase();
++      list = list.filter(
++        (s) =>
++          (s.internship?.student?.full_name ?? "").toLowerCase().includes(q) ||
++          (s.internship?.internship_code ?? "").toLowerCase().includes(q) ||
++          `task ${s.task_no}`.includes(q)
++      );
++    }
++    return list;
++  }, [submissions, taskFilterStatus, searchTerm, activeSection]);
+   if (checking) {
+     return (
+       <div className="dark min-h-screen bg-(--admin-loading-bg) flex items-center justify-center">
+@@ -1274,27 +1295,6 @@ export function AdminPage() {
+     );
+   }
+ 
+-  // Filtered Task Submissions
+-  const filteredSubmissions = useMemo(() => {
+-    let list = submissions;
+-    if (taskFilterStatus === "pending") {
+-      list = list.filter((s) => s.status === "pending" || s.status === "pending_review");
+-    } else if (taskFilterStatus === "resubmit") {
+-      list = list.filter((s) => s.status === "resubmit" || s.status === "rejected");
+-    } else if (taskFilterStatus === "approved") {
+-      list = list.filter((s) => s.status === "approved");
+-    }
+-    if (searchTerm.trim() && activeSection === "tasks") {
+-      const q = searchTerm.toLowerCase();
+-      list = list.filter(
+-        (s) =>
+-          (s.internship?.student?.full_name ?? "").toLowerCase().includes(q) ||
+-          (s.internship?.internship_code ?? "").toLowerCase().includes(q) ||
+-          `task ${s.task_no}`.includes(q)
+-      );
+-    }
+-    return list;
+-  }, [submissions, taskFilterStatus, searchTerm, activeSection]);
+ 
+   return (
+     <div id="admin-root" className={isDark ? "dark" : "admin-light"}>

@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./.tmp2.tsbuildinfo" },
+  "include": ["../src/**/*", "./admin.tsx.redesign.original.tsx"],
+  "exclude": ["../node_modules", "../src/routes/_authenticated/admin.tsx"]
+}
