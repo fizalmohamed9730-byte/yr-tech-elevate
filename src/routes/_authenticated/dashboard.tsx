@@ -98,13 +98,36 @@ export function Dashboard() {
           .maybeSingle(),
       ]);
 
-      if (pErr) console.error("[dashboard] profiles query error:", pErr.code, pErr.message);
+      if (pErr) {
+        console.error("[dashboard] profiles query error:", pErr.code, pErr.message);
+        setLoadError(
+          "Your profile could not be loaded (" + (pErr.code ?? "database error") + "). " +
+          "You are signed in correctly — this is usually temporary. Please retry.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (!p) {
+        console.error("[dashboard] no profiles row for authenticated user:", userId);
+        setLoadError(
+          "You are signed in, but this account has no profile record attached to it. " +
+          "This is an account setup issue, not a login failure. Please contact support so we can " +
+          "attach your existing profile — do not create a new account.",
+        );
+        setLoading(false);
+        return;
+      }
 
       if (iErr) {
         console.error("[dashboard] internships query error:", iErr.code, iErr.message);
         setLoadError("Failed to load internship data. Database error: " + (iErr.message ?? iErr.code ?? "unknown"));
         setLoading(false);
         return;
+      }
+
+      if (!i) {
+        console.warn("[dashboard] authenticated user has no visible internship row:", userId);
       }
 
       setProfile(p);
@@ -206,6 +229,12 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function retryLoad() {
+    setLoadError(null);
+    setLoading(true);
+    load();
   }
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -396,7 +425,7 @@ export function Dashboard() {
         <h1 className="text-2xl font-bold tracking-tight mb-2">Unable to Load Dashboard</h1>
         <p className="text-muted-foreground text-sm mb-6 leading-relaxed">{loadError}</p>
         <div className="flex justify-center gap-3">
-          <Button onClick={() => { setLoadError(null); setLoading(true); load(); }} className="gap-2">
+          <Button onClick={retryLoad} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Retry Connection
           </Button>
           <Button variant="outline" asChild>
@@ -413,13 +442,24 @@ export function Dashboard() {
         <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
           <Layers className="h-7 w-7" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight mb-2">No Active Internship Found</h1>
-        <p className="text-muted-foreground text-sm mb-6">
-          Your account does not have an active internship enrollment registered in the portal.
+        <h1 className="text-2xl font-bold tracking-tight mb-2">No Internship Enrollment Found</h1>
+        <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
+          You are signed in successfully{profile?.full_name ? ` as ${profile.full_name}` : ""}, but this
+          account does not have an internship enrollment attached to it yet. This is an enrollment or
+          account-setup issue — not a problem with your login or your password.
         </p>
-        <Button asChild>
-          <Link to="/auth">Sign In With Another Account</Link>
-        </Button>
+        <p className="text-muted-foreground text-xs mb-6 leading-relaxed">
+          Retrying will re-check your enrollment. If it still appears missing, please contact support
+          and we will attach it to your existing account. Please do not register a second account.
+        </p>
+        <div className="flex justify-center gap-3">
+          <Button onClick={retryLoad} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Retry
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/contact">Contact Support</Link>
+          </Button>
+        </div>
       </div>
     );
   }
