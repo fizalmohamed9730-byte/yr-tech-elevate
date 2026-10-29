@@ -30,6 +30,7 @@ import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-condi
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as ResourcesSlugRouteImport } from './routes/resources_.$slug'
 import { Route as AuthenticatedInternshipsNewRouteImport } from './routes/_authenticated/internships.new'
 
 const IndexRoute = IndexRouteImport.update({
@@ -136,6 +137,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ResourcesSlugRoute = ResourcesSlugRouteImport.update({
+  id: '/resources_/$slug',
+  path: '/resources/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedInternshipsNewRoute =
   AuthenticatedInternshipsNewRouteImport.update({
     id: '/internships/new',
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
   '/internships/new': typeof AuthenticatedInternshipsNewRoute
 }
 export interface FileRoutesByTo {
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/resources/$slug': typeof ResourcesSlugRoute
   '/internships/new': typeof AuthenticatedInternshipsNewRoute
 }
 export interface FileRoutesById {
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/resources_/$slug': typeof ResourcesSlugRoute
   '/_authenticated/internships/new': typeof AuthenticatedInternshipsNewRoute
 }
 export interface FileRouteTypes {
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/profile'
+    | '/resources/$slug'
     | '/internships/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/profile'
+    | '/resources/$slug'
     | '/internships/new'
   id:
     | '__root__'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
+    | '/resources_/$slug'
     | '/_authenticated/internships/new'
   fileRoutesById: FileRoutesById
 }
@@ -306,6 +318,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   TermsAndConditionsRoute: typeof TermsAndConditionsRoute
+  ResourcesSlugRoute: typeof ResourcesSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -457,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/resources_/$slug': {
+      id: '/resources_/$slug'
+      path: '/resources/$slug'
+      fullPath: '/resources/$slug'
+      preLoaderRoute: typeof ResourcesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/internships/new': {
       id: '/_authenticated/internships/new'
       path: '/internships/new'
@@ -503,6 +523,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   TermsAndConditionsRoute: TermsAndConditionsRoute,
+  ResourcesSlugRoute: ResourcesSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

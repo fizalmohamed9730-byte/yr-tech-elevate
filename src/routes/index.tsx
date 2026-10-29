@@ -57,9 +57,9 @@ export const Route = createFileRoute("/")(
           "Software development capabilities, delivery approach, internship programs, technical resources and company information from YR NOVATECH.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.yrnovatech.in/" },
+      { property: "og:url", content: "https://yrnovatech.in/" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -67,11 +67,11 @@ export const Route = createFileRoute("/")(
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "YR NOVATECH",
-          url: "https://www.yrnovatech.in",
+          url: "https://yrnovatech.in",
           publisher: {
             "@type": "Organization",
             name: "YR NOVATECH",
-            url: "https://www.yrnovatech.in",
+            url: "https://yrnovatech.in",
           },
         }),
       },

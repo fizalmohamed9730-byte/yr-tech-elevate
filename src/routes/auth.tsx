@@ -308,7 +308,7 @@ function AuthPage() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: "https://www.yrnovatech.online/auth" },
+        options: { emailRedirectTo: "https://yrnovatech.in/auth" },
       });
       if (error) {
         toast.error(error.message);
@@ -328,7 +328,7 @@ function AuthPage() {
     if (!email) return toast.error("Enter your email first.");
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://www.yrnovatech.online/auth",
+        redirectTo: "https://yrnovatech.in/auth",
       });
       if (error) return toast.error(error.message);
       toast.success("Password reset link sent to your email.");

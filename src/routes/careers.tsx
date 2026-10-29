@@ -34,9 +34,9 @@ export const Route = createFileRoute("/careers")({
         content: `Whether we are hiring right now, what we look for, and how to apply to ${COMPANY.name}.`,
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.yrnovatech.in/careers" },
+      { property: "og:url", content: "https://yrnovatech.in/careers" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/careers" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/careers" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -44,10 +44,10 @@ export const Route = createFileRoute("/careers")({
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: `Careers at ${COMPANY.name}`,
-          url: "https://www.yrnovatech.in/careers",
+          url: "https://yrnovatech.in/careers",
           description:
             "Hiring status, engineering profiles considered, recruitment process and application instructions.",
-          publisher: { "@type": "Organization", name: COMPANY.name, url: "https://www.yrnovatech.in" },
+          publisher: { "@type": "Organization", name: COMPANY.name, url: "https://yrnovatech.in" },
         }),
       },
     ],

@@ -23,4 +23,4 @@ Disallow: /admin-setup
 Disallow: /auth
 Disallow: /apply
 
-Sitemap: https://www.yrnovatech.in/sitemap.xml
+Sitemap: https://yrnovatech.in/sitemap.xml

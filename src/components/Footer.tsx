@@ -113,7 +113,7 @@ export function Footer() {
 
           {/* Right-side description + social */}
           <div className="md:col-span-4 md:text-right">
-            <h4 className="font-bold text-foreground text-lg mb-2">Impact. Develop. Deliver.</h4>
+            <h4 className="font-bold text-foreground text-lg mb-2">Innovate. Develop. Deliver.</h4>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               Premium Software Engineering, AI Solutions and Project-based Internships.
             </p>

@@ -39,9 +39,9 @@ export const Route = createFileRoute("/contact")({
         property: "og:description",
         content: `Get in touch with ${COMPANY.name} for software engineering and internship programs.`,
       },
-      { property: "og:url", content: "https://www.yrnovatech.in/contact" },
+      { property: "og:url", content: "https://yrnovatech.in/contact" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/contact" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/contact" }],
   }),
   component: Contact,
 });

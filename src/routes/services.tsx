@@ -764,9 +764,9 @@ export const Route = createFileRoute("/services")({
           "Detailed service breakdowns from YR NOVATECH: the problems each service solves, our development approach, expected deliverables, technology categories and FAQs.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.yrnovatech.in/services" },
+      { property: "og:url", content: "https://yrnovatech.in/services" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/services" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/services" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -774,18 +774,18 @@ export const Route = createFileRoute("/services")({
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "YR NOVATECH Services",
-          url: "https://www.yrnovatech.in/services",
+          url: "https://yrnovatech.in/services",
           description:
             "Service information for YR NOVATECH: web development, mobile app development, AI and machine learning, data analytics, UI/UX design and custom software development.",
           publisher: {
             "@type": "Organization",
             name: "YR NOVATECH",
-            url: "https://www.yrnovatech.in",
+            url: "https://yrnovatech.in",
           },
           hasPart: services.map((s) => ({
             "@type": "WebPage",
             name: s.title,
-            url: `https://www.yrnovatech.in/services#${s.id}`,
+            url: `https://yrnovatech.in/services#${s.id}`,
             description: s.summary,
           })),
         }),

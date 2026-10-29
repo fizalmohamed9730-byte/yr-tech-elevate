@@ -27,9 +27,9 @@ export const Route = createFileRoute("/refund-policy")({
         content:
           "The internship program at YR NOVATECH is free. No fees are charged, so no payment, refund, or cancellation charges apply.",
       },
-      { property: "og:url", content: "https://www.yrnovatech.in/refund-policy" },
+      { property: "og:url", content: "https://yrnovatech.in/refund-policy" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/refund-policy" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/refund-policy" }],
   }),
   component: RefundPolicy,
 });

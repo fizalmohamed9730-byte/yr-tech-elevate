@@ -27,9 +27,9 @@ export const Route = createFileRoute("/terms-and-conditions")({
         content:
           "Rules governing use of the YR NOVATECH website, internship program, submissions, and certificates.",
       },
-      { property: "og:url", content: "https://www.yrnovatech.in/terms-and-conditions" },
+      { property: "og:url", content: "https://yrnovatech.in/terms-and-conditions" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/terms-and-conditions" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/terms-and-conditions" }],
   }),
   component: TermsAndConditions,
 });

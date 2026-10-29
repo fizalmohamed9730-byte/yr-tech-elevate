@@ -33,9 +33,9 @@ export const Route = createFileRoute("/projects")({
           "Our policy for publishing real engineering work, and how to follow newly released case studies.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.yrnovatech.in/projects" },
+      { property: "og:url", content: "https://yrnovatech.in/projects" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/projects" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/projects" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -43,10 +43,10 @@ export const Route = createFileRoute("/projects")({
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "YR NOVATECH Projects & Case Studies",
-          url: "https://www.yrnovatech.in/projects",
+          url: "https://yrnovatech.in/projects",
           description:
             "Engineering case studies published by YR NOVATECH as real work is cleared for public release.",
-          isPartOf: { "@type": "WebSite", url: "https://www.yrnovatech.in" },
+          isPartOf: { "@type": "WebSite", url: "https://yrnovatech.in" },
         }),
       },
     ],

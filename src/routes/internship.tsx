@@ -101,9 +101,9 @@ export const Route = createFileRoute("/internship")({
         content:
           "How the YR NOVATECH internship works: domains, durations, task submissions, admin review, certificate issuance and verification — all completely free.",
       },
-      { property: "og:url", content: "https://www.yrnovatech.in/internship" },
+      { property: "og:url", content: "https://yrnovatech.in/internship" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/internship" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/internship" }],
     scripts: [
       {
         type: "application/ld+json",

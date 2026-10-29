@@ -35,9 +35,9 @@ export const Route = createFileRoute("/faq")({
           "Straight answers about YR NOVATECH's software services, internship program and certificates.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://www.yrnovatech.in/faq" },
+      { property: "og:url", content: "https://yrnovatech.in/faq" },
     ],
-    links: [{ rel: "canonical", href: "https://www.yrnovatech.in/faq" }],
+    links: [{ rel: "canonical", href: "https://yrnovatech.in/faq" }],
     scripts: [
       {
         type: "application/ld+json",
