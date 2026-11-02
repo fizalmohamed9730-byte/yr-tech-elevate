@@ -238,9 +238,7 @@ function About() {
               </div>
               <h2 className="text-xl font-bold mb-2">Vision</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                To become a trusted technology company that builds innovative, reliable, and
-                accessible digital solutions while creating meaningful opportunities for students,
-                developers, and businesses to grow through technology.
+                {COMPANY.vision}
               </p>
             </Card>
           </Reveal>
@@ -251,9 +249,7 @@ function About() {
               </div>
               <h2 className="text-xl font-bold mb-2">Mission</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                To develop practical software solutions using modern technologies, deliver quality
-                digital services, and provide hands-on technology learning and internship
-                opportunities that help students and aspiring developers build real-world skills.
+                {COMPANY.mission}
               </p>
             </Card>
           </Reveal>

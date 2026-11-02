@@ -119,12 +119,12 @@ const whyUsCards = [
   {
     icon: Target,
     title: "Mission",
-    desc: "Build dependable software for businesses, and give aspiring engineers a structured, project-based way to learn how real software is delivered.",
+    desc: COMPANY.mission,
   },
   {
     icon: Eye,
     title: "Vision",
-    desc: "Be a software engineering partner that clients trust with production systems, and a training ground that produces engineers who can contribute from day one.",
+    desc: COMPANY.vision,
   },
   {
     icon: Rocket,
