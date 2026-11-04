@@ -157,13 +157,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           publisher: { "@type": "Organization", name: "YR NOVATECH" },
         }),
       },
-      // AdSense script removed until real ad slots are created in the AdSense
-      // dashboard and populated in src/lib/ads.ts. Re-enable by uncommenting:
-      // {
-      //   async: true,
-      //   src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`,
-      //   crossOrigin: "anonymous",
-      // },
+      // AdSense loader -- enabled now that real ad slots exist in src/lib/ads.ts.
+      {
+        async: true,
+        src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`,
+        crossOrigin: "anonymous",
+      },
     ],
   }),
   shellComponent: RootShell,

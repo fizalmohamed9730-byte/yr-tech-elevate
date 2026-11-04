@@ -20,7 +20,7 @@ export const ADSENSE_CLIENT: string =
  */
 export const AD_SLOTS = {
   /** Home page, between main content sections. */
-  homeInline: "",
+  homeInline: "1441965714",
   /** Long-form content pages (services, internship, resources, about). */
   contentInline: "",
   /** FAQ / support pages. */
